@@ -2,7 +2,7 @@
 title: Download
 ---
 
-# Download SPlayer-Next
+# Download Sakura Player
 
 The list below fetches the latest release for the selected channel from GitHub and recommends a package for your system. Stable is selected by default. If GitHub is slow, choose a download mirror.
 
@@ -20,8 +20,8 @@ Change the channel under **Settings → General → Release channel**. Alpha bui
 
 ## Other sources
 
-- **Previous versions:** Browse all archived builds on [GitHub Releases](https://github.com/SPlayer-Dev/SPlayer-Next/releases).
-- **Development builds:** Download the latest workflow artifact from [GitHub Actions](https://github.com/SPlayer-Dev/SPlayer-Next/actions). A GitHub account is required.
+- **Previous versions:** Browse all archived builds on [GitHub Releases](https://github.com/Sakura520222/Sakura-Player/releases).
+- **Development builds:** Download the latest workflow artifact from [GitHub Actions](https://github.com/Sakura520222/Sakura-Player/actions). A GitHub account is required.
 
 ## Installation notes
 
@@ -33,25 +33,8 @@ Change the channel under **Settings → General → Release channel**. Alpha bui
 
 ### Arch Linux
 
-SPlayer-Next is now available in the [Arch Linux Chinese Community Repository](https://www.archlinuxcn.org/archlinux-cn-repo-and-mirror/).
-
-If the repository is not configured yet, follow the [wiki](https://wiki.archlinuxcn.org/zh/Arch_Linux_%E4%B8%AD%E6%96%87%E7%A4%BE%E5%8C%BA%E4%BB%93%E5%BA%93) to set it up.
-
-Once configured, install it directly:
-
-```bash
-sudo pacman -S splayer-next
-```
-
-The repository also provides a debug symbols package, useful when investigating crashes:
-
-```bash
-sudo pacman -S splayer-next-debug
-```
-
-> [!IMPORTANT]
-> If the package is out of date, or you run into an error caused by packaging, **please do not report it in this project's repository, but to the Arch Linux Chinese Community Repository**.
-> Open an issue [here](https://github.com/archlinuxcn/repo/issues/new/choose), or [email the package maintainer](mailto:nlsdt@archlinuxcn.org).
+> [!NOTE]
+> The `splayer-next` package in the [Arch Linux Chinese Community Repository](https://www.archlinuxcn.org/archlinux-cn-repo-and-mirror/) is the **upstream original SPlayer-Next**, not Sakura Player. Download Sakura Player's `pacman` package from the list above or from [GitHub Releases](https://github.com/Sakura520222/Sakura-Player/releases) and install it manually.
 
 ### Linux package formats
 
@@ -65,22 +48,22 @@ sudo pacman -S splayer-next-debug
 
 ```bash
 # AppImage
-chmod +x ./splayer-next-*.AppImage
-./splayer-next-*.AppImage
-./splayer-next-*.AppImage --appimage-extract
+chmod +x ./sakura-player-*.AppImage
+./sakura-player-*.AppImage
+./sakura-player-*.AppImage --appimage-extract
 
 # deb
-sudo apt install ./splayer-next-*.deb
+sudo apt install ./sakura-player-*.deb
 
 # rpm
-sudo dnf install ./splayer-next-*.rpm
-sudo zypper install ./splayer-next-*.rpm
+sudo dnf install ./sakura-player-*.rpm
+sudo zypper install ./sakura-player-*.rpm
 
 # pacman
-sudo pacman -U ./splayer-next-*.pacman
+sudo pacman -U ./sakura-player-*.pacman
 
 # Archive
-tar -xzf ./splayer-next-*.tar.gz
-cd splayer-next-*/
-./SPlayer-Next
+tar -xzf ./sakura-player-*.tar.gz
+cd sakura-player-*/
+./Sakura-Player
 ```

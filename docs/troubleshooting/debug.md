@@ -1,6 +1,6 @@
 # 调试模式与错误排查
 
-本文介绍如何定位 SPlayer-Next 运行中遇到的问题。
+本文介绍如何定位 Sakura Player 运行中遇到的问题。
 
 ## 开发者工具
 
@@ -22,11 +22,11 @@
 
 日志位于用户数据目录下的 `app-data/logs/`：
 
-| 系统    | 路径                                                        |
-| ------- | ----------------------------------------------------------- |
-| Windows | `%APPDATA%\SPlayer-Next\app-data\logs\`                     |
-| macOS   | `~/Library/Application Support/SPlayer-Next/app-data/logs/` |
-| Linux   | `~/.config/SPlayer-Next/app-data/logs/`                     |
+| 系统    | 路径                                                         |
+| ------- | ------------------------------------------------------------ |
+| Windows | `%APPDATA%\Sakura Player\app-data\logs\`                     |
+| macOS   | `~/Library/Application Support/Sakura Player/app-data/logs/` |
+| Linux   | `~/.config/Sakura Player/app-data/logs/`                     |
 
 原生模块日志位于 `app-data/logs/native/`。
 
@@ -38,7 +38,7 @@
 
 ## 提交 Issue
 
-请附上：操作系统与版本、SPlayer-Next 版本（开发版附 Commit ID）、Console 完整错误日志、可复现的操作步骤。
+请附上：操作系统与版本、Sakura Player 版本（开发版附 Commit ID）、Console 完整错误日志、可复现的操作步骤。
 
 > [!IMPORTANT]
 >
@@ -52,13 +52,15 @@
 
 删除用户数据目录即可重置：
 
+先退出播放器并备份数据，仅在明确需要完整重置时执行。以下命令适用于安装版；Windows 便携版使用 exe 同目录的 `SakuraPlayerData/`，请在确认路径后手动备份或清理。普通 Gatekeeper 排错无需重置。
+
 ```bash
 # Windows
-rd /s /q "%APPDATA%\SPlayer-Next"
+rd /s /q "%APPDATA%\Sakura Player"
 
 # macOS
-rm -rf ~/Library/Application\ Support/SPlayer-Next
+rm -rf "$HOME/Library/Application Support/Sakura Player"
 
 # Linux
-rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/SPlayer-Next"
+rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/Sakura Player"
 ```

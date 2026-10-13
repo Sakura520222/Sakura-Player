@@ -2,9 +2,9 @@
 layout: home
 
 hero:
-  name: "SPlayer-Next"
+  name: "Sakura Player"
   text: "Music, the way it should be"
-  tagline: A clean and refined cross-platform desktop music player with broad format support, expressive lyrics, deep performance optimization, and carefully crafted details.
+  tagline: A clean and refined cross-platform desktop music player with broad format support, expressive lyrics, deep performance optimization, and carefully crafted details. An unofficial fork of SPlayer-Next.
   actions:
     - theme: brand
       text: Download
@@ -14,7 +14,7 @@ hero:
       link: /en/guide
     - theme: alt
       text: GitHub
-      link: https://github.com/SPlayer-Dev/SPlayer-Next
+      link: https://github.com/Sakura520222/Sakura-Player
 
 features:
   - icon: 🎵

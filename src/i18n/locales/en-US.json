@@ -18,7 +18,7 @@
     "finish": "Finish",
     "footer": "You can adjust anything skipped here anytime in Settings",
     "welcome": {
-      "title": "Welcome to SPlayer-Next",
+      "title": "Welcome to Sakura Player",
       "subtitle": "A modern desktop music player — a few quick steps and you're ready",
       "start": "Get Started",
       "features": {
@@ -42,14 +42,14 @@
     },
     "agreement": {
       "title": "User Agreement & Disclaimer",
-      "subtitle": "Please read and accept the agreement before continuing",
-      "scrollHint": "Scroll to the end before you can accept",
-      "agree": "I have read and agree to the User Agreement & Disclaimer",
-      "accept": "Agree & Continue"
+      "subtitle": "Please read this fork's functionality, risk, and license information",
+      "scrollHint": "Scroll to the end before confirming that you have read it",
+      "agree": "I have read the information in the User Agreement & Disclaimer",
+      "accept": "Read & Continue"
     },
     "library": {
       "title": "Local Music Library",
-      "subtitle": "Add folders to scan and SPlayer-Next will index them automatically. You can add more later."
+      "subtitle": "Add folders to scan and Sakura Player will index them automatically. You can add more later."
     },
     "streaming": {
       "title": "Streaming Servers",
@@ -71,7 +71,7 @@
     },
     "hotkeys": {
       "title": "Keyboard Shortcuts",
-      "subtitle": "SPlayer-Next ships with complete playback shortcuts you can use whenever you need them.",
+      "subtitle": "Sakura Player ships with complete playback shortcuts you can use whenever you need them.",
       "tips": {
         "global": {
           "title": "Global shortcuts",
@@ -90,9 +90,9 @@
   },
   "agreementUpdate": {
     "title": "User Agreement & Disclaimer Updated",
-    "subtitle": "The agreement has changed. Please re-read and accept to continue",
-    "accept": "I've read and agree, continue",
-    "reject": "Decline & Exit"
+    "subtitle": "The information has changed. Please read it again; your AGPL-3.0 rights remain unchanged",
+    "accept": "I've read it, continue",
+    "reject": "Read Later & Exit"
   },
   "common": {
     "back": "Back",
@@ -1681,7 +1681,7 @@
     },
     "discordEnabled": {
       "label": "Discord Status",
-      "description": "Show playback status on Discord"
+      "description": "Show playback status on Discord using the upstream SPlayer application identity and icon; disabled by default"
     },
     "discordShowWhenPaused": {
       "label": "Show When Paused",
@@ -1825,7 +1825,7 @@
     },
     "orpheusProtocol": {
       "label": "Wake this app via the Orpheus protocol",
-      "description": "This protocol is normally used by the web player to launch the official client; enabling it may prevent the official client from being launched"
+      "description": "Enabling redirects the shared orpheus protocol to this app and may replace upstream or NetEase; disabling does not guarantee restoring the previous default"
     },
     "streamingEnabled": {
       "label": "Enable streaming",

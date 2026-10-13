@@ -19,6 +19,7 @@ use crate::model::{
     TimelineParam,
 };
 
+// 暂沿用上游 Discord 应用身份与素材；独立品牌发布前必须配置维护者自己的应用。
 const APP_ID: &str = "1454403710162698293";
 const ICON_KEY: &str = "logo-icon";
 const TIMESTAMP_THRESHOLD_MS: i64 = 100;
@@ -232,7 +233,10 @@ impl Worker {
             .small_image(ICON_KEY)
             .small_text("SPlayer");
 
-        let buttons = vec![Button::new("SPlayer", "https://github.com/imsyy/SPlayer")];
+        let buttons = vec![Button::new(
+            "SPlayer-Next",
+            "https://github.com/SPlayer-Dev/SPlayer-Next",
+        )];
 
         let status_type = match display_mode {
             DiscordDisplayMode::Name => StatusDisplayType::Name,

@@ -112,7 +112,7 @@ import {
   type DownloadAsset,
 } from "../utils/downloadAssets";
 
-const GITHUB_REPO = "SPlayer-Dev/SPlayer-Next";
+const GITHUB_REPO = "Sakura520222/Sakura-Player";
 const releasesUrl = `https://github.com/${GITHUB_REPO}/releases`;
 
 interface Release {

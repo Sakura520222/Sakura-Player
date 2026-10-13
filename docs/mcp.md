@@ -1,6 +1,6 @@
 # MCP 接口
 
-SPlayer-Next 内置 [Model Context Protocol](https://modelcontextprotocol.io/) 服务，允许支持 MCP 的 AI 应用查询当前播放状态、本地曲库并控制播放器。
+Sakura Player 内置 [Model Context Protocol](https://modelcontextprotocol.io/) 服务，允许支持 MCP 的 AI 应用查询当前播放状态、本地曲库并控制播放器。
 
 ## 连接
 
@@ -8,7 +8,7 @@ MCP 服务默认关闭。先在 **设置 → AI 集成 → MCP** 中启用，再
 
 - **传输协议**：Streamable HTTP
 - **地址**：`http://127.0.0.1:<port>/mcp`
-- **默认端口**：`14559`
+- **默认端口**：`14569`（可配置，已保存的端口保留；与原版并存时请使用不同端口和密钥）
 - **会话模式**：有状态 JSON 响应；空闲会话会自动释放
 
 支持直接填写远程 MCP URL 的客户端可使用：
@@ -16,9 +16,9 @@ MCP 服务默认关闭。先在 **设置 → AI 集成 → MCP** 中启用，再
 ```json
 {
   "mcpServers": {
-    "splayer-next": {
+    "sakura-player": {
       "type": "http",
-      "url": "http://127.0.0.1:14559/mcp",
+      "url": "http://127.0.0.1:14569/mcp",
       "headers": {
         "X-MCP-Key": "设置页配置详情中显示的连接密钥"
       }
@@ -27,7 +27,7 @@ MCP 服务默认关闭。先在 **设置 → AI 集成 → MCP** 中启用，再
 }
 ```
 
-不同 AI 客户端的配置字段可能不同，请以客户端当前文档为准。连接前应保持 SPlayer-Next 正在运行。
+不同 AI 客户端的配置字段可能不同，请以客户端当前文档为准。连接前应保持 Sakura Player 正在运行。
 
 ## 工具
 
@@ -53,10 +53,14 @@ MCP 服务默认关闭。先在 **设置 → AI 集成 → MCP** 中启用，再
 
 ## 资源
 
-| URI                         | 说明                           |
-| --------------------------- | ------------------------------ |
-| `splayer://now-playing`     | 不含完整歌词的当前播放轻量快照 |
-| `splayer://library/summary` | 曲库歌曲、专辑与艺术家数量     |
+| URI                               | 说明                           |
+| --------------------------------- | ------------------------------ |
+| `sakura-player://now-playing`     | 不含完整歌词的当前播放轻量快照 |
+| `sakura-player://library/summary` | 曲库歌曲、专辑与艺术家数量     |
+| `splayer://now-playing`           | 当前播放的旧 URI 兼容别名      |
+| `splayer://library/summary`       | 曲库摘要的旧 URI 兼容别名      |
+
+旧 URI 继续返回相同的当前数据，无需为资源地址迁移客户端。它们属于 MCP 资源标识，不是系统注册的 URL 协议，也不会改变 `orpheus://`。客户端配置中的 `sakura-player` 是独立的服务名称；手动配置项的名称可自定，自动配置不会覆盖上游的 `splayer-next` 项。
 
 ## 使用 MCP Inspector 调试
 
@@ -64,4 +68,4 @@ MCP 服务默认关闭。先在 **设置 → AI 集成 → MCP** 中启用，再
 npx @modelcontextprotocol/inspector
 ```
 
-在 Inspector 中选择 Streamable HTTP，并填写 `http://127.0.0.1:14559/mcp`。如果连接失败，请检查 MCP 服务开关和设置页显示的实际端口。
+在 Inspector 中选择 Streamable HTTP，并填写 `http://127.0.0.1:14569/mcp`。如果连接失败，请检查 MCP 服务开关和设置页显示的实际端口。

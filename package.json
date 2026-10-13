@@ -1,25 +1,25 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "splayer-next",
-  "productName": "SPlayer-Next",
-  "desktopName": "top.imsyy.splayer_next",
+  "name": "sakura-player",
+  "productName": "Sakura Player",
+  "desktopName": "io.github.sakura520222.sakuraplayer",
   "version": "1.2.0-beta.1",
   "description": "Cross-platform desktop music player with rich lyric support and wide audio format compatibility",
   "type": "module",
   "packageManager": "pnpm@11.5.2",
   "main": "./out/main/index.js",
   "author": {
-    "name": "imsyy",
-    "email": "imsyy1024@gmail.com",
-    "url": "https://imsyy.top"
+    "name": "Sakura520222",
+    "email": "sakura520222@outlook.com",
+    "url": "https://github.com/Sakura520222"
   },
-  "homepage": "https://splayer-next.imsyy.top",
+  "homepage": "https://github.com/Sakura520222/Sakura-Player#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SPlayer-Dev/SPlayer-Next"
+    "url": "https://github.com/Sakura520222/Sakura-Player"
   },
   "bugs": {
-    "url": "https://github.com/SPlayer-Dev/SPlayer-Next/issues"
+    "url": "https://github.com/Sakura520222/Sakura-Player/issues"
   },
   "license": "AGPL-3.0",
   "license-file": "LICENSE",

@@ -1,0 +1,32 @@
+Sakura Player — Unofficial Fork Notice
+
+Fork modifications date: 2026-10-13
+Fork maintainer: Sakura520222 <sakura520222@outlook.com>
+Fork source: https://github.com/Sakura520222/Sakura-Player
+Upstream source: https://github.com/SPlayer-Dev/SPlayer-Next
+Upstream authors: imsyy and the SPlayer-Next contributors
+
+Original upstream notices retained verbatim:
+Copyright © imsyy 2025
+Copyright © 2025-present imsyy
+SPlayer Next · © 2026 imsyy
+
+Original package author: imsyy <imsyy1024@gmail.com> (https://imsyy.top)
+The upstream author's address is retained for attribution and provenance;
+it is not a support or privacy contact for this fork.
+
+This fork changes application and package identity, repository and update
+links, documentation, portable data isolation, service defaults, system
+registration behavior, and MCP resource compatibility. Original code and
+reused visual assets retain the rights and licenses of their respective
+authors. Rebranding does not transfer ownership or imply upstream endorsement.
+
+Sakura Player remains licensed under GNU AGPL-3.0. The complete, unchanged
+license is in LICENSE. Existing upstream and third-party copyright, license,
+and applicable legal notices continue to apply to their respective material.
+This notice imposes no additional software license restrictions.
+
+Discord RPC currently retains the upstream Application ID 1454403710162698293
+and upstream assets and identity. It is disabled by default. An independent
+Sakura Player Discord identity requires the maintainer's own real application
+and assets before release; no replacement Application ID has been invented.

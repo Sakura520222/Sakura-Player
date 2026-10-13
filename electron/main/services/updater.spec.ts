@@ -86,7 +86,7 @@ describe.each(["win32", "linux"])("统一更新任务（%s）", (platform) => {
   beforeEach(() => {
     // 显式模拟安装平台，避免普通 Node 环境误入 Electron 安装包检测
     Object.defineProperty(process, "platform", { ...platformDescriptor, value: platform });
-    vi.stubEnv("APPIMAGE", platform === "linux" ? "/opt/SPlayer.AppImage" : undefined);
+    vi.stubEnv("APPIMAGE", platform === "linux" ? "/opt/sakura-player.AppImage" : undefined);
     vi.resetModules();
     vi.clearAllMocks();
     Object.assign(mocks, {

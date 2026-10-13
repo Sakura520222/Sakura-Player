@@ -1,12 +1,15 @@
-# SPlayer Next Privacy Policy
+# Sakura Player Privacy Policy
 
-**Version: v1.2**  
-**Effective: August 5, 2026**  
-**Last updated: August 12, 2026**
+**Version: v1.3**<br>
+**Effective: October 13, 2026**<br>
+**Last updated: October 13, 2026**
+
+> [!IMPORTANT]
+> Sakura Player is an unofficial fork of [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next), maintained by [Sakura520222](https://github.com/Sakura520222). “We” in this policy means only this fork's maintainer and contributors to its modifications; it makes no data-processing promises on behalf of imsyy, `SPlayer-Dev`, or third-party service operators. Fork modifications are dated **2026-10-13**. Original copyright and applicable notices are retained in the repository's `NOTICE` and `LICENSE`.
 
 This English translation is provided for convenience. If it differs from the [Chinese policy](/privacy), the Chinese text prevails.
 
-This policy explains how SPlayer Next processes, stores, and protects information when you install and use the application. By using the software, you acknowledge this policy.
+This policy describes how Sakura Player processes, stores, and protects information on your device and the available data controls. It adds no acceptance requirements to rights to use, copy, modify, or redistribute the software under AGPL-3.0.
 
 ## 1. Principles
 
@@ -48,13 +51,14 @@ You can inspect local databases and configuration, update preferences and server
 
 ## 7. Children
 
-SPlayer Next is a general-purpose tool and is not designed to collect information from children. Minors should review this policy and use the software with a guardian.
+Sakura Player is a general-purpose tool and is not designed to collect information from children. Minors should review this policy and use the software with a guardian.
 
 ## 8. Policy updates
 
-Updates are published on the official documentation site and may also be mentioned in release notes or in the application. The date above indicates when the latest revision takes effect.
+Updates are published in this fork's repository documentation and may also be mentioned in release notes or in the application. The date above identifies the latest revision. Revisions do not retroactively change existing AGPL-3.0 grants.
 
 ## 9. Contact
 
-- [GitHub Issues](https://github.com/SPlayer-Dev/SPlayer-Next/issues)
-- The contact email published in the official GitHub repository and developer profile
+- [GitHub Issues](https://github.com/Sakura520222/Sakura-Player/issues)
+- Fork maintainer's email: sakura520222@outlook.com
+- [Upstream provenance](https://github.com/SPlayer-Dev/SPlayer-Next): upstream authors' contact details are provenance, not privacy contacts for this fork.

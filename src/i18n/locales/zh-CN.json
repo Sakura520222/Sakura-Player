@@ -18,7 +18,7 @@
     "finish": "完成",
     "footer": "可随时在「设置」中调整本次未配置的内容",
     "welcome": {
-      "title": "欢迎使用 SPlayer-Next",
+      "title": "欢迎使用 Sakura Player",
       "subtitle": "一个现代化的桌面音乐播放器，完成几步设置即可开始享用",
       "start": "开始设置",
       "features": {
@@ -30,18 +30,18 @@
     },
     "agreement": {
       "title": "用户协议与免责声明",
-      "subtitle": "继续使用前，请阅读并同意以下协议",
-      "scrollHint": "请滚动阅读至结尾后再勾选",
-      "agree": "我已阅读并同意《用户协议与免责声明》",
-      "accept": "同意并继续"
+      "subtitle": "请阅读本分支的功能、风险与许可说明",
+      "scrollHint": "请滚动阅读至结尾后再确认",
+      "agree": "我已阅读《用户协议与免责声明》中的说明",
+      "accept": "已阅读，继续"
     },
     "library": {
       "title": "本地音乐库",
-      "subtitle": "添加要扫描的音乐文件夹，SPlayer-Next 会自动建立曲库索引。可以添加多个目录，也可以之后再添加"
+      "subtitle": "添加要扫描的音乐文件夹，Sakura Player 会自动建立曲库索引。可以添加多个目录，也可以之后再添加"
     },
     "streaming": {
       "title": "流媒体服务器",
-      "subtitle": "SPlayer-Next 支持连接 Subsonic 兼容服务和 Jellyfin / Emby，让你的家庭音乐服务器与播放器无缝集成",
+      "subtitle": "Sakura Player 支持连接 Subsonic 兼容服务和 Jellyfin / Emby，让你的家庭音乐服务器与播放器无缝集成",
       "hint": "完成引导后，前往「设置 → 媒体源配置 → 流媒体管理」即可添加服务器并测试连接",
       "servers": {
         "subsonic": "Subsonic 兼容",
@@ -59,7 +59,7 @@
     },
     "hotkeys": {
       "title": "快捷键",
-      "subtitle": "SPlayer-Next 内置了完整的播放控制快捷键，需要时随时调用",
+      "subtitle": "Sakura Player 内置了完整的播放控制快捷键，需要时随时调用",
       "tips": {
         "global": {
           "title": "全局快捷键",
@@ -78,9 +78,9 @@
   },
   "agreementUpdate": {
     "title": "用户协议与免责声明已更新",
-    "subtitle": "协议内容有变更，请重新阅读并同意后继续使用",
-    "accept": "我已阅读并同意，继续使用",
-    "reject": "不同意并退出"
+    "subtitle": "说明内容有变更，请重新阅读；AGPL-3.0 授予的权利不因本说明改变",
+    "accept": "我已阅读，继续使用",
+    "reject": "稍后阅读并退出"
   },
   "common": {
     "back": "返回",
@@ -1669,7 +1669,7 @@
     },
     "discordEnabled": {
       "label": "Discord 状态",
-      "description": "在 Discord 中显示当前播放状态"
+      "description": "在 Discord 中显示当前播放状态，暂沿用上游 SPlayer 应用身份与图标，默认关闭"
     },
     "discordShowWhenPaused": {
       "label": "暂停时显示",
@@ -1813,7 +1813,7 @@
     },
     "orpheusProtocol": {
       "label": "通过 Orpheus 协议唤起本应用",
-      "description": "该协议通常用于官方网页端唤起官方客户端，启用后可能导致官方客户端无法被唤起"
+      "description": "主动启用会将共享的 orpheus 协议指向本应用，可能替换原版或网易云客户端；关闭不会保证恢复之前的默认选择"
     },
     "streamingEnabled": {
       "label": "启用流媒体",

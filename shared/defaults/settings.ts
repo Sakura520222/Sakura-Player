@@ -139,11 +139,11 @@ export const defaultSystemConfig: SystemConfig = {
     enabled: false,
     wsEnabled: false,
     allowLan: false,
-    port: 14558,
+    port: 14568,
   },
   mcp: {
     enabled: false,
-    port: 14559,
+    port: 14569,
     accessKey: "",
   },
   update: {

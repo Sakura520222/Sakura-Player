@@ -133,8 +133,8 @@ export const detectMcpAgents = async (): Promise<McpAgentApp[]> => {
         const content = await fs.readFile(configPath, "utf-8");
         configured =
           agent.format === "toml"
-            ? /^\s*\[mcp_servers\.splayer-next\]\s*$/m.test(content)
-            : !!JSON.parse(content || "{}")?.mcpServers?.["splayer-next"];
+            ? /^\s*\[mcp_servers\.sakura-player\]\s*$/m.test(content)
+            : !!JSON.parse(content || "{}")?.mcpServers?.["sakura-player"];
       }
     } catch (error) {
       const e = error as NodeJS.ErrnoException;
@@ -156,7 +156,7 @@ export const detectMcpAgents = async (): Promise<McpAgentApp[]> => {
 };
 
 /**
- * 将 SPlayer-Next 的 MCP 配置注入到目标 Agent 中
+ * 将 Sakura Player 的 MCP 配置注入到目标 Agent 中
  */
 export const injectMcpAgentConfig = async (
   agentId: string,
@@ -181,10 +181,10 @@ export const injectMcpAgentConfig = async (
       if (e.code !== "ENOENT") throw error;
     }
 
-    if (/^\s*\[mcp_servers\.splayer-next\]\s*$/m.test(content)) return true;
+    if (/^\s*\[mcp_servers\.sakura-player\]\s*$/m.test(content)) return true;
 
     const section = [
-      "[mcp_servers.splayer-next]",
+      "[mcp_servers.sakura-player]",
       `url = "http://127.0.0.1:${params.port}/mcp"`,
       `http_headers = { "X-MCP-Key" = ${JSON.stringify(params.accessKey)} }`,
     ].join("\n");
@@ -213,7 +213,7 @@ export const injectMcpAgentConfig = async (
     json.mcpServers = {};
   }
 
-  json.mcpServers["splayer-next"] =
+  json.mcpServers["sakura-player"] =
     agent.format === "antigravity"
       ? {
           serverUrl: `http://127.0.0.1:${params.port}/mcp`,

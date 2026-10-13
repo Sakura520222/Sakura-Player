@@ -1,6 +1,6 @@
 # MCP Interface
 
-SPlayer-Next includes a [Model Context Protocol](https://modelcontextprotocol.io/) service that lets MCP clients inspect playback, search the local library, and control the player.
+Sakura Player includes a [Model Context Protocol](https://modelcontextprotocol.io/) service that lets MCP clients inspect playback, search the local library, and control the player.
 
 ## Connection
 
@@ -8,15 +8,15 @@ MCP is disabled by default. Enable **Settings → AI Integration → MCP**, then
 
 - **Transport:** Streamable HTTP
 - **URL:** `http://127.0.0.1:<port>/mcp`
-- **Default port:** `14559`
+- **Default port:** `14569`, configurable; saved ports are preserved, so use distinct ports and keys alongside upstream
 - **Session mode:** Stateful JSON responses; idle sessions are released automatically
 
 ```json
 {
   "mcpServers": {
-    "splayer-next": {
+    "sakura-player": {
       "type": "http",
-      "url": "http://127.0.0.1:14559/mcp",
+      "url": "http://127.0.0.1:14569/mcp",
       "headers": {
         "X-MCP-Key": "connection key shown in Settings"
       }
@@ -25,7 +25,7 @@ MCP is disabled by default. Enable **Settings → AI Integration → MCP**, then
 }
 ```
 
-Client configuration fields vary. Keep SPlayer-Next running while the client is connected.
+Client configuration fields vary. Keep Sakura Player running while the client is connected.
 
 ## Tools
 
@@ -48,10 +48,14 @@ Client configuration fields vary. Keep SPlayer-Next running while the client is 
 
 ## Resources
 
-| URI                         | Description                        |
-| --------------------------- | ---------------------------------- |
-| `splayer://now-playing`     | Lightweight current-track snapshot |
-| `splayer://library/summary` | Track, album, and artist counts    |
+| URI                               | Description                        |
+| --------------------------------- | ---------------------------------- |
+| `sakura-player://now-playing`     | Lightweight current-track snapshot |
+| `sakura-player://library/summary` | Track, album, and artist counts    |
+| `splayer://now-playing`           | Legacy alias for current playback  |
+| `splayer://library/summary`       | Legacy alias for library counts    |
+
+Legacy URIs continue to return the same current data, so existing resource addresses need no migration. These are MCP resource identifiers, not registered operating-system URL schemes; they do not change `orpheus://`. The `sakura-player` client configuration entry is separate from upstream. Manual entry names are arbitrary, and automatic configuration does not overwrite upstream's `splayer-next` entry.
 
 ## Debugging with MCP Inspector
 
@@ -59,4 +63,4 @@ Client configuration fields vary. Keep SPlayer-Next running while the client is 
 npx @modelcontextprotocol/inspector
 ```
 
-Choose Streamable HTTP and enter `http://127.0.0.1:14559/mcp`. If it cannot connect, check the MCP switch, port, and connection key in Settings.
+Choose Streamable HTTP and enter `http://127.0.0.1:14569/mcp`. If it cannot connect, check the MCP switch, port, and connection key in Settings.

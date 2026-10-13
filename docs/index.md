@@ -3,9 +3,9 @@
 layout: home
 
 hero:
-  name: "SPlayer-Next"
+  name: "Sakura Player"
   text: "听音乐，本该如此"
-  tagline: 一款简洁而精致的多平台桌面音乐播放器。支持多种音频格式与丰富的歌词展现形式，性能经过深度优化，每一处细节都恰到好处。
+  tagline: 一款简洁而精致的多平台桌面音乐播放器。支持多种音频格式与丰富的歌词展现形式，性能经过深度优化，每一处细节都恰到好处。基于 SPlayer-Next 的非官方二次开发版本。
   actions:
     - theme: brand
       text: 立即下载
@@ -15,7 +15,7 @@ hero:
       link: /guide
     - theme: alt
       text: GitHub
-      link: https://github.com/SPlayer-Dev/SPlayer-Next
+      link: https://github.com/Sakura520222/Sakura-Player
 
 features:
   - icon: 🎵

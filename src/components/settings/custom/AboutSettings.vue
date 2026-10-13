@@ -87,6 +87,11 @@ interface Dependency {
 /** 依赖的开源项目 */
 const dependencies: Dependency[] = [
   {
+    name: "SPlayer-Next",
+    description: "本项目基于其二次开发（AGPL-3.0）",
+    url: "https://github.com/SPlayer-Dev/SPlayer-Next",
+  },
+  {
     name: "applemusic-like-lyrics",
     description: "类 Apple Music 歌词显示组件库",
     url: "https://github.com/Steve-xmh/applemusic-like-lyrics",

@@ -2,7 +2,7 @@
 title: 下载
 ---
 
-# 下载 SPlayer-Next
+# 下载 Sakura Player
 
 下方会自动从 GitHub 拉取对应更新通道的最新版本，并根据你的系统推荐合适的安装包。默认选择 Stable 正式版；若下载缓慢，可切换镜像线路。
 
@@ -20,8 +20,8 @@ title: 下载
 
 ## 其他获取方式
 
-- **历史版本**：前往 [GitHub Releases](https://github.com/SPlayer-Dev/SPlayer-Next/releases) 查看全部归档。
-- **开发版**：可在 [GitHub Actions](https://github.com/SPlayer-Dev/SPlayer-Next/actions) 工作流产物中获取最新构建（需登录 GitHub）。
+- **历史版本**：前往 [GitHub Releases](https://github.com/Sakura520222/Sakura-Player/releases) 查看全部归档。
+- **开发版**：可在 [GitHub Actions](https://github.com/Sakura520222/Sakura-Player/actions) 工作流产物中获取最新构建（需登录 GitHub）。
 
 ## 安装提示
 
@@ -33,28 +33,8 @@ title: 下载
 
 ### Arch Linux
 
-本软件现已收录于 [Arch Linux 中文社区仓库](https://www.archlinuxcn.org/archlinux-cn-repo-and-mirror/)
-
-若还未配置 Arch Linux 中文社区仓库，前往 [Wiki](https://wiki.archlinuxcn.org/zh/Arch_Linux_%E4%B8%AD%E6%96%87%E7%A4%BE%E5%8C%BA%E4%BB%93%E5%BA%93) 进行配置
-
-若已配置，可直接安装：
-
-```bash
-sudo pacman -S splayer-next
-```
-
-该仓库另提供调试符号包，排查崩溃时可用：
-
-```bash
-sudo pacman -S splayer-next-debug
-```
-
-> [!IMPORTANT]
-> 如果遇到软件包过期（out-of-date）或者打包问题造成的运行错误，**请不要在本项目仓库反馈，而是向 Arch Linux 中文社区仓库反馈**
->
-> 前往 [此处](https://github.com/archlinuxcn/repo/issues/new/choose) 建立 issue
->
-> 或者向软件包维护者[发送邮件](mailto:nlsdt@archlinuxcn.org)\<nlsdt@archlinuxcn.org>进行反馈
+> [!NOTE]
+> [Arch Linux 中文社区仓库](https://www.archlinuxcn.org/archlinux-cn-repo-and-mirror/) 中的 `splayer-next` 软件包属于上游原版 SPlayer-Next，并非 Sakura Player。请从上方下载列表或 [GitHub Releases](https://github.com/Sakura520222/Sakura-Player/releases) 获取本项目的 `pacman` 安装包后手动安装。
 
 ### Linux 安装包选择
 
@@ -68,22 +48,22 @@ sudo pacman -S splayer-next-debug
 
 ```bash
 # AppImage
-chmod +x ./splayer-next-*.AppImage
-./splayer-next-*.AppImage # 直接运行
-./splayer-next-*.AppImage --appimage-extract # 或解压到 squashfs-root 目录
+chmod +x ./sakura-player-*.AppImage
+./sakura-player-*.AppImage # 直接运行
+./sakura-player-*.AppImage --appimage-extract # 或解压到 squashfs-root 目录
 
 # deb
-sudo apt install ./splayer-next-*.deb
+sudo apt install ./sakura-player-*.deb
 
 # rpm
-sudo dnf install ./splayer-next-*.rpm # Fedora
-sudo zypper install ./splayer-next-*.rpm # openSUSE
+sudo dnf install ./sakura-player-*.rpm # Fedora
+sudo zypper install ./sakura-player-*.rpm # openSUSE
 
 # pacman
-sudo pacman -U ./splayer-next-*.pacman
+sudo pacman -U ./sakura-player-*.pacman
 
 # 压缩包
-tar -xzf ./splayer-next-*.tar.gz
-cd splayer-next-*/
-./SPlayer-Next
+tar -xzf ./sakura-player-*.tar.gz
+cd sakura-player-*/
+./Sakura-Player
 ```

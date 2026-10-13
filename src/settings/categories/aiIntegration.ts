@@ -45,7 +45,7 @@ const aiIntegrationCategory: SettingCategory = {
               binding: { store: "settings", path: "system.mcp.port" },
               min: 1024,
               max: 65535,
-              defaultValue: 14559,
+              defaultValue: 14569,
             },
             {
               key: "mcpConfigDetails",

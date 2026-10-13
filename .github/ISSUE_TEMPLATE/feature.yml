@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         ---
-        感谢你为 SPlayer-Next 提出建议！请在提交前先检索已有 Issues 或 Discussions，避免重复提出相似需求。
+        感谢你为 Sakura Player 提出建议！请在提交前先检索已有 Issues 或 Discussions，避免重复提出相似需求。
 
   - type: checkboxes
     validations:

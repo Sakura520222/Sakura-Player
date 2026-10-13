@@ -1,6 +1,6 @@
 # 外部 API（HTTP）
 
-SPlayer-Next 提供一个可选的本地 HTTP 接口，用于查询播放状态与控制播放。实时状态推送请使用 [WebSocket API](/socket)，接入 AI 应用请使用 [MCP 接口](/mcp)。
+Sakura Player 提供一个可选的本地 HTTP 接口，用于查询播放状态与控制播放。实时状态推送请使用 [WebSocket API](/socket)，接入 AI 应用请使用 [MCP 接口](/mcp)。
 
 ::: warning 默认关闭
 外部 API **默认关闭**，需在 **设置 → 外部 API** 中开启。服务默认仅绑定 `127.0.0.1`（本机可访问），**不含任何鉴权**；如需局域网访问，请显式开启「允许局域网访问」，并仅在可信网络中使用。
@@ -11,7 +11,7 @@ AI 使用的 [MCP 接口](/mcp)拥有独立开关、端口与服务生命周期�
 ## 约定
 
 - **基础路径**：`http://127.0.0.1:<port>/api`
-- **默认端口**：`14558`（可在设置中修改）
+- **默认端口**：`14568`（可在设置中修改；已保存的端口保留，并存时请使用不同端口）
 - **数据格式**：请求与响应均为 JSON（`Content-Type: application/json`）
 - **时间单位**：毫秒（ms）
 - **成功响应**：控制类接口返回 `{ "ok": true }`
@@ -47,7 +47,7 @@ GET /api/info
 **响应**
 
 ```json
-{ "name": "SPlayer-Next", "version": "1.0.0", "wsClients": 0 }
+{ "name": "Sakura Player", "version": "1.0.0", "wsClients": 0 }
 ```
 
 ### 获取播放状态
@@ -188,20 +188,20 @@ POST /api/volume
 
 ```bash
 # 查询播放状态
-curl http://127.0.0.1:14558/api/status
+curl http://127.0.0.1:14568/api/status
 
 # 播放 / 暂停 / 下一曲
-curl -X POST http://127.0.0.1:14558/api/play
-curl -X POST http://127.0.0.1:14558/api/pause
-curl -X POST http://127.0.0.1:14558/api/next
+curl -X POST http://127.0.0.1:14568/api/play
+curl -X POST http://127.0.0.1:14568/api/pause
+curl -X POST http://127.0.0.1:14568/api/next
 
 # 跳转到 1 分钟处
-curl -X POST http://127.0.0.1:14558/api/seek \
+curl -X POST http://127.0.0.1:14568/api/seek \
   -H "Content-Type: application/json" \
   -d '{ "positionMs": 60000 }'
 
 # 设置音量为 50%
-curl -X POST http://127.0.0.1:14558/api/volume \
+curl -X POST http://127.0.0.1:14568/api/volume \
   -H "Content-Type: application/json" \
   -d '{ "volume": 0.5 }'
 ```

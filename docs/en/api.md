@@ -1,6 +1,6 @@
 # External API (HTTP)
 
-SPlayer-Next provides an optional local HTTP API for inspecting and controlling playback. Use the [WebSocket API](/en/socket) for realtime events and [MCP](/en/mcp) for AI applications.
+Sakura Player provides an optional local HTTP API for inspecting and controlling playback. Use the [WebSocket API](/en/socket) for realtime events and [MCP](/en/mcp) for AI applications.
 
 ::: warning Disabled by default
 Enable it under **Settings → External API**. The server binds to `127.0.0.1` by default and has **no authentication**. Enable LAN access only on a trusted network.
@@ -11,7 +11,7 @@ MCP has its own switch, port, and lifecycle and does not depend on this API.
 ## Conventions
 
 - **Base URL:** `http://127.0.0.1:<port>/api`
-- **Default port:** `14558`
+- **Default port:** `14568`, configurable; saved ports are preserved, so choose distinct ports for side-by-side use
 - **Format:** JSON requests and responses (`Content-Type: application/json`)
 - **Time unit:** milliseconds
 - **Successful controls:** `{ "ok": true }`
@@ -43,7 +43,7 @@ GET /api/info
 ```
 
 ```json
-{ "name": "SPlayer-Next", "version": "1.0.0", "wsClients": 0 }
+{ "name": "Sakura Player", "version": "1.0.0", "wsClients": 0 }
 ```
 
 ### Playback status
@@ -135,17 +135,17 @@ POST /api/volume
 ## Examples
 
 ```bash
-curl http://127.0.0.1:14558/api/status
+curl http://127.0.0.1:14568/api/status
 
-curl -X POST http://127.0.0.1:14558/api/play
-curl -X POST http://127.0.0.1:14558/api/pause
-curl -X POST http://127.0.0.1:14558/api/next
+curl -X POST http://127.0.0.1:14568/api/play
+curl -X POST http://127.0.0.1:14568/api/pause
+curl -X POST http://127.0.0.1:14568/api/next
 
-curl -X POST http://127.0.0.1:14558/api/seek \
+curl -X POST http://127.0.0.1:14568/api/seek \
   -H "Content-Type: application/json" \
   -d '{ "positionMs": 60000 }'
 
-curl -X POST http://127.0.0.1:14558/api/volume \
+curl -X POST http://127.0.0.1:14568/api/volume \
   -H "Content-Type: application/json" \
   -d '{ "volume": 0.5 }'
 ```

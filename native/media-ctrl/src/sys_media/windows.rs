@@ -248,7 +248,7 @@ impl SystemMediaControls for WindowsImpl {
             ctx.is_enabled = true;
             ctx.smtc()?.SetIsEnabled(true)?;
             if !ctx.has_metadata {
-                update_display(ctx, "SPlayer Next", "", "", None)?;
+                update_display(ctx, "Sakura Player", "", "", None)?;
                 ctx.has_metadata = true;
             }
             Ok(())
