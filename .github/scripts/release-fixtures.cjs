@@ -6,6 +6,11 @@ const path = require("node:path");
 const { createHash } = require("node:crypto");
 const yaml = require("js-yaml");
 
+const LINUX_ARCH_NAMES = {
+  x64: { AppImage: "x86_64", deb: "amd64", rpm: "x86_64", "tar.gz": "x64", pacman: "x64" },
+  arm64: { AppImage: "arm64", deb: "arm64", rpm: "aarch64", "tar.gz": "arm64", pacman: "aarch64" },
+};
+
 const createArtifact = (dir, name, content = Buffer.from(name)) => {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, name), content);
@@ -40,7 +45,8 @@ const createFixture = (root, version, channel) => {
   for (const [folder, manifest, arch, extensions] of assets) {
     const dir = path.join(root, folder);
     const files = extensions.map((extension) => {
-      const assetName = `sakura-player-${version}-${arch}${folder.startsWith("win") ? "-" : "."}${extension}`;
+      const packageArch = folder.startsWith("linux") ? LINUX_ARCH_NAMES[arch][extension] : arch;
+      const assetName = `sakura-player-${version}-${packageArch}${folder.startsWith("win") ? "-" : "."}${extension}`;
       return createArtifact(dir, assetName);
     });
     writeManifest(dir, manifest, version, files[0]);

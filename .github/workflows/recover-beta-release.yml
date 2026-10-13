@@ -1,0 +1,88 @@
+name: Recover first Beta Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "validate 仅验证原始产物；create-draft 验证后创建草稿，均不会公开发布"
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - create-draft
+
+permissions:
+  contents: read
+  actions: read
+
+# 与常规发布共享标签锁，避免并发创建同名草稿。
+concurrency:
+  group: release-v1.2.0-beta.1
+  cancel-in-progress: false
+
+env:
+  APP_VERSION: 1.2.0-beta.1
+  RELEASE_TAG: v1.2.0-beta.1
+  BUILD_COMMIT: 65999d149eabc345e14df103fb9a389cb3a1b0da
+  RECOVERY_MODE: ${{ inputs.mode }}
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Require merged dev workflow
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = "Sakura520222/Sakura-Player"
+          test "$GITHUB_REF" = "refs/heads/dev"
+
+      # 检出本次 dev 调度的提交，脚本来自合并后的修复，二进制来自固定的原始运行。
+      - name: Checkout repaired scripts from dev
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+
+      - name: Test repaired release scripts
+        shell: bash
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/jsyaml" js-yaml@4.1.1
+          NODE_PATH="$RUNNER_TEMP/jsyaml/node_modules" \
+            node --test .github/scripts/*.test.cjs
+
+      - name: Verify source and aggregate original artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          NODE_PATH="$RUNNER_TEMP/jsyaml/node_modules" \
+            node .github/scripts/recover-beta-release.cjs \
+              "$RUNNER_TEMP/sakura-beta-recovery" release-assets
+          echo "Validated original six-architecture artifacts for $RELEASE_TAG ($BUILD_COMMIT)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Scripts commit: $GITHUB_SHA. Mode: $RECOVERY_MODE. No automatic publication." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verification report
+        uses: actions/upload-artifact@v7
+        with:
+          name: beta-recovery-verification-${{ github.run_id }}
+          path: ${{ runner.temp }}/sakura-beta-recovery/verification.json
+          if-no-files-found: error
+
+      # 创建前再次校验远程标签、完整资源和所有页面中的同名发行版。
+      - name: Create Draft Pre-release only
+        if: inputs.mode == 'create-draft'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          NODE_PATH="$RUNNER_TEMP/jsyaml/node_modules" \
+            node .github/scripts/create-release.cjs

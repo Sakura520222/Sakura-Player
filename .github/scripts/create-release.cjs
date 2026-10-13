@@ -36,19 +36,10 @@ const createDraftRelease = (options, run = execFileSync) => {
 
   // 查询失败直接退出，不能把鉴权或网络失败当成发行版不存在。
   const releases = JSON.parse(
-    run(
-      "gh",
-      [
-        "api",
-        "--paginate",
-        "--slurp",
-        `repos/${repo}/releases?per_page=100`,
-        "--jq",
-        "[.[][] | {tag_name, draft}]",
-      ],
-      { encoding: "utf8" },
-    ),
-  );
+    run("gh", ["api", "--paginate", "--slurp", `repos/${repo}/releases?per_page=100`], {
+      encoding: "utf8",
+    }),
+  ).flat();
   const existing = releases.find((release) => release.tag_name === tag);
   if (existing) {
     throw new Error(

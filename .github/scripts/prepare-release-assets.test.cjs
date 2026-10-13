@@ -6,12 +6,139 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const yaml = require("js-yaml");
+const { createHash } = require("node:crypto");
 const {
   mergeManifests,
   prepareReleaseAssets,
   resolveChannel,
 } = require("./prepare-release-assets.cjs");
 const { createArtifact, createFixture, withFixture } = require("./release-fixtures.cjs");
+
+// 独立记录失败运行的实际文件名，避免测试与生产代码共享命名规则。
+const REAL_PACKAGES = [
+  ["win-x64", "sakura-player-1.2.0-beta.1-x64-setup.exe"],
+  ["win-x64", "sakura-player-1.2.0-beta.1-x64-portable.exe"],
+  ["win-arm64", "sakura-player-1.2.0-beta.1-arm64-setup.exe"],
+  ["win-arm64", "sakura-player-1.2.0-beta.1-arm64-portable.exe"],
+  ["mac-x64", "sakura-player-1.2.0-beta.1-x64.dmg"],
+  ["mac-x64", "sakura-player-1.2.0-beta.1-x64.zip"],
+  ["mac-arm64", "sakura-player-1.2.0-beta.1-arm64.dmg"],
+  ["mac-arm64", "sakura-player-1.2.0-beta.1-arm64.zip"],
+  ["linux-x64", "sakura-player-1.2.0-beta.1-x86_64.AppImage"],
+  ["linux-x64", "sakura-player-1.2.0-beta.1-amd64.deb"],
+  ["linux-x64", "sakura-player-1.2.0-beta.1-x86_64.rpm"],
+  ["linux-x64", "sakura-player-1.2.0-beta.1-x64.tar.gz"],
+  ["linux-x64", "sakura-player-1.2.0-beta.1-x64.pacman"],
+  ["linux-arm64", "sakura-player-1.2.0-beta.1-arm64.AppImage"],
+  ["linux-arm64", "sakura-player-1.2.0-beta.1-arm64.deb"],
+  ["linux-arm64", "sakura-player-1.2.0-beta.1-aarch64.rpm"],
+  ["linux-arm64", "sakura-player-1.2.0-beta.1-arm64.tar.gz"],
+  ["linux-arm64", "sakura-player-1.2.0-beta.1-aarch64.pacman"],
+];
+
+test("六架构的 18 种发行物使用真实命名且聚合后内容不变", () => {
+  withFixture(({ src, out, version }) => {
+    assert.equal(new Set(REAL_PACKAGES.map(([folder]) => folder)).size, 6);
+    for (const folder of new Set(REAL_PACKAGES.map(([folder]) => folder))) {
+      assert.deepEqual(
+        fs
+          .readdirSync(path.join(src, folder))
+          .filter((name) => !name.endsWith(".yml"))
+          .sort(),
+        REAL_PACKAGES.filter(([current]) => current === folder)
+          .map(([, name]) => name)
+          .sort(),
+      );
+    }
+    prepareReleaseAssets(src, out, version);
+    assert.deepEqual(
+      fs
+        .readdirSync(out)
+        .filter((name) => !name.endsWith(".yml"))
+        .sort(),
+      REAL_PACKAGES.map(([, name]) => name).sort(),
+    );
+    for (const [folder, name] of REAL_PACKAGES) {
+      const original = fs.readFileSync(path.join(src, folder, name));
+      const aggregated = fs.readFileSync(path.join(out, name));
+      assert.equal(aggregated.length, original.length);
+      assert.equal(
+        createHash("sha512").update(aggregated).digest("base64"),
+        createHash("sha512").update(original).digest("base64"),
+      );
+    }
+    for (const [suffix, name] of [
+      ["-linux", "sakura-player-1.2.0-beta.1-x86_64.AppImage"],
+      ["-linux-arm64", "sakura-player-1.2.0-beta.1-arm64.AppImage"],
+    ]) {
+      const doc = yaml.load(fs.readFileSync(path.join(out, `beta${suffix}.yml`), "utf8"));
+      assert.equal(doc.path, name);
+      assert.deepEqual(
+        doc.files.map((file) => file.url),
+        [name],
+      );
+      assert.equal(
+        fs.readFileSync(path.join(out, `alpha${suffix}.yml`), "utf8"),
+        fs.readFileSync(path.join(out, `beta${suffix}.yml`), "utf8"),
+      );
+    }
+  });
+});
+
+for (const [folder, name] of REAL_PACKAGES) {
+  test(`完整性校验拒绝缺少真实发行物 ${name}`, () => {
+    withFixture(({ src, out, version }) => {
+      fs.unlinkSync(path.join(src, folder, name));
+      assert.throws(
+        () => prepareReleaseAssets(src, out, version),
+        new RegExp(`缺少发行物: ${name}`),
+      );
+    });
+  });
+}
+
+for (const [folder, realName, wrongName] of [
+  ["linux-x64", "x86_64.AppImage", "x64.AppImage"],
+  ["linux-x64", "amd64.deb", "x64.deb"],
+  ["linux-x64", "x86_64.rpm", "x64.rpm"],
+  ["linux-arm64", "aarch64.rpm", "arm64.rpm"],
+  ["linux-arm64", "aarch64.pacman", "arm64.pacman"],
+]) {
+  test(`不接受旧的统一架构别名 ${wrongName}`, () => {
+    withFixture(({ src, out, version }) => {
+      const prefix = `sakura-player-${version}-`;
+      fs.renameSync(
+        path.join(src, folder, prefix + realName),
+        path.join(src, folder, prefix + wrongName),
+      );
+      assert.throws(() => prepareReleaseAssets(src, out, version), /缺少发行物/);
+    });
+  });
+}
+
+for (const [folder, arch] of [
+  ["linux-x64", "x86_64"],
+  ["linux-arm64", "arm64"],
+]) {
+  for (const sameSize of [false, true]) {
+    test(`${folder} 真实命名仍校验${sameSize ? "SHA-512" : "文件大小"}`, () => {
+      withFixture(({ src, out, version }) => {
+        const asset = path.join(src, folder, `sakura-player-${version}-${arch}.AppImage`);
+        if (sameSize) {
+          const data = fs.readFileSync(asset);
+          data[0] ^= 1;
+          fs.writeFileSync(asset, data);
+        } else {
+          fs.appendFileSync(asset, "tampered");
+        }
+        assert.throws(
+          () => prepareReleaseAssets(src, out, version),
+          sameSize ? /SHA-512 不匹配/ : /资源大小不匹配/,
+        );
+      });
+    });
+  }
+}
 
 test("正式版生成 latest、beta 和 alpha 的完整更新清单", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sakura-release-stable-"));
@@ -98,6 +225,20 @@ test("未被清单引用的便携包也必须存在", () => {
   withFixture(({ src, out, version }) => {
     fs.unlinkSync(path.join(src, "win-arm64", `sakura-player-${version}-arm64-portable.exe`));
     assert.throws(() => prepareReleaseAssets(src, out, version), /缺少发行物/);
+  });
+});
+
+test("未被清单引用的真实 Linux 包仍不能是空文件", () => {
+  withFixture(({ src, out, version }) => {
+    fs.writeFileSync(path.join(src, "linux-arm64", `sakura-player-${version}-aarch64.pacman`), "");
+    assert.throws(() => prepareReleaseAssets(src, out, version), /发行物为空或不是文件/);
+  });
+});
+
+test("完整真实产物之外出现旧 Linux 架构别名时拒绝发布", () => {
+  withFixture(({ src, out, version }) => {
+    createArtifact(path.join(src, "linux-x64"), `sakura-player-${version}-x64.AppImage`);
+    assert.throws(() => prepareReleaseAssets(src, out, version), /不属于本次发布/);
   });
 });
 

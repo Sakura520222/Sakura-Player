@@ -16,6 +16,11 @@ const PACKAGE_FORMATS = {
   "-linux": { arches: ["x64"], extensions: ["AppImage", "deb", "rpm", "tar.gz", "pacman"] },
   "-linux-arm64": { arches: ["arm64"], extensions: ["AppImage", "deb", "rpm", "tar.gz", "pacman"] },
 };
+// electron-builder 按包格式转换 Linux 架构名称，不能统一使用 Node.js 的架构名。
+const LINUX_ARCH_NAMES = {
+  x64: { AppImage: "x86_64", deb: "amd64", rpm: "x86_64", "tar.gz": "x64", pacman: "x64" },
+  arm64: { AppImage: "arm64", deb: "arm64", rpm: "aarch64", "tar.gz": "arm64", pacman: "aarch64" },
+};
 
 /**
  * 递归收集目录下的文件
@@ -111,11 +116,12 @@ const validateManifests = (outDir, version, channel) => {
   const expected = new Set();
   for (const [suffix, { arches, extensions }] of Object.entries(PACKAGE_FORMATS)) {
     const names = arches.flatMap((arch) =>
-      extensions.map((extension) =>
-        suffix === ""
+      extensions.map((extension) => {
+        const packageArch = suffix.startsWith("-linux") ? LINUX_ARCH_NAMES[arch][extension] : arch;
+        return suffix === ""
           ? `${packageName}-${version}-${arch}-${extension}`
-          : `${packageName}-${version}-${arch}.${extension}`,
-      ),
+          : `${packageName}-${version}-${packageArch}.${extension}`;
+      }),
     );
     packages.set(suffix, names);
     for (const name of names) {
