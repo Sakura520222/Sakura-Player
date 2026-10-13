@@ -109,6 +109,7 @@ Var SPlayerHeaderBitmap
 !macroend
 
 !macro customHeader
+  !include "${PROJECT_DIR}\build\installer\fileAssociations.nsh"
   !ifdef BUILD_UNINSTALLER
     !insertmacro SPlayerUiFunctions "un."
     !insertmacro SPlayerUninstallFunctions

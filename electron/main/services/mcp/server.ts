@@ -22,10 +22,10 @@ const jsonContent = (value: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(value) }],
 });
 
-/** 创建并注册 SPlayer MCP 能力 */
+/** 创建并注册 Sakura Player MCP 能力 */
 const createServer = (): McpServer => {
   const server = new McpServer({
-    name: "splayer-next",
+    name: "sakura-player",
     version: appVersion,
   });
 
@@ -33,7 +33,7 @@ const createServer = (): McpServer => {
     "get_playback_status",
     {
       title: "获取播放状态",
-      description: "获取 SPlayer 当前播放状态、进度、时长和音量。时间单位为毫秒",
+      description: "获取 Sakura Player 当前播放状态、进度、时长和音量。时间单位为毫秒",
       annotations: { readOnlyHint: true, idempotentHint: true },
     },
     () => {
@@ -286,52 +286,58 @@ const createServer = (): McpServer => {
     },
   );
 
-  server.registerResource(
-    "now-playing",
-    "splayer://now-playing",
-    {
-      title: "SPlayer 当前播放",
-      description: "不含完整歌词正文的当前歌曲与播放位置轻量快照",
-      mimeType: "application/json",
-    },
-    (uri) => ({
-      contents: [
-        {
-          uri: uri.href,
-          mimeType: "application/json",
-          text: JSON.stringify(nowPlaying.lightSnapshot()),
-        },
-      ],
-    }),
-  );
+  // 资源 URI 是客户端接口，旧地址继续作为当前资源的别名。
+  for (const [scheme, suffix] of [
+    ["sakura-player", ""],
+    ["splayer", "-legacy"],
+  ] as const) {
+    server.registerResource(
+      `now-playing${suffix}`,
+      `${scheme}://now-playing`,
+      {
+        title: "Sakura Player 当前播放",
+        description: "不含完整歌词正文的当前歌曲与播放位置轻量快照",
+        mimeType: "application/json",
+      },
+      (uri) => ({
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify(nowPlaying.lightSnapshot()),
+          },
+        ],
+      }),
+    );
 
-  server.registerResource(
-    "library-summary",
-    "splayer://library/summary",
-    {
-      title: "SPlayer 曲库摘要",
-      description: "本地曲库的歌曲、专辑和艺术家数量",
-      mimeType: "application/json",
-    },
-    (uri) => ({
-      contents: [
-        {
-          uri: uri.href,
-          mimeType: "application/json",
-          text: JSON.stringify({
-            tracks: getTrackCount(),
-            albums: getAlbumList().length,
-            artists: getArtistList().length,
-          }),
-        },
-      ],
-    }),
-  );
+    server.registerResource(
+      `library-summary${suffix}`,
+      `${scheme}://library/summary`,
+      {
+        title: "Sakura Player 曲库摘要",
+        description: "本地曲库的歌曲、专辑和艺术家数量",
+        mimeType: "application/json",
+      },
+      (uri) => ({
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify({
+              tracks: getTrackCount(),
+              albums: getAlbumList().length,
+              artists: getArtistList().length,
+            }),
+          },
+        ],
+      }),
+    );
+  }
 
   return server;
 };
 
-/** 创建 SPlayer MCP HTTP 端点 */
+/** 创建 Sakura Player MCP HTTP 端点 */
 export const createMcpEndpoint = (): McpEndpoint => createHttpEndpoint(createServer);
 
 export type { McpEndpoint } from "./endpoint";

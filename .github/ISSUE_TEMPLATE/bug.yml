@@ -56,5 +56,5 @@ body:
          - 开发者工具中的控制台输出报错、程序的日志文件
          - 出现问题的在线歌曲链接、出现问题的文件（本地歌曲、歌词等）的下载链接
 
-        等信息，以更好地帮助我们解决你的问题。更多详见 [调试模式与错误排查](https://splayer-next.imsyy.top/troubleshooting/debug.html)
+        等信息，以更好地帮助我们解决你的问题。更多详见 [调试模式与错误排查](https://github.com/Sakura520222/Sakura-Player/blob/dev/docs/troubleshooting/debug.md)
       placeholder: "请填写具体的复现步骤和遇到的问题"

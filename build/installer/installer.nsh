@@ -8,12 +8,12 @@ SetFont /LANG=1033 "Segoe UI" 9
 !include "${__FILEDIR__}\uninstaller.nsh"
 
 ; 此文件在语言宏之前加载，使用简体中文和英语的 Windows 语言 ID
-LangString SPlayerWelcomeTitle 2052 "欢迎安装 SPlayer Next"
-LangString SPlayerWelcomeTitle 1033 "Welcome to SPlayer Next"
+LangString SPlayerWelcomeTitle 2052 "欢迎安装 Sakura Player"
+LangString SPlayerWelcomeTitle 1033 "Welcome to Sakura Player"
 LangString SPlayerWelcomeText 2052 "听音乐，本该如此$\r$\n$\r$\n一款简洁而精致的多平台桌面音乐播放器。支持多种音频格式与丰富的歌词展现形式，性能经过深度优化，每一处细节都恰到好处。$\r$\n$\r$\n你可以选择安装范围和保存位置$\r$\n点击“下一步”开始"
 LangString SPlayerWelcomeText 1033 "Music, just as it should be.$\r$\n$\r$\nA simple, refined desktop music player for multiple platforms. Supports a wide range of audio formats and rich lyric displays, with carefully optimized performance and thoughtful details throughout.$\r$\n$\r$\nChoose who can use the app and where to install it.$\r$\nClick Next to begin."
-LangString SPlayerFinishTitle 2052 "SPlayer Next 已安装"
-LangString SPlayerFinishTitle 1033 "SPlayer Next is ready"
+LangString SPlayerFinishTitle 2052 "Sakura Player 已安装"
+LangString SPlayerFinishTitle 1033 "Sakura Player is ready"
 LangString SPlayerFinishText 2052 "安装完成，可以开始听音乐了$\r$\n$\r$\n点击“完成”关闭向导"
 LangString SPlayerFinishText 1033 "Installation is complete. You're ready to enjoy your music.$\r$\n$\r$\nClick Finish to close this wizard."
 

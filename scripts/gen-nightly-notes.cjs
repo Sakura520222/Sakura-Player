@@ -6,7 +6,7 @@ const { writeFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 
 const version = process.env.APP_VERSION || require("../package.json").version;
-const repo = process.env.GITHUB_REPOSITORY || "SPlayer-Dev/SPlayer-Next";
+const repo = process.env.GITHUB_REPOSITORY || "Sakura520222/Sakura-Player";
 const prevSha = process.env.PREV_COMMIT_SHA;
 
 let commits = "";

@@ -9,10 +9,10 @@ Enable **Settings → External API**, then enable WebSocket separately. It has t
 ## Connection
 
 - **URL:** `ws://127.0.0.1:<port>/ws`
-- **Default port:** `14558`, shared with HTTP
+- **Default port:** `14568`, shared with HTTP; saved ports are preserved
 
 ```javascript
-const ws = new WebSocket("ws://127.0.0.1:14558/ws");
+const ws = new WebSocket("ws://127.0.0.1:14568/ws");
 ```
 
 ## Server to client
@@ -49,7 +49,7 @@ Invalid JSON or an unknown `op` receives an error message.
 ## Example
 
 ```javascript
-const ws = new WebSocket("ws://127.0.0.1:14558/ws");
+const ws = new WebSocket("ws://127.0.0.1:14568/ws");
 
 ws.onopen = () => {
   ws.send(JSON.stringify({ op: "pause" }));

@@ -40,7 +40,7 @@ const createFixture = (root, version, channel) => {
 };
 
 test("正式版生成 latest、beta 和 alpha 的完整更新清单", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "splayer-release-stable-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sakura-release-stable-"));
   try {
     const src = path.join(root, "artifacts");
     const out = path.join(root, "out");
@@ -60,7 +60,7 @@ test("正式版生成 latest、beta 和 alpha 的完整更新清单", () => {
 });
 
 test("Beta 版生成 beta 和 alpha 清单", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "splayer-release-beta-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sakura-release-beta-"));
   try {
     const src = path.join(root, "artifacts");
     const out = path.join(root, "out");
@@ -75,7 +75,7 @@ test("Beta 版生成 beta 和 alpha 清单", () => {
 });
 
 test("Alpha 版只发布 alpha 清单", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "splayer-release-alpha-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sakura-release-alpha-"));
   try {
     const src = path.join(root, "artifacts");
     const out = path.join(root, "out");
@@ -90,7 +90,7 @@ test("Alpha 版只发布 alpha 清单", () => {
 });
 
 test("Nightly 版只发布 nightly 清单", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "splayer-release-nightly-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sakura-release-nightly-"));
   try {
     const src = path.join(root, "artifacts");
     const out = path.join(root, "out");

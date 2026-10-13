@@ -1,18 +1,21 @@
-<!-- agreement-version: 3 -->
+<!-- agreement-version: 4 -->
 
-# SPlayer Next User Agreement and Disclaimer
+# Sakura Player User Agreement and Disclaimer
 
-**Version: v1.2**  
-**Effective: May 29, 2026**  
-**Last updated: August 12, 2026**
+**Version: v1.3**<br>
+**Effective: October 13, 2026**<br>
+**Last updated: October 13, 2026**
 
 This English translation is provided for convenience. If it differs from the [Chinese agreement](/agreement), the Chinese text prevails.
 
-SPlayer Next is a free and open-source cross-platform desktop music player. Read this agreement, especially limitations of liability, governing law, and dispute provisions, before downloading or using it. If you do not agree, stop using and delete the software. Minors should review it with a guardian.
+> [!IMPORTANT]
+> Sakura Player is an **unofficial fork** of [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next), maintained by GitHub user [Sakura520222](https://github.com/Sakura520222). It is not affiliated with the original authors or the `SPlayer-Dev` organization and makes no promises on their behalf. The original software was developed by imsyy and upstream contributors; their copyright, license, and applicable original notices are retained. This agreement describes this fork and third-party risks; it does not make upstream authors service providers or parties to this fork's agreement. Fork modifications are dated **2026-10-13**; provenance and original copyright notices are in the repository's `NOTICE`.
+
+Sakura Player is a free and open-source cross-platform desktop music player. This agreement provides functionality, risk, and responsibility information. **Exercising rights to use, copy, modify, or redistribute the software under AGPL-3.0 does not require separate acceptance of this agreement.** Third-party services have their own terms. Minors should review the relevant features with a guardian.
 
 ## 1. Definitions
 
-- **Developer:** The copyright holders and open-source contributors, including the `SPlayer-Dev` GitHub organization and project author.
+- **Developer / we:** Only this fork's maintainer, `Sakura520222`, and contributors to this fork's modifications. The upstream author imsyy, the `SPlayer-Dev` GitHub organization, and upstream contributors retain their respective copyrights but assume no maintenance, service, or privacy promises in this fork's agreement.
 - **User / you:** Any individual or organization that installs or uses the software.
 - **Local content:** Audio stored on your devices or storage you are authorized to access.
 - **Online platform:** A public online music service operated independently by a third party.
@@ -29,17 +32,19 @@ The software itself does not provide, host, or distribute audio content and does
 
 ## 3. AGPL-3.0 license
 
-SPlayer Next is licensed under the GNU Affero General Public License v3.0. The complete license is in `LICENSE`.
+Sakura Player is licensed under the GNU Affero General Public License v3.0. The complete license is in `LICENSE`.
 
 When copying, modifying, or redistributing the software, comply with AGPL-3.0, including preserving notices, providing corresponding source where required, identifying modifications, and not imposing incompatible additional restrictions. If a modified version is offered for remote network interaction, AGPL-3.0 section 13 may require offering its complete corresponding source to those users.
 
-The official source repository is <https://github.com/SPlayer-Dev/SPlayer-Next>. This agreement explains functionality, third-party risks, trademarks, and applicable law; it does not reduce rights granted by AGPL-3.0. If a conflict exists, AGPL-3.0 prevails.
+The official source repository is <https://github.com/Sakura520222/Sakura-Player>. This agreement explains functionality, third-party risks, trademarks, and applicable law; it does not reduce rights granted by AGPL-3.0. If a conflict exists, AGPL-3.0 prevails.
 
 ## 4. Scope and acceptable use
 
 You may use, copy, modify, and redistribute the software under AGPL-3.0, including for personal, research, or commercial purposes.
 
 You must not use the software to violate applicable law, infringe third-party rights, bypass access controls or technical protections, misrepresent official affiliation or endorsement through names or visual assets, scrape or resell protected content unlawfully, or operate an unauthorized public content service.
+
+These are reminders about applicable law, third-party rights, and service terms, not additional software license conditions or restrictions on rights granted by AGPL-3.0.
 
 ## 5. Online and third-party features
 
@@ -53,7 +58,7 @@ You must be authorized to access each configured server and its content. You are
 
 ### 5.3 Plugins and sources
 
-The software includes an open extension mechanism and optional plugin market. Market entries index third-party submissions; they are not authored or operated by the SPlayer Next developers unless explicitly stated.
+The software includes an open extension mechanism and optional plugin market. Market entries index third-party submissions; they are not authored or operated by the Sakura Player developers unless explicitly stated.
 
 Market submissions receive automated checks and maintainer review, but this is not a complete security audit, legal determination, or endorsement. Locally or remotely imported plugins do not pass through market review. Plugins are executable code that can make network requests and persist data, so inspect their source and permissions and install only trusted plugins.
 
@@ -73,7 +78,7 @@ You are responsible for protecting accounts, devices, and credentials.
 
 ## 7. Intellectual property and trademarks
 
-Copyright in the software remains with its contributors subject to AGPL-3.0. Rights in the “SPlayer” and “SPlayer Next” names, logos, and visual identity are reserved. Do not use them in a way that creates confusion, false affiliation, or endorsement. Rights in third-party content remain with their respective owners.
+Copyright in the original software and this fork's modifications remains with their respective authors and contributors under AGPL-3.0. Rebranding does not transfer ownership of upstream code or visual assets. Trademark rights in “SPlayer”, “SPlayer Next”, and fork-specific names or logos remain with their respective rights holders; do not misrepresent official affiliation, authorization, or endorsement. These trademark matters do not restrict commercial use, modification, or redistribution of the software under AGPL-3.0. Reused upstream visual assets retain their original copyright and applicable licenses. Rights in third-party content remain with their respective owners.
 
 ## 8. User responsibility
 
@@ -85,9 +90,9 @@ The software does not include developer-controlled telemetry or usage analytics 
 
 ## 10. Distribution channels and security
 
-Official version information and original packages are published through <https://github.com/SPlayer-Dev/SPlayer-Next>; <https://splayer-next.imsyy.top> provides documentation and download entry points.
+This fork publishes version information and packages through <https://github.com/Sakura520222/Sakura-Player>. The upstream original is distributed through <https://github.com/SPlayer-Dev/SPlayer-Next> and its official website <https://splayer-next.imsyy.top>.
 
-The website may offer third-party acceleration routes that proxy official GitHub assets, so requests pass through those services. Other mirrors, app stores, repackaged builds, and redistributions are not controlled or verified by the developers and are not official releases. They may be modified, outdated, bundled, or malicious.
+Other mirrors, app stores, repackaged builds, and redistributions are not controlled or verified by the developers and are not official releases. They may be modified, outdated, bundled, or malicious.
 
 ## 11. Updates
 
@@ -113,19 +118,22 @@ The software is not specifically designed for persons without legal capacity. Mi
 
 ## 16. Changes
 
-This agreement may be revised for legal or functional changes and published with a release or through official channels. If you do not accept a revision, stop using the software.
+This agreement may be revised for legal or functional changes and published with a release or through official channels. Revisions do not retroactively change existing AGPL-3.0 grants or add acceptance requirements for exercising those rights.
 
 ## 17. Governing law and disputes
 
 This agreement is governed by the laws of mainland China, excluding conflict-of-law rules, while mandatory laws in your jurisdiction still apply. The parties should first attempt good-faith negotiation; unresolved disputes may be brought before a court with jurisdiction.
 
+This provision concerns this fork's agreement only to the extent allowed by applicable law. It makes no choice of jurisdiction on behalf of upstream authors, does not change worldwide rights under AGPL-3.0, and does not exclude mandatory local law.
+
 ## 18. General terms
 
-If a provision is invalid or unenforceable, the remaining provisions continue to apply. This agreement, the Privacy Policy, AGPL-3.0, and third-party licenses form the relevant terms. Failure to enforce a right is not a waiver. No agency, partnership, employment, joint venture, or endorsement relationship is created.
+If a provision is invalid or unenforceable, the remaining provisions continue to apply. Software license conditions are governed by AGPL-3.0 and applicable third-party licenses. This agreement and the Privacy Policy add no software license conditions and create no service contract with upstream authors. Failure to enforce a right is not a waiver. No agency, partnership, employment, joint venture, or endorsement relationship is created.
 
 ## 19. Contact
 
-- [GitHub repository](https://github.com/SPlayer-Dev/SPlayer-Next)
-- [Issue tracker](https://github.com/SPlayer-Dev/SPlayer-Next/issues)
-- [Official website](https://splayer-next.imsyy.top)
-- Email: imsyy1024@gmail.com
+- [GitHub repository (this fork)](https://github.com/Sakura520222/Sakura-Player)
+- [Issue tracker (this fork)](https://github.com/Sakura520222/Sakura-Player/issues)
+- [Upstream project](https://github.com/SPlayer-Dev/SPlayer-Next)
+- Fork maintainer's email: sakura520222@outlook.com
+- Original author's email (retained from the upstream agreement as provenance, not a support or privacy contact for this fork): imsyy1024@gmail.com

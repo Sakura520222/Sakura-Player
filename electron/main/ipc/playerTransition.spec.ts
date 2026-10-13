@@ -68,7 +68,7 @@ vi.mock("@main/utils/broadcast", () => ({ sendToMain: vi.fn() }));
 vi.mock("@main/server/broadcast", () => ({ wsBroadcast: vi.fn() }));
 vi.mock("@main/utils/encoding", () => ({}));
 vi.mock("@main/utils/protocol", () => ({ toCacheUrl: () => undefined }));
-vi.mock("@main/utils/config", () => ({ appName: "SPlayer", getSongCacheDir: () => "cache" }));
+vi.mock("@main/utils/config", () => ({ appName: "Sakura Player", getSongCacheDir: () => "cache" }));
 vi.mock("@main/utils/fetchBytes", () => ({}));
 vi.mock("@main/utils/powerBlocker", () => ({}));
 vi.mock("@main/services/lastfm", () => ({ onTrackLoaded: vi.fn() }));

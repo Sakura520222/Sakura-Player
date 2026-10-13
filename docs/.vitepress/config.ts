@@ -1,7 +1,9 @@
 import { defineConfig, type DefaultTheme } from "vitepress";
 
+const base = "/Sakura-Player/";
+
 const socialLinks: DefaultTheme.SocialLink[] = [
-  { icon: "github", link: "https://github.com/SPlayer-Dev/SPlayer-Next" },
+  { icon: "github", link: "https://github.com/Sakura520222/Sakura-Player" },
 ];
 
 const zhTheme: DefaultTheme.Config = {
@@ -27,7 +29,7 @@ const zhTheme: DefaultTheme.Config = {
         { text: "隐私策略", link: "/privacy" },
       ],
     },
-    { text: "GitHub", link: "https://github.com/SPlayer-Dev/SPlayer-Next" },
+    { text: "GitHub", link: "https://github.com/Sakura520222/Sakura-Player" },
   ],
   sidebar: [
     {
@@ -80,12 +82,12 @@ const zhTheme: DefaultTheme.Config = {
   ],
   outline: { level: [2, 3], label: "文章目录" },
   footer: {
-    message:
-      '基于 AGPL-3.0 许可发布 | <a href="/agreement">用户协议</a> | <a href="/privacy">隐私策略</a>',
-    copyright: "Copyright © 2025-present imsyy",
+    message: `基于 AGPL-3.0 许可发布 | <a href="${base}agreement">用户协议</a> | <a href="${base}privacy">隐私策略</a>`,
+    copyright:
+      "Copyright © 2025-present imsyy & SPlayer-Next contributors · Sakura Player fork by Sakura520222",
   },
   editLink: {
-    pattern: "https://github.com/SPlayer-Dev/SPlayer-Next/blob/dev/docs/:path?plain=1",
+    pattern: "https://github.com/Sakura520222/Sakura-Player/blob/dev/docs/:path?plain=1",
     text: "查看或编辑此页",
   },
   lastUpdated: {
@@ -117,7 +119,7 @@ const enTheme: DefaultTheme.Config = {
         { text: "Privacy Policy", link: "/en/privacy" },
       ],
     },
-    { text: "GitHub", link: "https://github.com/SPlayer-Dev/SPlayer-Next" },
+    { text: "GitHub", link: "https://github.com/Sakura520222/Sakura-Player" },
   ],
   sidebar: [
     {
@@ -170,12 +172,12 @@ const enTheme: DefaultTheme.Config = {
   ],
   outline: { level: [2, 3], label: "On this page" },
   footer: {
-    message:
-      'Released under AGPL-3.0 | <a href="/en/agreement">User Agreement</a> | <a href="/en/privacy">Privacy Policy</a>',
-    copyright: "Copyright © 2025-present imsyy",
+    message: `Released under AGPL-3.0 | <a href="${base}en/agreement">User Agreement</a> | <a href="${base}en/privacy">Privacy Policy</a>`,
+    copyright:
+      "Copyright © 2025-present imsyy & SPlayer-Next contributors · Sakura Player fork by Sakura520222",
   },
   editLink: {
-    pattern: "https://github.com/SPlayer-Dev/SPlayer-Next/blob/dev/docs/:path?plain=1",
+    pattern: "https://github.com/Sakura520222/Sakura-Player/blob/dev/docs/:path?plain=1",
     text: "View or edit this page",
   },
   lastUpdated: {
@@ -185,16 +187,19 @@ const enTheme: DefaultTheme.Config = {
 };
 
 export default defineConfig({
-  title: "SPlayer-Next",
+  // 自定义域名部署时同步调整上方 base，页脚和 favicon 也使用该路径。
+  base,
+  title: "Sakura Player",
   srcExclude: ["superpowers/**"],
   head: [
-    ["link", { rel: "icon", href: "/favicon.png" }],
-    ["meta", { name: "author", content: "imsyy" }],
+    ["link", { rel: "icon", href: `${base}favicon.png` }],
+    ["meta", { name: "author", content: "Sakura520222" }],
     [
       "meta",
       {
         name: "keywords",
-        content: "SPlayer,SPlayer-Next,music player,desktop lyrics,streaming,Electron,Vue3,Rust",
+        content:
+          "Sakura Player,Sakura-Player,SPlayer-Next,music player,desktop lyrics,streaming,Electron,Vue3,Rust",
       },
     ],
   ],
@@ -215,7 +220,7 @@ export default defineConfig({
   },
   themeConfig: {
     logo: "/favicon.png",
-    siteTitle: "SPlayer-Next",
+    siteTitle: "Sakura Player",
     socialLinks,
     search: {
       provider: "local",

@@ -4,16 +4,16 @@ Var SPlayerRemoveAppData
 Var SPlayerRemoveAppDataCheckbox
 Var SPlayerUnFinishResult
 
-LangString SPlayerUnWelcomeTitle 2052 "卸载 SPlayer Next"
-LangString SPlayerUnWelcomeTitle 1033 "Uninstall SPlayer Next"
-LangString SPlayerUnWelcomeText 2052 "此向导将从电脑中卸载 SPlayer Next$\r$\n$\r$\n请先关闭正在运行的播放器$\r$\n点击“下一步”确认卸载"
-LangString SPlayerUnWelcomeText 1033 "This wizard will remove SPlayer Next from your computer.$\r$\n$\r$\nPlease close the player before continuing.$\r$\nClick Next to confirm uninstallation."
-LangString SPlayerUnConfirmTitle 2052 "确认卸载 SPlayer Next"
-LangString SPlayerUnConfirmTitle 1033 "Confirm uninstalling SPlayer Next"
+LangString SPlayerUnWelcomeTitle 2052 "卸载 Sakura Player"
+LangString SPlayerUnWelcomeTitle 1033 "Uninstall Sakura Player"
+LangString SPlayerUnWelcomeText 2052 "此向导将从电脑中卸载 Sakura Player$\r$\n$\r$\n请先关闭正在运行的播放器$\r$\n点击“下一步”确认卸载"
+LangString SPlayerUnWelcomeText 1033 "This wizard will remove Sakura Player from your computer.$\r$\n$\r$\nPlease close the player before continuing.$\r$\nClick Next to confirm uninstallation."
+LangString SPlayerUnConfirmTitle 2052 "确认卸载 Sakura Player"
+LangString SPlayerUnConfirmTitle 1033 "Confirm uninstalling Sakura Player"
 LangString SPlayerUnConfirmSubtitle 2052 "确认后将卸载软件，可选择同时清理应用数据"
 LangString SPlayerUnConfirmSubtitle 1033 "Confirm removal and choose whether to clear app data."
-LangString SPlayerUnConfirmText 2052 "点击“卸载”移除 SPlayer Next$\r$\n默认保留应用数据，重新安装后可以继续使用"
-LangString SPlayerUnConfirmText 1033 "Click Uninstall to remove SPlayer Next.$\r$\nApp data is kept by default for a future reinstall."
+LangString SPlayerUnConfirmText 2052 "点击“卸载”移除 Sakura Player$\r$\n默认保留应用数据，重新安装后可以继续使用"
+LangString SPlayerUnConfirmText 1033 "Click Uninstall to remove Sakura Player.$\r$\nApp data is kept by default for a future reinstall."
 LangString SPlayerUnConfirmButton 2052 "卸载(&U)"
 LangString SPlayerUnConfirmButton 1033 "Uninstall"
 LangString SPlayerUnCaption 2052 "${PRODUCT_NAME} 卸载"
@@ -25,8 +25,8 @@ LangString SPlayerUnRemoveAppData 2052 "同时清理应用数据"
 LangString SPlayerUnRemoveAppData 1033 "Also remove app data"
 LangString SPlayerUnRemoveAppDataHint 2052 "清理 AppData 中的设置、登录信息及缓存$\r$\n清理后无法恢复"
 LangString SPlayerUnRemoveAppDataHint 1033 "Remove settings, sign-ins and cache in AppData.$\r$\nThis cannot be undone."
-LangString SPlayerUnFinishTitle 2052 "SPlayer Next 已卸载"
-LangString SPlayerUnFinishTitle 1033 "SPlayer Next has been removed"
+LangString SPlayerUnFinishTitle 2052 "Sakura Player 已卸载"
+LangString SPlayerUnFinishTitle 1033 "Sakura Player has been removed"
 LangString SPlayerUnFinishText 2052 "卸载完成$\r$\n$\r$\n点击“完成”关闭向导"
 LangString SPlayerUnFinishText 1033 "Uninstallation is complete.$\r$\n$\r$\nClick Finish to close this wizard."
 LangString SPlayerUnCleanupFailed 2052 "软件已卸载，但部分应用数据未能清理$\r$\n请检查目录权限或文件是否被其他程序占用$\r$\n$\r$\n点击“完成”关闭向导"
@@ -38,6 +38,18 @@ LangString SPlayerUnCleanupFailed 1033 "The app was removed, but some app data c
 !macroend
 
 !macro customUnInstall
+  ${IfNot} ${isUpdated}
+    ; 运行时注册的共享协议只在命令仍属于当前安装时清理。
+    StrCpy $R1 `"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"`
+    ReadRegStr $R0 HKCU "Software\Classes\orpheus\shell\open\command" ""
+    ${If} $R0 == $R1
+      DeleteRegKey HKCU "Software\Classes\orpheus"
+    ${EndIf}
+    ReadRegStr $R0 HKLM "Software\Classes\orpheus\shell\open\command" ""
+    ${If} $R0 == $R1
+      DeleteRegKey HKLM "Software\Classes\orpheus"
+    ${EndIf}
+  ${EndIf}
   ${IfNot} ${isUpdated}
   ${AndIf} $SPlayerRemoveAppData == ${BST_CHECKED}
     ClearErrors

@@ -9,10 +9,10 @@ WebSocket 需要在 **设置 → 外部 API** 中开启外部 API 后，**额外
 ## 连接
 
 - **地址**：`ws://127.0.0.1:<port>/ws`
-- **默认端口**：`14558`（与 HTTP 接口共用）
+- **默认端口**：`14568`（与 HTTP 接口共用；已保存的端口保留）
 
 ```javascript
-const ws = new WebSocket("ws://127.0.0.1:14558/ws");
+const ws = new WebSocket("ws://127.0.0.1:14568/ws");
 ```
 
 ## 服务器 → 客户端
@@ -49,7 +49,7 @@ const ws = new WebSocket("ws://127.0.0.1:14558/ws");
 ## 示例
 
 ```javascript
-const ws = new WebSocket("ws://127.0.0.1:14558/ws");
+const ws = new WebSocket("ws://127.0.0.1:14568/ws");
 
 ws.onopen = () => {
   // 暂停播放

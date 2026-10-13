@@ -14,11 +14,11 @@ Open **Developer Tools** from the gear menu in the upper-right corner. In develo
 
 The easiest route is **Settings → About → Open log directory**.
 
-| System  | Path                                                        |
-| ------- | ----------------------------------------------------------- |
-| Windows | `%APPDATA%\SPlayer-Next\app-data\logs\`                     |
-| macOS   | `~/Library/Application Support/SPlayer-Next/app-data/logs/` |
-| Linux   | `~/.config/SPlayer-Next/app-data/logs/`                     |
+| System  | Path                                                         |
+| ------- | ------------------------------------------------------------ |
+| Windows | `%APPDATA%\Sakura Player\app-data\logs\`                     |
+| macOS   | `~/Library/Application Support/Sakura Player/app-data/logs/` |
+| Linux   | `~/.config/Sakura Player/app-data/logs/`                     |
 
 Native module logs are in `app-data/logs/native/`.
 
@@ -30,7 +30,7 @@ Native module logs are in `app-data/logs/native/`.
 
 ## Filing an issue
 
-Include the operating system and version, SPlayer-Next version or commit, complete error output, and reproducible steps. For Linux, also include the desktop environment, distribution, package format or third-party build script, and review [Wayland compatibility](/en/troubleshooting/wayland).
+Include the operating system and version, Sakura Player version or commit, complete error output, and reproducible steps. For Linux, also include the desktop environment, distribution, package format or third-party build script, and review [Wayland compatibility](/en/troubleshooting/wayland).
 
 ## Resetting the app
 
@@ -38,15 +38,17 @@ Include the operating system and version, SPlayer-Next version or commit, comple
 Resetting deletes all local user data, including accounts, playlists, settings, and the local library index.
 :::
 
+Quit the player and back up the data first. Run these commands only when you intend a full reset. They apply to installed builds; Windows portable builds use `SakuraPlayerData/` beside the executable, which you should back up or clear manually after checking the path. Gatekeeper troubleshooting does not require a reset.
+
 ```bat
 :: Windows
-rd /s /q "%APPDATA%\SPlayer-Next"
+rd /s /q "%APPDATA%\Sakura Player"
 ```
 
 ```bash
 # macOS
-rm -rf ~/Library/Application\ Support/SPlayer-Next
+rm -rf "$HOME/Library/Application Support/Sakura Player"
 
 # Linux
-rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/SPlayer-Next"
+rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/Sakura Player"
 ```

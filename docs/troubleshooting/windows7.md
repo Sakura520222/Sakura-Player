@@ -1,9 +1,9 @@
 # Windows 7 兼容性问题
 
-SPlayer-Next 基于 Electron 构建，对 Windows 7 的支持存在限制。
+Sakura Player 基于 Electron 构建，对 Windows 7 的支持存在限制。
 
 ::: warning 重要提示
-自 Electron 23 起，官方不再支持 Windows 7 / 8 / 8.1。SPlayer-Next 使用的 Electron 版本已不兼容这些系统。**推荐 Windows 10 1903 及以上**。
+自 Electron 23 起，官方不再支持 Windows 7 / 8 / 8.1。Sakura Player 使用的 Electron 版本已不兼容这些系统。**推荐 Windows 10 1903 及以上**。
 :::
 
 ## 常见问题
@@ -31,4 +31,4 @@ Windows 7 默认不启用 TLS 1.2，可能导致部分网络请求失败。请�
 
 Windows 7 已于 2020 年 1 月结束支持，不再收到安全更新。强烈建议升级到 Windows 10 / 11，以获得安全性、兼容性与 SMTC 等现代能力。
 
-如确需在旧系统使用，可在 [GitHub Releases](https://github.com/SPlayer-Dev/SPlayer-Next/releases) 查找较早的版本，但旧版本可能存在已知安全问题。
+如确需在旧系统使用，可在 [GitHub Releases](https://github.com/Sakura520222/Sakura-Player/releases) 查找较早的版本，但旧版本可能存在已知安全问题。

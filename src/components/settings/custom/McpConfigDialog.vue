@@ -23,7 +23,7 @@ const clientConfig = computed(() =>
   JSON.stringify(
     {
       mcpServers: {
-        "splayer-next": {
+        "sakura-player": {
           type: "http",
           url: `http://127.0.0.1:${params.value.port}/mcp`,
           headers: { "X-MCP-Key": params.value.accessKey },

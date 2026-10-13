@@ -184,7 +184,7 @@ const servicesCategory: SettingCategory = {
               binding: { store: "settings", path: "system.externalApi.port" },
               min: 1024,
               max: 65535,
-              defaultValue: 14558,
+              defaultValue: 14568,
             },
           ],
         },

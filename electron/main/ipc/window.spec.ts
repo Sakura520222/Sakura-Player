@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("electron", () => ({
-  app: { getName: () => "SPlayer", quit: mocks.quit },
+  app: { getName: () => "Sakura Player", quit: mocks.quit },
   dialog: { showErrorBox: mocks.showError },
   ipcMain: { handle: mocks.handle, on: mocks.on },
 }));
@@ -71,7 +71,7 @@ describe("启动窗口 IPC 职责", () => {
     const failed = mocks.on.mock.calls.find(([channel]) => channel === "window:startupFailed")![1];
     failed({ sender: mocks.sender }, "加载失败");
     expect(mocks.logError).toHaveBeenCalledWith("渲染进程启动失败", "加载失败");
-    expect(mocks.showError).toHaveBeenCalledWith("SPlayer", "加载失败");
+    expect(mocks.showError).toHaveBeenCalledWith("Sakura Player", "加载失败");
     expect(mocks.quit).toHaveBeenCalledOnce();
     expect(mocks.showReady).not.toHaveBeenCalled();
     expect(complete).not.toHaveBeenCalled();

@@ -176,7 +176,7 @@ pub struct PlayModeParam {
 #[napi(string_enum)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiscordDisplayMode {
-    /// Listening to SPlayer
+    /// 使用 Discord 应用名称
     Name,
     /// Listening to {artist}
     State,

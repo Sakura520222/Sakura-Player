@@ -1,6 +1,6 @@
 # Plugin Overview and Architecture
 
-SPlayer-Next runs third-party JavaScript plugins in isolated sandboxes. A plugin interacts with the application only through the injected global `splayer` object.
+Sakura Player runs third-party JavaScript plugins in isolated sandboxes. A plugin interacts with the application only through the injected global `splayer` object.
 
 - [Source plugins](/en/plugins/source) resolve playable URLs and can provide fallback lyrics, covers, and comments.
 - [Control plugins](/en/plugins/control) receive playback events, control the player, expose settings, and add track menu items.
@@ -19,6 +19,9 @@ A script has one type, selected by `@type`; the default is `source`.
 
 ## Publishing to the plugin market
 
+> [!NOTE]
+> The plugin market is operated by the upstream SPlayer-Next project ([SPlayer-Dev/plugins](https://github.com/SPlayer-Dev/plugins)); Sakura Player shares the same plugin ecosystem.
+
 Submit a plugin to [SPlayer-Dev/plugins](https://github.com/SPlayer-Dev/plugins) through the New Plugin issue template. Automated checks validate the manifest and conventions, a pull request is generated for maintainer review, and merging rebuilds the market index.
 
 Use the Update Plugin template for a new version. Keep `@id` unchanged so users can update in place. See [Plugin Updates](/en/plugins/update).
@@ -30,7 +33,7 @@ Use the Update Plugin template for a new version. Keep `@id` unchanged so users 
 All enabled plugins share a dedicated plugin-host process. Each plugin runs in its own `node:vm` context. The process boundary prevents scripts from reading application memory or another plugin's data.
 
 ```text
-┌──────────── SPlayer-Next main process / UI ────────────┐
+┌─────────── Sakura Player main process / UI ────────────┐
 │        Player · plugin manager · network · storage     │
 └─────────────────────────┬──────────────────────────────┘
                           │ messages routed by pluginId

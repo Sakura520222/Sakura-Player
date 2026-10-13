@@ -12,7 +12,7 @@ export interface DiscordConfig {
 }
 
 /** Discord 显示模式 */
-export type DiscordDisplayMode = /** Listening to SPlayer */
+export type DiscordDisplayMode = /** 使用 Discord 应用名称 */
 'Name'|
 /** Listening to {artist} */
 'State'|

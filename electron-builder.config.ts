@@ -7,8 +7,10 @@ const fileAssociations = [...SUPPORTED_AUDIO_EXTENSIONS].map((extension) => {
   const ext = extension.slice(1);
   return {
     ext,
+    name: `SakuraPlayer.${ext}`,
     description: `${ext.toUpperCase()} Audio File`,
     role: "Viewer" as const,
+    rank: "Alternate",
   };
 });
 
@@ -33,9 +35,11 @@ if (updateChannel !== inferredUpdateChannel) {
 }
 
 const config: Configuration = {
-  appId: "top.imsyy.splayer-next",
-  productName: "SPlayer-Next",
-  copyright: "Copyright © imsyy 2025",
+  appId: "io.github.sakura520222.sakuraplayer",
+  productName: "Sakura Player",
+  // 原始版权属于上游作者 imsyy 及 SPlayer-Next 贡献者，AGPL-3.0 要求保留原署名
+  copyright:
+    "Copyright © imsyy 2025; SPlayer-Next contributors; Sakura Player maintained by Sakura520222",
   directories: { buildResources: "public" },
   fileAssociations,
   afterPack: "./scripts/after-pack.ts",
@@ -108,18 +112,22 @@ const config: Configuration = {
       from: "LICENSE",
       to: "LICENSE",
     },
+    {
+      from: "NOTICE",
+      to: "NOTICE",
+    },
   ],
   win: {
-    executableName: "SPlayer-Next",
+    executableName: "Sakura-Player",
     icon: "public/icons/logo.ico",
-    artifactName: "${productName}-${version}-${arch}.${ext}",
+    artifactName: "${name}-${version}-${arch}.${ext}",
     forceCodeSigning: false,
     target: ["nsis", "portable"],
-    protocols: [{ name: "Orpheus Protocol", schemes: ["orpheus"] }],
+    // Windows 协议由应用设置按需注册，安装器不抢占共享的 orpheus 默认处理器。
   },
   nsis: {
     oneClick: false,
-    guid: "top.imsyy.splayer-next",
+    guid: "io.github.sakura520222.sakuraplayer",
     installerIcon: "public/icons/logo.ico",
     uninstallerIcon: "public/icons/logo.ico",
     installerHeader: "build/installer/header.bmp",
@@ -127,21 +135,21 @@ const config: Configuration = {
     uninstallerSidebar: "build/installer/sidebar.bmp",
     include: "build/installer/installer.nsh",
     installerLanguages: ["en_US", "zh_CN"],
-    artifactName: "${productName}-${version}-${arch}-setup.${ext}",
-    shortcutName: "SPlayer Next",
-    uninstallDisplayName: "SPlayer Next",
+    artifactName: "${name}-${version}-${arch}-setup.${ext}",
+    shortcutName: "Sakura Player",
+    uninstallDisplayName: "Sakura Player",
     createDesktopShortcut: "always",
     allowElevation: true,
     allowToChangeInstallationDirectory: true,
     license: "build/license.txt",
   },
   portable: {
-    artifactName: "${productName}-${version}-${arch}-portable.${ext}",
+    artifactName: "${name}-${version}-${arch}-portable.${ext}",
   },
   mac: {
-    executableName: "SPlayer-Next",
+    executableName: "Sakura-Player",
     icon: "public/icons/icon.icns",
-    artifactName: "${productName}-${version}-${arch}.${ext}",
+    artifactName: "${name}-${version}-${arch}.${ext}",
     identity: null,
     hardenedRuntime: false,
     notarize: false,
@@ -155,18 +163,23 @@ const config: Configuration = {
         "Application requests access to the user's Documents folder.",
       NSDownloadsFolderUsageDescription:
         "Application requests access to the user's Downloads folder.",
-      CFBundleURLTypes: [{ CFBundleURLName: "Orpheus Protocol", CFBundleURLSchemes: ["orpheus"] }],
+      CFBundleURLTypes: [
+        {
+          CFBundleURLName: "io.github.sakura520222.sakuraplayer.orpheus",
+          CFBundleURLSchemes: ["orpheus"],
+        },
+      ],
     },
     target: ["dmg", "zip"],
   },
   dmg: {
-    artifactName: "${productName}-${version}-${arch}.${ext}",
+    artifactName: "${name}-${version}-${arch}.${ext}",
   },
   linux: {
-    executableName: "SPlayer-Next",
+    executableName: "Sakura-Player",
     icon: "public/icons/favicon-512x512.png",
     artifactName: "${name}-${version}-${arch}.${ext}",
-    maintainer: "imsyy.top",
+    maintainer: "Sakura520222 <sakura520222@outlook.com>",
     category: "Audio;Music;AudioVideo;",
     target: ["AppImage", "deb", "rpm", "tar.gz", "pacman"],
     syncDesktopName: true,
@@ -194,8 +207,8 @@ const config: Configuration = {
   },
   publish: {
     provider: "github",
-    owner: "SPlayer-Dev",
-    repo: "SPlayer-Next",
+    owner: "Sakura520222",
+    repo: "Sakura-Player",
     channel: updateChannel,
   },
 };

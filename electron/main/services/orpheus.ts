@@ -16,12 +16,20 @@ let rendererReady = false;
  * @param on - true 注册抢占，false 取消
  */
 export const setOrpheusProtocolRegistered = (on: boolean): void => {
+  const executable = process.env.PORTABLE_EXECUTABLE_FILE ?? process.execPath;
   if (on) {
-    app.setAsDefaultProtocolClient(ORPHEUS_SCHEME);
-    coreLog.info("[orpheus] 已注册 orpheus 协议处理程序");
+    if (app.setAsDefaultProtocolClient(ORPHEUS_SCHEME, executable)) {
+      coreLog.info("[orpheus] 已注册 orpheus 协议处理程序");
+    } else {
+      coreLog.warn("[orpheus] 注册 orpheus 协议处理程序失败");
+    }
   } else {
-    app.removeAsDefaultProtocolClient(ORPHEUS_SCHEME);
-    coreLog.info("[orpheus] 已取消 orpheus 协议处理程序");
+    if (!app.isDefaultProtocolClient(ORPHEUS_SCHEME, executable)) return;
+    if (app.removeAsDefaultProtocolClient(ORPHEUS_SCHEME, executable)) {
+      coreLog.info("[orpheus] 已取消 orpheus 协议处理程序");
+    } else {
+      coreLog.warn("[orpheus] 取消 orpheus 协议处理程序失败");
+    }
   }
 };
 
@@ -65,7 +73,8 @@ export const consumePendingOrpheusUrl = (): string | null => {
 
 /** 按当前配置决定启动时是否注册协议 */
 export const initOrpheusRegistration = (): void => {
-  if (store.get("system.registerOrpheusProtocol")) {
-    setOrpheusProtocolRegistered(true);
-  }
+  if (!store.get("system.registerOrpheusProtocol")) return;
+  // 用户已选择其他默认处理器时，启动不能重新抢占该协议。
+  if (app.getApplicationNameForProtocol(`${ORPHEUS_SCHEME}://`)) return;
+  setOrpheusProtocolRegistered(true);
 };

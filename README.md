@@ -1,23 +1,38 @@
 <div align="center">
 
-<img alt="SPlayer-Next logo" width="120" height="120" src="public/icons/favicon.png" />
+<img alt="Sakura Player logo" width="120" height="120" src="public/icons/favicon.png" />
 
-<h2>SPlayer-Next</h2>
+<h2>Sakura Player</h2>
 
 <p>🎵 Cross-platform desktop music player with rich lyric support and wide audio format compatibility.</p>
 
-<p>Successor to <a href="https://github.com/SPlayer-Dev/SPlayer">SPlayer</a>.</p>
+<p>An unofficial fork of <a href="https://github.com/SPlayer-Dev/SPlayer-Next">SPlayer-Next</a>, maintained by <a href="https://github.com/Sakura520222">Sakura520222</a>.</p>
 
-[![Stars](https://img.shields.io/github/stars/SPlayer-Dev/SPlayer-Next?style=flat)](https://github.com/SPlayer-Dev/SPlayer-Next/stargazers)
-[![Release](https://img.shields.io/github/v/release/SPlayer-Dev/SPlayer-Next)](https://github.com/SPlayer-Dev/SPlayer-Next/releases)
-[![License](https://img.shields.io/github/license/SPlayer-Dev/SPlayer-Next)](https://github.com/SPlayer-Dev/SPlayer-Next/blob/main/LICENSE)
-[![Issues](https://img.shields.io/github/issues/SPlayer-Dev/SPlayer-Next)](https://github.com/SPlayer-Dev/SPlayer-Next/issues)
+[![Stars](https://img.shields.io/github/stars/Sakura520222/Sakura-Player?style=flat)](https://github.com/Sakura520222/Sakura-Player/stargazers)
+[![Release](https://img.shields.io/github/v/release/Sakura520222/Sakura-Player)](https://github.com/Sakura520222/Sakura-Player/releases)
+[![License](https://img.shields.io/github/license/Sakura520222/Sakura-Player)](https://github.com/Sakura520222/Sakura-Player/blob/dev/LICENSE)
+[![Issues](https://img.shields.io/github/issues/Sakura520222/Sakura-Player)](https://github.com/Sakura520222/Sakura-Player/issues)
 
 **English** | [简体中文](./README.zh-CN.md)
 
 </div>
 
 ---
+
+> [!NOTE]
+> Sakura Player is a community-maintained fork and is **not** affiliated with the official SPlayer-Next project.
+> The original upstream version is developed by [imsyy](https://github.com/imsyy) and the
+> [SPlayer-Dev](https://github.com/SPlayer-Dev) organization at <https://github.com/SPlayer-Dev/SPlayer-Next>.
+> Sakura Player installs side-by-side with the upstream app and manages its own user data.
+> Fork modifications date: **2026-10-13**. Upstream copyright and provenance are retained in [NOTICE](./NOTICE).
+
+## Fork compatibility
+
+- Windows portable builds store data in `SakuraPlayerData/` beside the executable. The upstream `UserData/` directory is left untouched. There is no automatic migration from that shared directory; back it up and identify the data you intend to copy with both applications closed.
+- Fresh configurations use port `14568` for HTTP/WebSocket and `14569` for MCP. Both services remain optional and configurable. Saved ports are preserved; use the actual Settings values and choose different ports if imported settings conflict with another player.
+- MCP keeps `splayer://now-playing` and `splayer://library/summary` as aliases of the new `sakura-player://` resources. The `splayer` plugin API and native module aliases remain compatible. The `sakura-player` client configuration entry is separate from upstream; configure a distinct port and key when using both servers.
+- Windows installation adds file handlers to Open With and does not take over `orpheus://`. Explicitly enabling Orpheus in Settings can change its default handler; automatic startup preserves an existing handler. Disabling or uninstalling only removes a handler still owned by this installation and does not promise to restore a previous user-level choice. macOS declares the existing scheme so external links remain compatible; Launch Services behavior still needs verification with both apps installed.
+- Discord RPC is disabled by default and temporarily uses the upstream Application ID, assets, and identity. It makes no independent Sakura Player brand claim. Before an independently branded Discord release, the maintainer must register a real application and supply its assets; no new ID is invented here.
 
 ## Features
 
@@ -86,19 +101,18 @@ pnpm build:native     # Build the Rust native modules only (add `--dev` for debu
 
 ## Acknowledgements
 
-Special thanks to the open-source projects that make SPlayer-Next possible:
-
+- [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next) — the upstream project Sakura Player is based on, developed by imsyy and the SPlayer-Dev contributors
 - [applemusic-like-lyrics](https://github.com/Steve-xmh/applemusic-like-lyrics) — Apple Music-style lyrics display component library
 - [NeteaseCloudMusicApiEnhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced) — NetEase Cloud Music API (backup + enhanced)
 
 ## License
 
-This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](https://www.gnu.org/licenses/agpl-3.0.html).
+Sakura Player is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](https://www.gnu.org/licenses/agpl-3.0.html), inherited from SPlayer-Next. The original license text is retained in [LICENSE](./LICENSE), and original author notices and fork provenance are retained in [NOTICE](./NOTICE).
 
-- **Modification & distribution:** any modification or distribution must also be released under **AGPL-3.0**, with the complete source code provided.
-- **Derivative works:** must adopt **AGPL-3.0** as well, and must retain this project's license and copyright notice in an appropriate place.
-- **Attribution:** the original author and copyright information must be preserved. You may add your own notice for a derivative work, but you must not remove or alter the original.
-- **Commercial use:** if used for sale or any other for-profit purpose, the source code and a link to the original project must be provided. Because this project relies on third-party services, commercial use may carry legal risk.
+- **Modification & distribution:** follow **AGPL-3.0**, including its corresponding-source requirements when distributing covered works or offering a modified version for remote network interaction. Private modification does not by itself require public release.
+- **Derivative works:** distributed covered works must comply with **AGPL-3.0** and retain applicable upstream license and copyright notices.
+- **Attribution:** the original author (imsyy) and the SPlayer-Next contributors hold the copyright to the original code. Sakura Player adds its own notices for the fork but does not remove or alter the original ones.
+- **Source code:** this repository maintains the fork's source. Release packages must have the corresponding source for that release available as required by AGPL-3.0.
 - **No warranty:** the software is provided "as is", without warranty of any kind, as described in the AGPL-3.0.
 
 ## Disclaimer
