@@ -93,7 +93,7 @@ pnpm build:linux   # Package for Linux (AppImage / deb / rpm / tar.gz / pacman)
 ### Other Scripts
 
 ```bash
-pnpm typecheck        # tsc + vue-tsc (node + web targets)
+pnpm typecheck        # tsc + vue-tsc
 pnpm lint             # ESLint
 pnpm format           # Prettier
 pnpm build:native     # Build the Rust native modules only (add `--dev` for debug)
