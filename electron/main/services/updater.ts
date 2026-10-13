@@ -3,7 +3,7 @@ import { app, shell } from "electron";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { sendToMain } from "@main/utils/broadcast";
-import { store } from "@main/store";
+import { defaultUpdateChannel, store } from "@main/store";
 import { isDev, isMac, isPortable, isAppX } from "@main/utils/config";
 import { updaterLog } from "@main/utils/logger";
 import type { UpdateEvent, UpdateMeta, UpdateMode, UpdateState } from "@shared/types/update";
@@ -31,10 +31,10 @@ const getMode = (): UpdateMode => {
   return "external";
 };
 
-/** 使用已保存的更新通道，未配置或无效时默认稳定版 */
+/** 使用已保存的通道，未配置或无效时跟随安装版本的默认通道 */
 const getChannel = (): UpdateChannel => {
   const value = store.get("update.channel");
-  return UPDATE_CHANNELS.includes(value) ? value : "stable";
+  return UPDATE_CHANNELS.includes(value) ? value : defaultUpdateChannel;
 };
 
 let state: UpdateState = {

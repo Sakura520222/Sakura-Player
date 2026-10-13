@@ -4,6 +4,7 @@ import { flushPromises } from "@vue/test-utils";
 
 const mocks = vi.hoisted(() => ({
   channel: "stable",
+  defaultChannel: "stable",
   autoCheck: true,
   packaged: true,
   dev: false,
@@ -42,6 +43,9 @@ vi.mock("@main/utils/config", () => ({
   },
 }));
 vi.mock("@main/store", () => ({
+  get defaultUpdateChannel() {
+    return mocks.defaultChannel;
+  },
   store: { get: (key: string) => (key === "update.channel" ? mocks.channel : mocks.autoCheck) },
 }));
 vi.mock("@main/utils/broadcast", () => ({ sendToMain: mocks.send }));
@@ -91,6 +95,7 @@ describe.each(["win32", "linux"])("统一更新任务（%s）", (platform) => {
     vi.clearAllMocks();
     Object.assign(mocks, {
       channel: "stable",
+      defaultChannel: "stable",
       autoCheck: true,
       packaged: true,
       dev: false,
@@ -109,6 +114,25 @@ describe.each(["win32", "linux"])("统一更新任务（%s）", (platform) => {
       Object.defineProperty(process, "platform", platformDescriptor);
       vi.unstubAllEnvs();
     }
+  });
+
+  it("未保存或无效的通道使用安装版本的 Beta 默认值", async () => {
+    mocks.channel = "invalid";
+    mocks.defaultChannel = "beta";
+    const service = await import("./updater");
+    service.initUpdater();
+    service.checkForUpdates(true);
+    await flushPromises();
+    const updater = (await import("electron-updater")).default.autoUpdater;
+    expect(service.getUpdateState().channel).toBe("beta");
+    expect(updater.channel).toBe("beta");
+    expect(updater.allowPrerelease).toBe(true);
+    expect(updater.allowDowngrade).toBe(false);
+    expect(mocks.feed).toHaveBeenCalledWith({
+      provider: "github",
+      owner: "Sakura520222",
+      repo: "Sakura-Player",
+    });
   });
 
   it("nightly 安装版尊重显式 stable，且下载完成后不自动退出安装", async () => {
