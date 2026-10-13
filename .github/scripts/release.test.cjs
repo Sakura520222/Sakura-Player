@@ -113,6 +113,31 @@ for (const draft of [false, true]) {
       );
     });
   });
+
+  test(`分页查询后续页面的同名${draft ? "草稿" : "公开版本"}时仍停止`, () => {
+    runFixture(({ options, calls, run }) => {
+      const paginated = (command, args) => {
+        if (args[0] === "api") {
+          assert.ok(args.includes("--paginate"));
+          assert.ok(args.includes("--slurp"));
+          assert.ok(!args.includes("--jq"));
+          return JSON.stringify([
+            [{ tag_name: "nightly", draft: false }],
+            [{ tag_name: tag, draft }],
+          ]);
+        }
+        return run(command, args);
+      };
+      assert.throws(
+        () => createDraftRelease(options, paginated),
+        draft ? /同名草稿/ : /已公开发布/,
+      );
+      assert.equal(
+        calls.some(([, args]) => args[0] === "release"),
+        false,
+      );
+    });
+  });
 }
 
 test("查询发行版遇到鉴权或网络失败时停止", () => {
