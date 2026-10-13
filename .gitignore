@@ -28,3 +28,4 @@ package-lock.json
 # Code signing certificates
 *.pfx
 *.p12
+.codegraph/
