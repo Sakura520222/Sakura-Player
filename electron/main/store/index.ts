@@ -3,11 +3,20 @@ import path from "node:path";
 import { app } from "electron";
 import { writeFileSync as atomicWriteSync } from "atomically";
 import { defaultSystemConfig } from "@shared/defaults/settings";
-import type { SystemConfig } from "@shared/types/settings";
+import type { SystemConfig, UpdateChannel } from "@shared/types/settings";
 import type { ConfigPath, PathValue } from "./types";
 import { deepMerge, getByPath, setByPath } from "./utils";
 import { migrations } from "./migrations";
 import { configDir } from "@main/utils/paths";
+
+const prereleaseChannel = /-(alpha|beta|nightly)(?:\.|$)/.exec(app.getVersion())?.[1] as
+  UpdateChannel | undefined;
+export const defaultUpdateChannel = prereleaseChannel ?? defaultSystemConfig.update.channel;
+// 仅补全缺省值，已保存的通道由 deepMerge 保留。
+const defaults: SystemConfig = {
+  ...defaultSystemConfig,
+  update: { ...defaultSystemConfig.update, channel: defaultUpdateChannel },
+};
 
 /** 配置文件路径 */
 const configPath = path.join(configDir, "settings.json");
@@ -63,7 +72,7 @@ const flush = (config: SystemConfig): void => {
  */
 const init = (): SystemConfig => {
   const raw = readFile();
-  const data = deepMerge(defaultSystemConfig, raw);
+  const data = deepMerge(structuredClone(defaults), raw);
 
   let currentVersion: number = (raw[META_KEY] as number) ?? 0;
   const pending = migrations
@@ -121,14 +130,14 @@ export const store = {
 
   /** 清空配置 */
   clear(): void {
-    data = structuredClone(defaultSystemConfig);
+    data = structuredClone(defaults);
     flush(data);
   },
 
   /** 用导入的配置替换当前配置 */
   replaceAll(input: unknown): void {
     const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
-    data = deepMerge(defaultSystemConfig, raw);
+    data = deepMerge(structuredClone(defaults), raw);
     flushImmediate(data);
   },
 

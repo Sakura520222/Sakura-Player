@@ -219,6 +219,14 @@ const fetchRelease = async (): Promise<void> => {
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     releases.value = (await response.json()) as Release[];
+    if (
+      !releases.value.some((entry) => !entry.draft && !entry.prerelease) &&
+      releases.value.some(
+        (entry) => entry.prerelease && !entry.draft && /-beta(?:\.|$)/i.test(entry.tag_name),
+      )
+    ) {
+      channel.value = "beta";
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {

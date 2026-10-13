@@ -3,10 +3,19 @@
 
 const fs = require("fs");
 const path = require("path");
+const { createHash } = require("node:crypto");
 const yaml = require("js-yaml");
+const { name: packageName } = require("../../package.json");
+const { resolveChannel } = require("./release-metadata.cjs");
 
 const MANIFEST_SUFFIXES = ["", "-mac", "-linux", "-linux-arm64"];
 const SKIP_FILES = new Set(["builder-debug.yml", "builder-effective-config.yaml"]);
+const PACKAGE_FORMATS = {
+  "": { arches: ["x64", "arm64"], extensions: ["setup.exe", "portable.exe"] },
+  "-mac": { arches: ["x64", "arm64"], extensions: ["dmg", "zip"] },
+  "-linux": { arches: ["x64"], extensions: ["AppImage", "deb", "rpm", "tar.gz", "pacman"] },
+  "-linux-arm64": { arches: ["arm64"], extensions: ["AppImage", "deb", "rpm", "tar.gz", "pacman"] },
+};
 
 /**
  * 递归收集目录下的文件
@@ -46,6 +55,10 @@ const mergeManifests = (docs) => {
   const byUrl = new Map();
   for (const doc of docs) {
     for (const file of doc.files || []) {
+      const previous = byUrl.get(file.url);
+      if (previous && (previous.sha512 !== file.sha512 || previous.size !== file.size)) {
+        throw new Error(`同名清单资源内容不一致: ${file.url}`);
+      }
       if (!byUrl.has(file.url)) byUrl.set(file.url, file);
     }
   }
@@ -56,19 +69,6 @@ const mergeManifests = (docs) => {
     merged.sha512 = preferred.sha512;
   }
   return merged;
-};
-
-/**
- * 从版本号解析发布通道
- * @param {string} version - 应用版本
- * @returns {"latest" | "beta" | "alpha" | "nightly"} 发布通道
- */
-const resolveChannel = (version) => {
-  if (/-nightly(?:\.|$)/.test(version)) return "nightly";
-  if (/-alpha(?:\.|$)/.test(version)) return "alpha";
-  if (/-beta(?:\.|$)/.test(version)) return "beta";
-  if (version.includes("-")) throw new Error(`不支持的预发布版本格式: ${version}`);
-  return "latest";
 };
 
 const ALIAS_CHANNELS_MAP = {
@@ -107,6 +107,39 @@ const createChannelAliases = (outDir, channel) => {
  */
 const validateManifests = (outDir, version, channel) => {
   const channels = VALIDATE_CHANNELS_MAP[channel] ?? [channel];
+  const packages = new Map();
+  const expected = new Set();
+  for (const [suffix, { arches, extensions }] of Object.entries(PACKAGE_FORMATS)) {
+    const names = arches.flatMap((arch) =>
+      extensions.map((extension) =>
+        suffix === ""
+          ? `${packageName}-${version}-${arch}-${extension}`
+          : `${packageName}-${version}-${arch}.${extension}`,
+      ),
+    );
+    packages.set(suffix, names);
+    for (const name of names) {
+      expected.add(name);
+      const asset = path.join(outDir, name);
+      if (!fs.existsSync(asset)) throw new Error(`缺少发行物: ${name}`);
+      if (!fs.statSync(asset).isFile() || fs.statSync(asset).size === 0) {
+        throw new Error(`发行物为空或不是文件: ${name}`);
+      }
+    }
+  }
+  const manifests = new Set(
+    channels.flatMap((current) => MANIFEST_SUFFIXES.map((suffix) => `${current}${suffix}.yml`)),
+  );
+  for (const name of fs.readdirSync(outDir)) {
+    if (expected.has(name) || manifests.has(name)) continue;
+    if (name.endsWith(".blockmap") && expected.has(name.slice(0, -9))) {
+      if (fs.statSync(path.join(outDir, name)).size > 0) continue;
+    }
+    throw new Error(`发现不属于本次发布的资源: ${name}`);
+  }
+  // 清单别名复用摘要，按固定大小读取安装包，避免把大型文件全部装入内存。
+  const hashes = new Map();
+  const buffer = Buffer.alloc(64 * 1024);
   for (const current of channels) {
     for (const suffix of MANIFEST_SUFFIXES) {
       const name = `${current}${suffix}.yml`;
@@ -122,11 +155,37 @@ const validateManifests = (outDir, version, channel) => {
       if (!selected || selected.sha512 !== doc.sha512) {
         throw new Error(`${name} 的默认更新文件无效`);
       }
+      const names = packages.get(suffix);
+      const updateExtension =
+        suffix === "" ? "-setup.exe" : suffix === "-mac" ? ".zip" : ".AppImage";
+      for (const name of names.filter((name) => name.endsWith(updateExtension))) {
+        if (!doc.files.some((item) => item.url === name)) {
+          throw new Error(`${name} 未包含在 ${current}${suffix}.yml 中`);
+        }
+      }
       for (const item of doc.files) {
-        const asset = path.join(outDir, path.basename(item.url));
+        if (!names.includes(item.url))
+          throw new Error(`${name} 引用了错误平台或版本的资源: ${item.url}`);
+        const asset = path.join(outDir, item.url);
         if (!fs.existsSync(asset)) throw new Error(`${name} 引用了不存在的资源: ${item.url}`);
         if (item.size != null && fs.statSync(asset).size !== item.size) {
           throw new Error(`${name} 的资源大小不匹配: ${item.url}`);
+        }
+        if (!hashes.has(item.url)) {
+          const hash = createHash("sha512");
+          const fd = fs.openSync(asset, "r");
+          try {
+            let size;
+            while ((size = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) {
+              hash.update(buffer.subarray(0, size));
+            }
+          } finally {
+            fs.closeSync(fd);
+          }
+          hashes.set(item.url, hash.digest("base64"));
+        }
+        if (hashes.get(item.url) !== item.sha512) {
+          throw new Error(`${name} 的 SHA-512 不匹配: ${item.url}`);
         }
       }
     }
@@ -141,6 +200,9 @@ const validateManifests = (outDir, version, channel) => {
  */
 const prepareReleaseAssets = (srcDir, outDir, version) => {
   const channel = resolveChannel(version);
+  if (fs.existsSync(outDir) && fs.readdirSync(outDir).length > 0) {
+    throw new Error(`发布资源目录必须为空: ${outDir}`);
+  }
   fs.mkdirSync(outDir, { recursive: true });
 
   const manifestDocs = new Map();
@@ -179,4 +241,4 @@ if (require.main === module) {
   prepareReleaseAssets(srcDir, outDir, version);
 }
 
-module.exports = { mergeManifests, prepareReleaseAssets, resolveChannel };
+module.exports = { mergeManifests, prepareReleaseAssets, resolveChannel, validateManifests };

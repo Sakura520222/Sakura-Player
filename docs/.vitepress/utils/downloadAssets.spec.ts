@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseDownloadAsset, selectRecommendedAssets, sortDownloadAssets } from "./downloadAssets";
+import builder from "../../../electron-builder.config";
+import pkg from "../../../package.json";
 
 const parse = (name: string) => parseDownloadAsset(name, `https://example.com/${name}`, 1024);
 
@@ -86,5 +88,39 @@ describe("sortDownloadAssets", () => {
       "portable",
       "zip",
     ]);
+  });
+});
+
+describe("实际发行配置与下载页的命名兼容", () => {
+  it("保留全部平台的原有包格式", () => {
+    expect(builder.win?.target).toEqual(["nsis", "portable"]);
+    expect(builder.mac?.target).toEqual(["dmg", "zip"]);
+    expect(builder.linux?.target).toEqual(["AppImage", "deb", "rpm", "tar.gz", "pacman"]);
+  });
+
+  it.each(["x64", "arm64"])("识别实际模板生成的 %s 全部九种包格式", (arch) => {
+    const packages = [
+      [builder.nsis?.artifactName, "exe", "Windows", "installer"],
+      [builder.portable?.artifactName, "exe", "Windows", "portable"],
+      [builder.dmg?.artifactName, "dmg", "macOS", "dmg"],
+      [builder.mac?.artifactName, "zip", "macOS", "zip"],
+      [builder.appImage?.artifactName, "AppImage", "Linux", "AppImage"],
+      [builder.linux?.artifactName, "deb", "Linux", "deb"],
+      [builder.linux?.artifactName, "rpm", "Linux", "rpm"],
+      [builder.linux?.artifactName, "tar.gz", "Linux", "tar.gz"],
+      [builder.pacman?.artifactName, "pacman", "Linux", "pacman"],
+    ];
+    for (const [template, extension, platform, format] of packages) {
+      const name = template!
+        .replaceAll("${name}", pkg.name)
+        .replaceAll("${version}", pkg.version)
+        .replaceAll("${arch}", arch)
+        .replaceAll("${ext}", extension!);
+      expect(parse(name)).toMatchObject({
+        platform,
+        format,
+        arch: arch === "arm64" ? "ARM64" : "x64",
+      });
+    }
   });
 });
