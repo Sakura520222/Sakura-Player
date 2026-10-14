@@ -14,9 +14,10 @@ export interface Contributor {
 
 /* 仓库标识 */
 const repoSlug = "Sakura520222/Sakura-Player";
+const repoOwner = repoSlug.split("/")[0];
 
 /**
- * 获取仓库贡献者列表
+ * 获取仓库贡献者列表，仓库作者固定置顶
  * @returns 贡献者数组
  */
 export const getContributors = async (): Promise<Contributor[]> => {
@@ -32,5 +33,6 @@ export const getContributors = async (): Promise<Contributor[]> => {
       login: item.login ?? item.name ?? "anonymous",
       htmlUrl: item.html_url ?? "",
       avatar: item.avatar_url ?? "",
-    }));
+    }))
+    .sort((a, b) => Number(b.login === repoOwner) - Number(a.login === repoOwner));
 };
