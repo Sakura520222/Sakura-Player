@@ -86,6 +86,8 @@ const parseArgs = () => {
 };
 
 const napiArgs = ["--no-const-enum"];
+const NAPI_BUILD_RETRY_LIMIT = 3;
+const NAPI_BUILD_RETRY_DELAYS_MS = [1000, 3000, 7000];
 const options = parseArgs();
 
 if (!options.isDev) napiArgs.push("--release");
@@ -100,11 +102,24 @@ for (const mod of modules) {
   const buildType = options.isDev ? "debug" : "release";
   console.log(`[BuildNative] 构建 ${mod.name} (${buildType})`);
 
-  const result = spawnSync("napi", ["build", ...napiArgs], {
-    stdio: "inherit",
-    shell: process.platform === "win32",
-    cwd,
-  });
+  const spawnNapiBuild = () =>
+    spawnSync("napi", ["build", ...napiArgs], {
+      stdio: "inherit",
+      shell: process.platform === "win32",
+      cwd,
+    });
+
+  let result = spawnNapiBuild();
+  let retries = 0;
+  while (result.status !== 0 && retries < NAPI_BUILD_RETRY_LIMIT) {
+    const delay = NAPI_BUILD_RETRY_DELAYS_MS[retries];
+    retries += 1;
+    console.log(
+      `[BuildNative] ${mod.name} 构建失败，${delay}ms 后重试 (${retries}/${NAPI_BUILD_RETRY_LIMIT})`,
+    );
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+    result = spawnNapiBuild();
+  }
 
   if (result.error) {
     console.error("[BuildNative] 模块构建失败，进程启动失败", result.error);
