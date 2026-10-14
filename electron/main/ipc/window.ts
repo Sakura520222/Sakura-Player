@@ -13,11 +13,14 @@ import {
   toggleDynamicIslandWindow,
   closeDynamicIslandWindow,
   getDynamicIslandWindow,
+  isDynamicIslandWindowOpen,
   moveDynamicIslandWindow,
   saveDynamicIslandState,
   applyDynamicIslandWidth,
   applyDynamicIslandHeight,
   applyDynamicIslandShape,
+  markDynamicIslandRendererReady,
+  finishDynamicIslandVisibilityTransition,
   toggleTaskbarLyricWindow,
   closeTaskbarLyricWindow,
   getTaskbarLyricWindow,
@@ -90,7 +93,16 @@ export const registerWindowIpc = (onStartupComplete: () => void): void => {
   ipcMain.handle("window:closeDynamicIsland", () => closeDynamicIslandWindow());
 
   // 查询灵动岛窗口是否打开
-  ipcMain.handle("window:isDynamicIslandOpen", () => !!getDynamicIslandWindow());
+  ipcMain.handle("window:isDynamicIslandOpen", () => isDynamicIslandWindowOpen());
+
+  ipcMain.handle("dynamicIsland:ready", (event) => {
+    if (event.sender !== getDynamicIslandWindow()?.webContents) return;
+    markDynamicIslandRendererReady();
+  });
+  ipcMain.on("dynamicIsland:finishVisibilityTransition", (event, requestId: number) => {
+    if (event.sender !== getDynamicIslandWindow()?.webContents) return;
+    finishDynamicIslandVisibilityTransition(requestId);
+  });
 
   // 灵动岛拖拽移动
   ipcMain.on("dynamicIsland:move", (_event, x: number, y: number) => {

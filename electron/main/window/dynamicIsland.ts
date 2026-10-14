@@ -7,9 +7,14 @@ import { broadcast } from "@main/utils/broadcast";
 import { isMac } from "@main/utils/config";
 import { setTrayDynamicIsland } from "@main/services/tray";
 import { isAppQuitting } from "@main/utils/lifecycle";
+import { lightSnapshot } from "@main/services/nowPlaying";
 import { DYNAMIC_ISLAND_BASE_HEIGHT } from "@shared/defaults/settings";
 
 let dynamicIslandWindow: BrowserWindow | null = null;
+let dynamicIslandReady = false;
+let dynamicIslandClosing = false;
+let visibilityTarget: boolean | null = null;
+let visibilityRequestId = 0;
 
 /** 用户实测刘海物理宽度，按显示器 scaleFactor 换算成 Electron DIP */
 const NOTCH_PHYSICAL_WIDTH = 358;
@@ -231,11 +236,63 @@ export const applyDynamicIslandNonOcclusive = (enabled: boolean): void => {
   const win = getDynamicIslandWindow();
   if (!win) return;
   win.setIgnoreMouseEvents(enabled, { forward: true });
-  if (enabled) {
+  if (enabled && win.isVisible() && visibilityTarget !== false) {
     startCursorPolling();
   } else {
     stopCursorPolling();
   }
+};
+
+/**
+ * 同步用户启用状态，退出应用时保留恢复窗口所需的配置
+ * @param open - 是否启用灵动岛
+ */
+const setDynamicIslandOpenState = (open: boolean): void => {
+  setTrayDynamicIsland(open);
+  broadcast("dynamicIsland:visibilityChange", open);
+  if (!isAppQuitting()) store.set("windowStates.dynamicIsland.visible", open);
+};
+
+/** 根据暂停与关闭状态同步显隐，保留窗口位置 */
+export const syncDynamicIslandVisibility = (): void => {
+  const win = getDynamicIslandWindow();
+  if (!win || !dynamicIslandReady) return;
+  const config = store.get("dynamicIsland");
+  const visible =
+    !dynamicIslandClosing && !(config.hideWhenPaused && lightSnapshot().state === "paused");
+  if (visible === visibilityTarget) return;
+  visibilityTarget = visible;
+  if (!visible) {
+    stopCursorPolling();
+  } else {
+    if (!win.isVisible()) win.showInactive();
+    if (config.nonOcclusive) startCursorPolling();
+  }
+  win.webContents.send("dynamicIsland:animateVisibility", {
+    visible,
+    requestId: ++visibilityRequestId,
+  });
+};
+
+/** 渲染端订阅完成后重放当前显隐状态，兼容首次加载与 HMR */
+export const markDynamicIslandRendererReady = (): void => {
+  dynamicIslandReady = true;
+  visibilityTarget = null;
+  const config = store.get("dynamicIsland");
+  applyDynamicIslandAlwaysOnTop(config.alwaysOnTop);
+  applyDynamicIslandNonOcclusive(config.nonOcclusive);
+  syncDynamicIslandVisibility();
+};
+
+/**
+ * 收起动画完成后隐藏或关闭窗口，忽略快速重新开启留下的过期通知
+ * @param requestId - 收起动画对应的请求编号
+ */
+export const finishDynamicIslandVisibilityTransition = (requestId: number): void => {
+  const win = getDynamicIslandWindow();
+  if (!win || visibilityTarget !== false || requestId !== visibilityRequestId) return;
+  if (dynamicIslandClosing) win.close();
+  else win.hide();
 };
 
 /**
@@ -475,11 +532,14 @@ export const saveDynamicIslandState = (): void => {
   }
 };
 
-/** 创建灵动岛窗口，如果窗口已存在则显示并聚焦 */
+/** 创建灵动岛窗口，已存在时按暂停策略决定显隐与聚焦 */
 export const createDynamicIslandWindow = (): BrowserWindow => {
   if (dynamicIslandWindow && !dynamicIslandWindow.isDestroyed()) {
-    dynamicIslandWindow.show();
-    dynamicIslandWindow.focus();
+    const reopening = dynamicIslandClosing;
+    dynamicIslandClosing = false;
+    if (reopening) setDynamicIslandOpenState(true);
+    syncDynamicIslandVisibility();
+    if (!reopening && dynamicIslandWindow.isVisible()) dynamicIslandWindow.focus();
     return dynamicIslandWindow;
   }
   const config = store.get("dynamicIsland");
@@ -572,51 +632,51 @@ export const createDynamicIslandWindow = (): BrowserWindow => {
     broadcastMode(currentSaved.mode === "floating" ? "floating" : "snapped");
   });
 
-  dynamicIslandWindow.once("ready-to-show", () => {
-    if (!dynamicIslandWindow) return;
-    dynamicIslandWindow.show();
-    dynamicIslandWindow.setAlwaysOnTop(config.alwaysOnTop, "screen-saver");
-    if (config.nonOcclusive) {
-      dynamicIslandWindow.setIgnoreMouseEvents(true, { forward: true });
-      startCursorPolling();
-    }
-  });
-
-  setTrayDynamicIsland(true);
-  broadcast("dynamicIsland:visibilityChange", true);
-  store.set("windowStates.dynamicIsland.visible", true);
+  setDynamicIslandOpenState(true);
 
   dynamicIslandWindow.on("closed", () => {
+    const wasClosing = dynamicIslandClosing;
     stopCursorPolling();
+    dynamicIslandReady = false;
+    dynamicIslandClosing = false;
+    visibilityTarget = null;
     activeShapeWidth = null;
     dynamicIslandWindow = null;
     lastBroadcastMode = null;
-    setTrayDynamicIsland(false);
-    broadcast("dynamicIsland:visibilityChange", false);
-    if (!isAppQuitting()) {
-      store.set("windowStates.dynamicIsland.visible", false);
-    }
+    if (!wasClosing) setDynamicIslandOpenState(false);
   });
 
   return dynamicIslandWindow;
 };
 
-/** 关闭灵动岛窗口 */
+/** 手动关闭先完成收起动画；退出或已隐藏时直接释放窗口 */
 export const closeDynamicIslandWindow = (): void => {
-  if (dynamicIslandWindow && !dynamicIslandWindow.isDestroyed()) {
-    dynamicIslandWindow.close();
+  const win = getDynamicIslandWindow();
+  if (!win) return;
+  if (isAppQuitting()) {
+    win.close();
+    return;
   }
+  if (dynamicIslandClosing) return;
+  dynamicIslandClosing = true;
+  setDynamicIslandOpenState(false);
+  if (!dynamicIslandReady || !win.isVisible()) win.close();
+  else syncDynamicIslandVisibility();
 };
 
 /** 切换灵动岛窗口 */
 export const toggleDynamicIslandWindow = (): boolean => {
-  if (dynamicIslandWindow && !dynamicIslandWindow.isDestroyed()) {
+  if (isDynamicIslandWindowOpen()) {
     closeDynamicIslandWindow();
     return false;
   }
   createDynamicIslandWindow();
   return true;
 };
+
+/** 查询启用状态，正在播放关闭动画的窗口视为已关闭 */
+export const isDynamicIslandWindowOpen = (): boolean =>
+  !!getDynamicIslandWindow() && !dynamicIslandClosing;
 
 /** 获取灵动岛窗口实例 */
 export const getDynamicIslandWindow = (): BrowserWindow | null => {

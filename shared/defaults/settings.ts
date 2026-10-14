@@ -62,6 +62,7 @@ export const defaultSystemConfig: SystemConfig = {
     useCSSDrag: false,
   },
   dynamicIsland: {
+    hideWhenPaused: false,
     scale: 1,
     fontWeight: 500,
     fontFamily: "",

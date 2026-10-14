@@ -33,7 +33,7 @@ import {
   setTrayLikeState,
 } from "@main/services/tray";
 import { setTaskbarThumbnailCover } from "@main/services/thumbnail";
-import { getMainWindow, setTaskbarProgress } from "@main/window";
+import { getMainWindow, setTaskbarProgress, syncDynamicIslandVisibility } from "@main/window";
 import { store } from "@main/store";
 import { appName, getSongCacheDir } from "@main/utils/config";
 import * as songCache from "@main/services/songCache";
@@ -148,6 +148,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
           setTaskbarProgress(-1);
         }
         nowPlaying.onPlayStateChange(state);
+        syncDynamicIslandVisibility();
         lastfm.onState(state === "playing");
         neteaseScrobble.onState(state === "playing");
         const statusEvent = {

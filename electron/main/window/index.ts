@@ -36,6 +36,7 @@ export {
   closeDynamicIslandWindow,
   toggleDynamicIslandWindow,
   getDynamicIslandWindow,
+  isDynamicIslandWindowOpen,
   applyDynamicIslandAlwaysOnTop,
   applyDynamicIslandHeight,
   applyDynamicIslandShape,
@@ -43,6 +44,9 @@ export {
   applyDynamicIslandSnapCentered,
   applyDynamicIslandNotchFusion,
   applyDynamicIslandNonOcclusive,
+  syncDynamicIslandVisibility,
+  markDynamicIslandRendererReady,
+  finishDynamicIslandVisibilityTransition,
   moveDynamicIslandWindow,
   saveDynamicIslandState,
 } from "./dynamicIsland";

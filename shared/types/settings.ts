@@ -146,6 +146,8 @@ export type DynamicIslandTransition = "bounce" | "smooth";
 
 /** 灵动岛歌词配置 */
 export interface DynamicIslandSettings {
+  /** 暂停播放时临时隐藏，恢复播放后自动显示 */
+  hideWhenPaused: boolean;
   /** 缩放比例（0.5 ~ 2.0），1 = 100%；实际窗口高度由渲染端按基准高度 × 缩放算出 */
   scale: number;
   /** 字重 */

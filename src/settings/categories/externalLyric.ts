@@ -153,6 +153,12 @@ const dynamicIslandSection: SettingSection = {
       defaultValue: false,
     },
     {
+      key: "dynamicIslandHideWhenPaused",
+      type: "switch",
+      binding: { store: "settings", path: "system.dynamicIsland.hideWhenPaused" },
+      defaultValue: false,
+    },
+    {
       key: "dynamicIslandScale",
       type: "slider",
       binding: { store: "settings", path: "system.dynamicIsland.scale" },

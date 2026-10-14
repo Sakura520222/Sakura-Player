@@ -19,7 +19,10 @@ import type { UpdateEvent } from "@shared/types/update";
 import type { CloudUploadProgress } from "@shared/types/cloudUpload";
 import type { MusicCommentQuery } from "@shared/types/comment";
 import type { AiModelSaveInput } from "@shared/types/ai";
-import type { DesktopLyricUnlockButtonBounds } from "@shared/types/window";
+import type {
+  DesktopLyricUnlockButtonBounds,
+  DynamicIslandVisibilityChange,
+} from "@shared/types/window";
 import type {
   LegacyPlaylistRecord,
   PlaylistCreateInput,
@@ -361,6 +364,11 @@ const api = {
       subscribe<boolean>("desktopLyric:cursorInside", callback),
   },
   dynamicIsland: {
+    ready: () => ipcRenderer.invoke("dynamicIsland:ready"),
+    onVisibilityChange: (callback: (change: DynamicIslandVisibilityChange) => void) =>
+      subscribe<DynamicIslandVisibilityChange>("dynamicIsland:animateVisibility", callback),
+    finishVisibilityTransition: (requestId: number) =>
+      ipcRenderer.send("dynamicIsland:finishVisibilityTransition", requestId),
     // 订阅灵动岛配置变化
     onConfigChange: (callback: (config: unknown) => void) =>
       subscribe("dynamicIsland:configChange", callback),

@@ -97,8 +97,20 @@ export interface TaskbarLyricApi {
   setContentWidth: (width: number) => void;
 }
 
+/** 灵动岛显隐动画请求，编号用于丢弃被新状态取代的完成通知 */
+export interface DynamicIslandVisibilityChange {
+  visible: boolean;
+  requestId: number;
+}
+
 /** 灵动岛 API */
 export interface DynamicIslandApi {
+  /** 渲染端完成配置加载与事件订阅后通知主进程 */
+  ready: () => Promise<void>;
+  /** 订阅实际窗口的显隐动画请求 */
+  onVisibilityChange: (callback: (change: DynamicIslandVisibilityChange) => void) => () => void;
+  /** 收起动画结束后确认隐藏或关闭窗口 */
+  finishVisibilityTransition: (requestId: number) => void;
   /** 订阅配置变化 */
   onConfigChange: (callback: (config: DynamicIslandSettings) => void) => () => void;
   /** 拖拽移动；只传位置，主进程持有权威尺寸 */

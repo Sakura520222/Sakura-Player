@@ -46,7 +46,7 @@ const resetRenderCache = (): void => {
 };
 
 const renderFrame = (): void => {
-  if (!props.wordByWord) {
+  if (document.hidden || !props.wordByWord) {
     rafId = 0;
     return;
   }
@@ -64,7 +64,7 @@ const renderFrame = (): void => {
 };
 
 const startRenderLoop = (): void => {
-  if (rafId === 0 && props.wordByWord) {
+  if (!document.hidden && rafId === 0 && props.wordByWord) {
     rafId = requestAnimationFrame(renderFrame);
   }
 };
@@ -74,6 +74,11 @@ const stopRenderLoop = (): void => {
     cancelAnimationFrame(rafId);
     rafId = 0;
   }
+};
+
+const onVisibilityChange = (): void => {
+  if (document.hidden) stopRenderLoop();
+  else startRenderLoop();
 };
 
 watch(
@@ -86,8 +91,14 @@ watch(
 );
 watch(() => props.line, resetRenderCache);
 
-onMounted(startRenderLoop);
-onBeforeUnmount(stopRenderLoop);
+onMounted(() => {
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  startRenderLoop();
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+  stopRenderLoop();
+});
 </script>
 
 <template>

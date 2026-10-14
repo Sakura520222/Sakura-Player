@@ -1384,6 +1384,10 @@
       "label": "Enable Dynamic Island",
       "description": "Show a compact floating lyric window at the top of the screen; drag it anywhere"
     },
+    "dynamicIslandHideWhenPaused": {
+      "label": "Hide when paused",
+      "description": "Hide Dynamic Island lyrics when music is paused and show them again when playback resumes"
+    },
     "dynamicIslandScale": {
       "label": "Scale",
       "description": "Scale window height and font size together; 100% is the default size"
@@ -1398,7 +1402,7 @@
     },
     "dynamicIslandTransition": {
       "label": "Transition",
-      "description": "Choose how the island width and lyric lines transition",
+      "description": "Choose the animation for width changes, lyric transitions, and showing or hiding Dynamic Island",
       "bounce": "Dynamic Bounce",
       "smooth": "Smooth Transition"
     },

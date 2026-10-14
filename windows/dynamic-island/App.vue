@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DynamicIslandSettings } from "@shared/types/settings";
 import type { LyricLine } from "@shared/types/lyrics";
+import type { DynamicIslandVisibilityChange } from "@shared/types/window";
 import { DYNAMIC_ISLAND_BASE_HEIGHT } from "@shared/defaults/settings";
 import DEFAULT_COVER from "@/assets/images/song.jpg";
 import IslandLyricLine from "./components/IslandLyricLine.vue";
@@ -11,6 +12,7 @@ import { isMac } from "@/utils/config";
 import { formatArtists } from "@shared/utils/track";
 
 const config = reactive<DynamicIslandSettings>({
+  hideWhenPaused: false,
   scale: 1,
   fontWeight: 500,
   fontFamily: "",
@@ -39,6 +41,60 @@ const MIN_LYRIC_SCALE = 0.78;
 
 /* 悬停隐藏：非遮挡模式下仅在鼠标悬停时透明 */
 const hovering = ref(false);
+const visibilityLayer = ref<HTMLElement | null>(null);
+const playbackVisible = ref(false);
+const visibilityAnimating = ref(false);
+let visibilityAnimation: Animation | null = null;
+let visibilityRequest: DynamicIslandVisibilityChange | null = null;
+
+/**
+ * 沿用歌词切换的时长与曲线，反向切换时从当前画面继续
+ * @param change - 主进程要求的显隐状态与请求编号
+ */
+const animatePlaybackVisibility = (change: DynamicIslandVisibilityChange): void => {
+  const element = visibilityLayer.value!;
+  const current = getComputedStyle(element);
+  const from = { opacity: current.opacity, transform: current.transform };
+  visibilityAnimation?.cancel();
+  visibilityAnimation = null;
+  visibilityRequest = change;
+  playbackVisible.value = change.visible;
+  visibilityAnimating.value = false;
+  if (!change.visible && from.opacity === "0") {
+    window.api.dynamicIsland.finishVisibilityTransition(change.requestId);
+    return;
+  }
+  const smooth = config.transition === "smooth";
+  const animation = element.animate(
+    [
+      from,
+      {
+        opacity: change.visible ? 1 : 0,
+        transform: change.visible ? "none" : smooth ? "translateY(-10px)" : "scale(0.88, 0.65)",
+      },
+    ],
+    {
+      duration: change.visible || smooth ? 500 : 250,
+      easing: smooth
+        ? "cubic-bezier(0.33, 1, 0.68, 1)"
+        : change.visible
+          ? "cubic-bezier(0.34, 1.56, 0.64, 1)"
+          : "ease-in",
+      fill: "forwards",
+    },
+  );
+  visibilityAnimation = animation;
+  visibilityAnimating.value = true;
+  animation.onfinish = () => {
+    if (visibilityAnimation !== animation) return;
+    visibilityAnimation = null;
+    visibilityAnimating.value = false;
+    animation.cancel();
+    if (!change.visible) {
+      window.api.dynamicIsland.finishVisibilityTransition(change.requestId);
+    }
+  };
+};
 
 /* 窗口尺寸计算 */
 const mainRowHeight = computed(() => Math.round(DYNAMIC_ISLAND_BASE_HEIGHT * config.scale));
@@ -383,6 +439,7 @@ watch([currentLine, fallbackText], () => {
 watch(
   () => config.transition,
   () => {
+    if (visibilityAnimation && visibilityRequest) animatePlaybackVisibility(visibilityRequest);
     shrinking.value = false;
     lyricOpacity.value = 1;
     phase = "idle";
@@ -511,6 +568,7 @@ watch(
 let unsubConfig: (() => void) | null = null;
 let unsubMode: (() => void) | null = null;
 let unsubCursor: (() => void) | null = null;
+let unsubVisibility: (() => void) | null = null;
 let pendingWindowShrinkTimer: number | null = null;
 
 /* 窗口高度变化 */
@@ -545,9 +603,9 @@ onMounted(async () => {
   } catch (error) {
     console.error("[dynamic-island] load state failed", error);
   }
-  unsubConfig = window.api.dynamicIsland.onConfigChange((next) =>
-    Object.assign(config, next as DynamicIslandSettings),
-  );
+  unsubConfig = window.api.dynamicIsland.onConfigChange((next) => {
+    Object.assign(config, next as DynamicIslandSettings);
+  });
   unsubMode = window.api.dynamicIsland.onModeChange((next) => {
     mode.value = next;
   });
@@ -555,9 +613,16 @@ onMounted(async () => {
   unsubCursor = window.api.dynamicIsland.onCursorInside((inside) => {
     hovering.value = inside;
   });
+  unsubVisibility = window.api.dynamicIsland.onVisibilityChange(animatePlaybackVisibility);
+  await window.api.dynamicIsland.ready();
 });
 
 onBeforeUnmount(() => {
+  visibilityAnimation?.cancel();
+  visibilityAnimation = null;
+  visibilityRequest = null;
+  unsubVisibility?.();
+  unsubVisibility = null;
   window.removeEventListener("resize", syncViewportSize);
   if (pendingWindowShrinkTimer !== null) {
     window.clearTimeout(pendingWindowShrinkTimer);
@@ -574,70 +639,84 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="root"
-    :class="[
-      mode === 'snapped' ? 'is-snapped' : 'is-floating',
-      {
-        'is-hidden': config.nonOcclusive && hovering,
-        'is-notch-fusion': notchFusionEnabled,
-        'is-smooth': config.transition === 'smooth',
-      },
-    ]"
-    :style="rootStyle"
-    @pointerdown="onRootPointerDown"
+    ref="visibilityLayer"
+    class="visibility-layer"
+    :class="{
+      'is-playback-hidden': !playbackVisible,
+      'is-smooth': config.transition === 'smooth',
+      'is-floating': mode === 'floating',
+    }"
   >
-    <svg
-      v-if="notchFusionEnabled"
-      class="notch-shape"
-      :viewBox="`0 0 ${shapeWidth} ${shapeHeight}`"
-      preserveAspectRatio="none"
-      aria-hidden="true"
+    <div
+      class="root"
+      :class="[
+        mode === 'snapped' ? 'is-snapped' : 'is-floating',
+        {
+          'is-hidden': config.nonOcclusive && hovering,
+          'is-notch-fusion': notchFusionEnabled,
+          'is-smooth': config.transition === 'smooth',
+        },
+      ]"
+      :style="rootStyle"
+      @pointerdown="onRootPointerDown"
     >
-      <path :d="notchPath" fill="var(--di-bg)" />
-    </svg>
-    <div class="content">
-      <div class="cover">
-        <img
-          :src="track?.cover || DEFAULT_COVER"
-          alt="cover"
-          draggable="false"
-          decoding="async"
-          @error="($event.target as HTMLImageElement).src = DEFAULT_COVER"
-        />
-      </div>
-      <div
-        class="lyric"
-        :class="{ 'is-shrinking': shrinking }"
-        :style="{ width: `${lyricWidth}px`, opacity: lyricOpacity }"
-        @transitionend="onLyricTransitionEnd"
+      <svg
+        v-if="notchFusionEnabled"
+        class="notch-shape"
+        :viewBox="`0 0 ${shapeWidth} ${shapeHeight}`"
+        preserveAspectRatio="none"
+        aria-hidden="true"
       >
+        <path :d="notchPath" fill="var(--di-bg)" />
+      </svg>
+      <div class="content">
+        <div class="cover">
+          <img
+            :src="track?.cover || DEFAULT_COVER"
+            alt="cover"
+            draggable="false"
+            decoding="async"
+            @error="($event.target as HTMLImageElement).src = DEFAULT_COVER"
+          />
+        </div>
         <div
-          class="lyric-scale"
-          :style="
-            notchFusionEnabled
-              ? { width: `${lyricLayoutWidth}px`, transform: `scale(${lyricScale})` }
-              : {}
-          "
+          class="lyric"
+          :class="{ 'is-shrinking': shrinking }"
+          :style="{ width: `${lyricWidth}px`, opacity: lyricOpacity }"
+          @transitionend="onLyricTransitionEnd"
         >
-          <Transition name="lyric-roll">
-            <div :key="lyricContentKey" class="lyric-content">
-              <div class="main-line">
-                <IslandLyricLine
-                  v-if="fittedDisplayLine"
-                  :line="fittedDisplayLine"
-                  :font-size="fontSize"
-                  :font-weight="config.fontWeight"
-                  :word-by-word="config.wordByWord && !mainTextTruncated"
-                />
-                <div v-else class="fallback" :style="{ fontSize: `${fontSize}px` }">
-                  {{ fittedMainText }}
+          <div
+            class="lyric-scale"
+            :style="
+              notchFusionEnabled
+                ? { width: `${lyricLayoutWidth}px`, transform: `scale(${lyricScale})` }
+                : {}
+            "
+          >
+            <Transition name="lyric-roll">
+              <div :key="lyricContentKey" class="lyric-content">
+                <div class="main-line">
+                  <IslandLyricLine
+                    v-if="fittedDisplayLine"
+                    :line="fittedDisplayLine"
+                    :font-size="fontSize"
+                    :font-weight="config.fontWeight"
+                    :word-by-word="
+                      config.wordByWord &&
+                      !mainTextTruncated &&
+                      (playbackVisible || visibilityAnimating)
+                    "
+                  />
+                  <div v-else class="fallback" :style="{ fontSize: `${fontSize}px` }">
+                    {{ fittedMainText }}
+                  </div>
+                </div>
+                <div v-if="showSubLine" class="sub-line" :style="{ fontSize: `${subFontSize}px` }">
+                  {{ fittedSubText }}
                 </div>
               </div>
-              <div v-if="showSubLine" class="sub-line" :style="{ fontSize: `${subFontSize}px` }">
-                {{ fittedSubText }}
-              </div>
-            </div>
-          </Transition>
+            </Transition>
+          </div>
         </div>
       </div>
     </div>
@@ -645,6 +724,21 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.visibility-layer {
+  height: 100%;
+  transform-origin: center top;
+}
+.visibility-layer.is-floating {
+  transform-origin: center;
+}
+.visibility-layer.is-playback-hidden {
+  opacity: 0;
+  transform: scale(0.88, 0.65);
+  pointer-events: none;
+}
+.visibility-layer.is-smooth.is-playback-hidden {
+  transform: translateY(-10px);
+}
 .root {
   position: relative;
   height: 100%;

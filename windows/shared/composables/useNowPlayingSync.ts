@@ -100,18 +100,32 @@ export const useNowPlayingSync = (options: NowPlayingSyncOptions): NowPlayingSyn
   };
 
   const tick = (): void => {
+    if (document.hidden) {
+      rafId = null;
+      return;
+    }
     syncOnce();
     rafId = playing.value ? requestAnimationFrame(tick) : null;
   };
 
   const kickTick = (): void => {
-    if (rafId !== null) return;
+    if (document.hidden || rafId !== null) return;
     rafId = requestAnimationFrame(tick);
+  };
+
+  const onVisibilityChange = (): void => {
+    if (document.hidden) {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = null;
+    } else {
+      kickTick();
+    }
   };
 
   const unsubscribers: Array<() => void> = [];
 
   onMounted(async () => {
+    document.addEventListener("visibilitychange", onVisibilityChange);
     try {
       const snap = await window.api.nowPlaying.requestSnapshot();
       applySnapshot(snap);
@@ -140,6 +154,7 @@ export const useNowPlayingSync = (options: NowPlayingSyncOptions): NowPlayingSyn
   });
 
   onBeforeUnmount(() => {
+    document.removeEventListener("visibilitychange", onVisibilityChange);
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;

@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   showError: vi.fn(),
   quit: vi.fn(),
   logError: vi.fn(),
+  islandSender: {},
+  islandReady: vi.fn(),
+  finishVisibility: vi.fn(),
+  islandOpen: true,
 }));
 
 vi.mock("electron", () => ({
@@ -21,6 +25,10 @@ vi.mock("@main/utils/logger", () => ({ coreLog: { error: mocks.logError } }));
 vi.mock("@main/window", () => ({
   getMainWindow: () => ({ webContents: mocks.sender }),
   showReadyMainWindow: mocks.showReady,
+  getDynamicIslandWindow: () => ({ webContents: mocks.islandSender }),
+  isDynamicIslandWindowOpen: () => mocks.islandOpen,
+  markDynamicIslandRendererReady: mocks.islandReady,
+  finishDynamicIslandVisibilityTransition: mocks.finishVisibility,
 }));
 
 import { registerWindowIpc } from "./window";
@@ -30,6 +38,7 @@ describe("启动窗口 IPC 职责", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.islandOpen = true;
     registerWindowIpc(complete);
   });
 
@@ -75,5 +84,30 @@ describe("启动窗口 IPC 职责", () => {
     expect(mocks.quit).toHaveBeenCalledOnce();
     expect(mocks.showReady).not.toHaveBeenCalled();
     expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("显隐动画就绪和完成通知只接受灵动岛窗口本身", () => {
+    const ready = mocks.handle.mock.calls.find(([name]) => name === "dynamicIsland:ready")![1];
+    const finished = mocks.on.mock.calls.find(
+      ([name]) => name === "dynamicIsland:finishVisibilityTransition",
+    )![1];
+    ready({ sender: mocks.sender });
+    finished({ sender: mocks.sender }, 7);
+    expect(mocks.islandReady).not.toHaveBeenCalled();
+    expect(mocks.finishVisibility).not.toHaveBeenCalled();
+    ready({ sender: mocks.islandSender });
+    finished({ sender: mocks.islandSender }, 7);
+    expect(mocks.islandReady).toHaveBeenCalledOnce();
+    expect(mocks.finishVisibility).toHaveBeenCalledWith(7);
+  });
+
+  it("启用状态查询不把仍在收起的窗口视为开启", () => {
+    const query = mocks.handle.mock.calls.find(
+      ([name]) => name === "window:isDynamicIslandOpen",
+    )![1];
+    mocks.islandOpen = false;
+    expect(query()).toBe(false);
+    mocks.islandOpen = true;
+    expect(query()).toBe(true);
   });
 });

@@ -25,6 +25,7 @@ import {
   applyDynamicIslandSnapCentered,
   applyDynamicIslandNotchFusion,
   applyDynamicIslandNonOcclusive,
+  syncDynamicIslandVisibility,
   applyTaskbarLyricLayout,
 } from "@main/window";
 import { broadcast } from "@main/utils/broadcast";
@@ -105,6 +106,9 @@ const applyConfigChange = (keyPath: string, value: unknown): void => {
     case "dynamicIsland.alwaysOnTop":
       applyDynamicIslandAlwaysOnTop(value as boolean);
       break;
+    case "dynamicIsland.hideWhenPaused":
+      syncDynamicIslandVisibility();
+      break;
     case "dynamicIsland.snapCentered":
       applyDynamicIslandSnapCentered(value as boolean);
       break;
@@ -155,6 +159,7 @@ export const registerConfigIpc = (): void => {
     if (getUpdateState().phase === "installing") throw new Error("安装启动中，无法重置配置");
     store.clear();
     syncUpdateChannel();
+    syncDynamicIslandVisibility();
   });
 
   /** 替换整盘配置 */
@@ -162,6 +167,7 @@ export const registerConfigIpc = (): void => {
     if (getUpdateState().phase === "installing") throw new Error("安装启动中，无法替换配置");
     store.replaceAll(payload);
     syncUpdateChannel();
+    syncDynamicIslandVisibility();
   });
 
   /** 备份 */

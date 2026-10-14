@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   clear: vi.fn(),
   replaceAll: vi.fn(),
   sync: vi.fn(),
+  syncDynamicIslandVisibility: vi.fn(),
+  get: vi.fn(),
+  broadcast: vi.fn(),
 }));
 vi.mock("electron", () => ({
   dialog: {},
@@ -16,7 +19,7 @@ vi.mock("electron", () => ({
   },
 }));
 vi.mock("@main/store", () => ({
-  store: { set: mocks.set, clear: mocks.clear, replaceAll: mocks.replaceAll },
+  store: { get: mocks.get, set: mocks.set, clear: mocks.clear, replaceAll: mocks.replaceAll },
 }));
 vi.mock("@main/services/updater", () => ({
   getUpdateState: () => ({ phase: mocks.phase }),
@@ -24,11 +27,13 @@ vi.mock("@main/services/updater", () => ({
 }));
 vi.mock("@main/utils/logger", () => ({ systemLog: {} }));
 vi.mock("@main/utils/config", () => ({ isWin: true }));
-vi.mock("@main/utils/broadcast", () => ({}));
+vi.mock("@main/utils/broadcast", () => ({ broadcast: mocks.broadcast }));
 vi.mock("@main/services/media", () => ({}));
 vi.mock("@main/services/lastfm", () => ({}));
 vi.mock("@main/services/engine", () => ({}));
-vi.mock("@main/window", () => ({}));
+vi.mock("@main/window", () => ({
+  syncDynamicIslandVisibility: mocks.syncDynamicIslandVisibility,
+}));
 vi.mock("@main/server", () => ({}));
 vi.mock("@main/services/mcp/http", () => ({}));
 vi.mock("@main/services/orpheus", () => ({}));
@@ -66,5 +71,25 @@ describe("更新配置入口", () => {
     );
     expect(mocks.set).not.toHaveBeenCalled();
     expect(mocks.sync).not.toHaveBeenCalled();
+  });
+
+  it("暂停隐藏开关写入后立即同步窗口并广播配置", () => {
+    const config = { hideWhenPaused: true };
+    mocks.get.mockReturnValue(config);
+    mocks.handlers.get("config:set")!(null, "dynamicIsland.hideWhenPaused", true);
+    expect(mocks.set).toHaveBeenCalledWith("dynamicIsland.hideWhenPaused", true);
+    expect(mocks.syncDynamicIslandVisibility).toHaveBeenCalledOnce();
+    expect(mocks.set.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.syncDynamicIslandVisibility.mock.invocationCallOrder[0],
+    );
+    expect(mocks.broadcast).toHaveBeenCalledWith("dynamicIsland:configChange", config);
+  });
+
+  it.each([
+    ["config:reset", []],
+    ["config:replaceAll", [null, { dynamicIsland: { hideWhenPaused: false } }]],
+  ] as const)("%s 后重新应用暂停隐藏策略", (channel, args) => {
+    mocks.handlers.get(channel)!(...args);
+    expect(mocks.syncDynamicIslandVisibility).toHaveBeenCalledOnce();
   });
 });
