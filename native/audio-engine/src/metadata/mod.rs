@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use ffmpeg_audio::SourceAudioInfo;
 
+pub const LYRIC_DATA_KEY: &str = "SAKURA_PLAYER_LYRIC_DATA";
+
 mod cover;
 mod editor;
 mod folder_cover;
+mod lyric_data;
 mod lyrics;
 mod tag_fields;
 
@@ -37,6 +40,7 @@ pub struct AudioMetadata {
     pub codec: String,
     /// 内嵌歌词
     pub embedded_lyric: Option<String>,
+    pub embedded_lyric_data: Option<String>,
     /// 同目录所有歌词文件
     pub external_lyrics: Vec<ExternalLyric>,
     /// 封面缩略图缓存路径（用于前端日常显示）
@@ -92,7 +96,7 @@ pub fn extract_tags(dict: &HashMap<String, String>) -> Tags {
 
 /// 大小写不敏感查找：原 ffmpeg-next 的 Dictionary::get 默认 case-insensitive，
 /// 而 ffmpeg_audio 把 dict 转成普通 HashMap 后丢了这个语义，这里补回来
-fn dict_get<'a>(dict: &'a HashMap<String, String>, key: &str) -> Option<&'a str> {
+pub(crate) fn dict_get<'a>(dict: &'a HashMap<String, String>, key: &str) -> Option<&'a str> {
     let target = tag_fields::normalize_tag_key(key);
     dict.iter()
         .find(|(k, _)| tag_fields::normalize_tag_key(k) == target)

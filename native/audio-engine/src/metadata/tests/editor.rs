@@ -1,4 +1,6 @@
 use super::*;
+use lofty::ogg::OggPictureStorage;
+use lofty::picture::PictureInformation;
 use std::path::Path;
 
 /// 生成一个最小可用的 48k 立体声 16bit WAV（含 0.1s 静音数据）
@@ -88,6 +90,7 @@ fn roundtrip_all_fields() {
         track_number: Some(3),
         disc_number: Some(1),
         lyrics: Some("第一行歌词\n第二行歌词".into()),
+        lyric_data: Some("完整原始轨道".into()),
         cover: None,
     };
     write_tags(&request).unwrap();
@@ -102,6 +105,7 @@ fn roundtrip_all_fields() {
     assert_eq!(tags.track_number, Some(3));
     assert_eq!(tags.disc_number, Some(1));
     assert_eq!(tags.lyrics.as_deref(), Some("第一行歌词\n第二行歌词"));
+    assert_eq!(tags.lyric_data.as_deref(), Some("完整原始轨道"));
     assert!(!tags.has_cover);
 }
 
@@ -129,6 +133,146 @@ fn none_fields_are_untouched() {
     assert_eq!(tags.title.as_deref(), Some("新标题"));
     assert_eq!(tags.artist.as_deref(), Some("原歌手"));
     assert_eq!(tags.album.as_deref(), Some("原专辑"));
+}
+
+#[test]
+fn replacing_flac_lyrics_removes_stale_alternate_field() {
+    let dir = std::env::temp_dir().join("splayer-tag-editor-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("duplicate-lyrics.flac");
+    // 仅含 STREAMINFO 的 FLAC 足以验证标签读写，不依赖音频解码或外部测试文件。
+    let mut file = b"fLaC\x80\x00\x00\x22".to_vec();
+    let mut stream_info = [0u8; 34];
+    stream_info[..2].copy_from_slice(&4096u16.to_be_bytes());
+    stream_info[2..4].copy_from_slice(&4096u16.to_be_bytes());
+    let audio_info = (44100u64 << 44) | (1u64 << 41) | (15u64 << 36) | 4410;
+    stream_info[10..18].copy_from_slice(&audio_info.to_be_bytes());
+    file.extend_from_slice(&stream_info);
+    std::fs::write(&path, file).unwrap();
+
+    let mut tagged = open_tagged(&path).unwrap();
+    let mut tag = Tag::new(TagType::VorbisComments);
+    tag.insert_text(ItemKey::Lyrics, "旧同步歌词".into());
+    tag.insert_text(ItemKey::UnsyncLyrics, "旧非同步歌词".into());
+    tag.set_title("保留标题".into());
+    tag.insert_text(ItemKey::Lyricist, "保留作词者".into());
+    tagged.insert_tag(tag);
+    tagged.save_to_path(&path, WriteOptions::default()).unwrap();
+    let mut raw_tag =
+        lofty::ogg::VorbisComments::from(tagged.tag(TagType::VorbisComments).unwrap().clone());
+    raw_tag.insert("EXTERNAL_NOTE".into(), "保留其他软件的自定义字段".into());
+    raw_tag.insert("ENCODER".into(), "保留编码器".into());
+    raw_tag.insert("SYNCED-LYRICS-ENG".into(), "旧的其他语言歌词".into());
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgba8(1, 1)
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    let picture = Picture::from_reader(&mut png.into_inner().as_slice()).unwrap();
+    // 旧软件写入的位深描述可能与图片内容不同，保存歌词不应重新计算封面字段。
+    let picture_info = PictureInformation {
+        width: 1,
+        height: 1,
+        color_depth: 24,
+        num_colors: 0,
+    };
+    raw_tag.insert_picture(picture, Some(picture_info)).unwrap();
+    raw_tag
+        .save_to_path(&path, WriteOptions::default())
+        .unwrap();
+
+    let before = lofty::flac::FlacFile::read_from(
+        &mut std::fs::File::open(&path).unwrap(),
+        lofty::config::ParseOptions::new(),
+    )
+    .unwrap();
+    let original_vendor = before.vorbis_comments().unwrap().vendor().to_owned();
+    let original_pictures = before.pictures().to_vec();
+    let lyrics = "[00:01.000]<00:01.000>逐<00:02.000>字<00:03.000>";
+    let request = TagWriteRequest {
+        path: path.to_string_lossy().into_owned(),
+        lyrics: Some(lyrics.into()),
+        lyric_data: Some("FLAC 完整原始轨道".into()),
+        ..Default::default()
+    };
+    write_tags(&request).unwrap();
+    let tagged = open_tagged(&path).unwrap();
+    let tag = tagged.tag(TagType::VorbisComments).unwrap();
+    let native = lofty::flac::FlacFile::read_from(
+        &mut std::fs::File::open(&path).unwrap(),
+        lofty::config::ParseOptions::new(),
+    )
+    .unwrap();
+    assert_eq!(
+        native.vorbis_comments().unwrap().get("EXTERNAL_NOTE"),
+        Some("保留其他软件的自定义字段")
+    );
+    assert_eq!(
+        native.vorbis_comments().unwrap().get("ENCODER"),
+        Some("保留编码器")
+    );
+    assert_eq!(native.vorbis_comments().unwrap().vendor(), original_vendor);
+    assert_eq!(native.pictures(), original_pictures);
+    assert_eq!(
+        native.vorbis_comments().unwrap().get("SYNCED-LYRICS-ENG"),
+        None
+    );
+    assert_eq!(tag.get_string(ItemKey::Lyrics), Some(lyrics));
+    assert_eq!(tag.get_string(ItemKey::UnsyncLyrics), None);
+    assert_eq!(tag.title().as_deref(), Some("保留标题"));
+    assert_eq!(tag.get_string(ItemKey::Lyricist), Some("保留作词者"));
+    assert_eq!(
+        read_tags(&request.path).unwrap().lyric_data.as_deref(),
+        Some("FLAC 完整原始轨道")
+    );
+    assert_eq!(
+        read_tags(&request.path).unwrap().lyrics.as_deref(),
+        Some(lyrics)
+    );
+
+    write_tags(&TagWriteRequest {
+        path: request.path.clone(),
+        title: Some("新标题".into()),
+        ..Default::default()
+    })
+    .unwrap();
+    assert_eq!(
+        read_tags(&request.path).unwrap().lyric_data.as_deref(),
+        Some("FLAC 完整原始轨道")
+    );
+    assert_eq!(
+        read_tags(&request.path).unwrap().lyrics.as_deref(),
+        Some(lyrics)
+    );
+    let mut replacement = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgba8(3, 2)
+        .write_to(&mut replacement, image::ImageFormat::Png)
+        .unwrap();
+    write_tags(&TagWriteRequest {
+        path: request.path.clone(),
+        cover: Some(replacement.into_inner()),
+        ..Default::default()
+    })
+    .unwrap();
+    let replaced = lofty::flac::FlacFile::read_from(
+        &mut std::fs::File::open(&path).unwrap(),
+        lofty::config::ParseOptions::new(),
+    )
+    .unwrap();
+    assert_eq!(replaced.pictures().len(), 1);
+    assert_eq!(replaced.pictures()[0].1.width, 3);
+    assert_eq!(replaced.pictures()[0].1.height, 2);
+    assert_eq!(
+        read_tags(&request.path).unwrap().lyric_data.as_deref(),
+        Some("FLAC 完整原始轨道")
+    );
+    write_tags(&TagWriteRequest {
+        path: request.path,
+        lyrics: Some(String::new()),
+        ..Default::default()
+    })
+    .unwrap();
+    assert_eq!(read_tags(&path.to_string_lossy()).unwrap().lyrics, None);
+    assert_eq!(read_tags(&path.to_string_lossy()).unwrap().lyric_data, None);
 }
 
 #[test]

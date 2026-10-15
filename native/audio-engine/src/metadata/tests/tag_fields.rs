@@ -26,4 +26,6 @@ fn lyric_field_variants_are_recognized_and_prioritized() {
     assert_eq!(get_lyric_priority("syncedlyricseng"), 2);
     assert_eq!(get_lyric_priority("unsyncedlyricszho"), 1);
     assert_eq!(get_lyric_priority("comment"), 0);
+    assert!(!is_lyric_field_key("lyricist"));
+    assert_eq!(get_lyric_priority("lyricist"), 0);
 }

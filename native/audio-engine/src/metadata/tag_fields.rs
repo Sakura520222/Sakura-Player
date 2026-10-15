@@ -10,6 +10,10 @@ pub fn normalize_tag_key(key: &str) -> String {
 
 /// 判断一个归一化后的键名是否为可能的歌词字段
 pub fn is_lyric_field_key(norm_key: &str) -> bool {
+    // 作词者字段不包含歌词文本，不能参与歌词回退匹配。
+    if norm_key.starts_with("lyricist") {
+        return false;
+    }
     let prefixes = [
         "unsyncedlyrics",
         "syncedlyrics",

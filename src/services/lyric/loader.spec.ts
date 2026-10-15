@@ -37,6 +37,7 @@ vi.mock("@/services/lyric/resolve", async (importOriginal) => {
 });
 
 import { loadForTrack } from "./loader";
+import { LYRIC_SAVE_FIXTURES } from "@shared/testFixtures/lyricSave";
 
 const createTrack = (id: string, source: TrackSource = "netease"): Track => ({
   id,
@@ -95,6 +96,56 @@ describe("lyric loader", () => {
 
     // @ts-expect-error test mock
     window.api = mockWindowApi;
+  });
+
+  it.each(LYRIC_SAVE_FIXTURES)("内嵌 $format 使用原文与独立辅助轨道", async (input) => {
+    const media = useMediaStore();
+    const settings = useSettingsStore();
+    settings.lyric.enableExcludeLyrics = false;
+    media.track = createTrack("original-lyrics", "local");
+    const { content, ...data } = input;
+    await loadForTrack({
+      quality: {
+        sampleRate: 44100,
+        channels: 2,
+        bitsPerSample: 16,
+        bitRate: 128000,
+        codec: "flac",
+      },
+      externalLyrics: [],
+      embeddedLyric: content,
+      embeddedLyricData: data,
+    });
+    expect(media.activeLyric).toEqual({ source: "embedded", format: input.format });
+    expect(media.lyricContent).toEqual(input);
+    expect(media.parsedLyric.length).toBeGreaterThan(0);
+  });
+
+  it.each([true, false])("内嵌原格式和外部 LRC 按用户优先级选择：%s", async (preferOriginal) => {
+    const media = useMediaStore();
+    const settings = useSettingsStore();
+    settings.lyric.enableExcludeLyrics = false;
+    settings.lyric.lyricFormatOrder = preferOriginal ? ["krc", "lrc"] : ["lrc", "krc"];
+    media.track = createTrack("with-lrc", "local");
+    const { content, ...data } = LYRIC_SAVE_FIXTURES.find((item) => item.format === "krc")!;
+    mockWindowApi.player.readLyricFile.mockResolvedValue({
+      success: true,
+      data: "[00:01.234]外部 LRC",
+    });
+    await loadForTrack({
+      quality: {
+        sampleRate: 44100,
+        channels: 2,
+        bitsPerSample: 16,
+        bitRate: 128000,
+        codec: "flac",
+      },
+      externalLyrics: [{ format: "lrc", path: "C:/song.lrc" }],
+      embeddedLyric: content,
+      embeddedLyricData: data,
+    });
+    expect(media.activeLyric?.source).toBe(preferOriginal ? "embedded" : "external");
+    expect(media.activeLyric?.format).toBe(preferOriginal ? "krc" : "lrc");
   });
 
   it("在线多平台并发查询时，先到达的候选歌词立即上屏展示", async () => {

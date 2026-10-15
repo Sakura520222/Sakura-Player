@@ -1,5 +1,6 @@
 import type { LyricFormat } from "./lyrics";
 import type { Platform } from "./platform";
+import type { LyricStorageData } from "./lyrics";
 
 /** 播放器状态 */
 export type PlayerState = "idle" | "loading" | "playing" | "paused" | "stopped";
@@ -144,6 +145,7 @@ export interface PlaybackQueueItem {
 export interface TrackDetail {
   quality: AudioQuality;
   embeddedLyric?: string;
+  embeddedLyricData?: LyricStorageData;
   /** 外部歌词文件列表 */
   externalLyrics: { format: LyricFormat; path: string }[];
 }

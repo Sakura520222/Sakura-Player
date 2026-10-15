@@ -1,4 +1,5 @@
 import type { Track } from "./player";
+import type { LyricStorageData } from "./lyrics";
 
 /** 本地文件可编辑标签 */
 export interface TrackTags {
@@ -12,6 +13,7 @@ export interface TrackTags {
   discNumber?: number;
   /** 内嵌歌词纯文本 */
   lyrics?: string;
+  lyricData?: LyricStorageData;
   /** 是否有内嵌封面 */
   hasCover: boolean;
 }
@@ -28,6 +30,8 @@ export interface TagEditRequest {
   trackNumber?: number;
   discNumber?: number;
   lyrics?: string;
+  /** 与歌词原文一起保存的格式、翻译、音译和注音 */
+  lyricData?: LyricStorageData;
   /** 新封面图片文件路径，undefined = 保留现有封面 */
   coverPath?: string;
   /** 新封面远程 URL（在线匹配回填），与 coverPath 互斥，下载失败时跳过封面只写文本 */

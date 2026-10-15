@@ -20,6 +20,8 @@ pub struct JsTrackTags {
     pub disc_number: Option<u32>,
     /// 内嵌歌词纯文本
     pub lyrics: Option<String>,
+    /// 原始歌词的格式及辅助轨道
+    pub lyric_data: Option<String>,
     /// 是否有内嵌封面
     pub has_cover: bool,
 }
@@ -38,6 +40,7 @@ pub struct JsTagWriteRequest {
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
     pub lyrics: Option<String>,
+    pub lyric_data: Option<String>,
     /// 新封面图片数据（jpg/png），undefined 表示保留现有封面
     pub cover: Option<Buffer>,
 }
@@ -82,6 +85,7 @@ pub async fn read_track_tags(path: String) -> Result<JsTrackTags> {
         track_number: tags.track_number,
         disc_number: tags.disc_number,
         lyrics: tags.lyrics,
+        lyric_data: tags.lyric_data,
         has_cover: tags.has_cover,
     })
 }
@@ -118,6 +122,7 @@ pub async fn write_track_tags(
             track_number: request.track_number,
             disc_number: request.disc_number,
             lyrics: request.lyrics,
+            lyric_data: request.lyric_data,
             cover: request.cover.map(|buffer| buffer.to_vec()),
         })
         .collect();

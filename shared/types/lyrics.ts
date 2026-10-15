@@ -43,6 +43,9 @@ export type LyricData = {
   platform?: Platform;
 } | null;
 
+/** 原始歌词的格式及独立辅助轨道，主歌词原文单独写入标准歌词标签 */
+export type LyricStorageData = Omit<LyricInput, "content" | "format"> & { format: LyricFormat };
+
 /** 平台额外字段 */
 export interface LyricMatchExtra {
   /** QM 的 mid */
@@ -65,6 +68,22 @@ export type LyricMatchResponse =
 /** TTML 抓取 IPC 响应 */
 export type LyricTTMLResponse = { ok: true; data: string | null } | { ok: false; error: string };
 
+/** 歌词文件保存请求；TTML 仅在本地库已启用并配置目录时写入 */
+export interface LyricSaveFilesRequest {
+  track: Track;
+  lrc?: string;
+  ttml?: string;
+}
+
+/** 单个歌词文件的保存结果 */
+export type LyricFileSaveOutcome =
+  { status: "saved"; path: string } | { status: "canceled" } | { status: "failed"; error: string };
+
+export interface LyricSaveFilesResult {
+  lrc?: LyricFileSaveOutcome;
+  ttml?: LyricFileSaveOutcome;
+}
+
 /** 渲染端歌词匹配入口 */
 export interface LyricsApi {
   /** 按 id 直取某平台歌词 */
@@ -77,4 +96,6 @@ export interface LyricsApi {
   matchLocalTTML: (track: Track) => Promise<LyricTTMLResponse>;
   /** 弹出目录选择器，返回所选本地 TTML 歌词库目录 */
   pickLyricRepoDir: () => Promise<string | null>;
+  /** 保存同名 LRC 或另存为，并按配置保存 TTML 到本地库 */
+  saveFiles: (request: LyricSaveFilesRequest) => Promise<LyricSaveFilesResult>;
 }

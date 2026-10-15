@@ -1,4 +1,5 @@
 import { ipcMain, dialog } from "electron";
+import { encodeLyricStorage, decodeLyricStorage } from "@main/services/lyricStorage";
 import fs from "node:fs/promises";
 import { store } from "@main/store";
 import {
@@ -223,8 +224,11 @@ export const registerLibraryIpc = (): void => {
   // 读取本地文件的可编辑标签
   ipcMain.handle("library:readTags", async (_event, path: string) => {
     try {
-      const tags = await getEngine().readTrackTags(path);
-      return { success: true, data: tags };
+      const { lyricData, ...tags } = await getEngine().readTrackTags(path);
+      return {
+        success: true,
+        data: { ...tags, lyricData: decodeLyricStorage(tags.lyrics, lyricData) },
+      };
     } catch (error) {
       libraryLog.error(`读取标签失败 [${path}]:`, error);
       return { success: false, error: ErrorCode.TAG_READ_FAILED };
@@ -238,7 +242,7 @@ export const registerLibraryIpc = (): void => {
       // 实际带封面写入的路径集合
       const replacedCovers = new Set<string>();
       for (const edit of edits) {
-        const { coverPath, coverUrl, ...fields } = edit;
+        const { coverPath, coverUrl, lyricData, ...fields } = edit;
         let cover: Buffer | undefined;
         if (coverPath) {
           cover = await fs.readFile(coverPath);
@@ -247,7 +251,14 @@ export const registerLibraryIpc = (): void => {
           if (!cover) libraryLog.warn(`封面下载失败，跳过封面只写文本: ${coverUrl}`);
         }
         if (cover) replacedCovers.add(edit.path);
-        requests.push({ ...fields, cover });
+        requests.push({
+          ...fields,
+          lyricData:
+            lyricData && fields.lyrics !== undefined
+              ? encodeLyricStorage(fields.lyrics, lyricData)
+              : undefined,
+          cover,
+        });
       }
       const results = await getEngine().writeTrackTags(requests, getCoverCacheDir());
       // 写回数据库：有封面更新的曲目需要刷新封面缓存 URL（?v=mtime）以触发前端更新

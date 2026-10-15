@@ -14,9 +14,14 @@ import * as qqmusic from "@main/apis/common/lyric/qqmusic";
 import * as kugou from "@main/apis/common/lyric/kugou";
 import { fetchTTML } from "@main/apis/common/lyric/ttml";
 import { matchLocalTTML } from "@main/services/localLyricRepo";
+import { saveLyricFiles } from "@main/services/lyricSave";
 import { buildFingerprint, getMatchedId } from "@main/database/lyricMatchCache";
 import { coreLog } from "@main/utils/logger";
-import type { LyricMatchResponse, LyricTTMLResponse } from "@shared/types/lyrics";
+import type {
+  LyricMatchResponse,
+  LyricTTMLResponse,
+  LyricSaveFilesRequest,
+} from "@shared/types/lyrics";
 import type { Platform } from "@shared/types/platform";
 import type { Track } from "@shared/types/player";
 
@@ -112,6 +117,9 @@ const resolveTTMLOverlay = async (
 };
 
 export const registerLyricsIpc = (): void => {
+  ipcMain.handle("lyrics:saveFiles", (_evt, request: LyricSaveFilesRequest) =>
+    saveLyricFiles(request),
+  );
   ipcMain.handle("lyrics:matchById", (_evt, platform: Platform, id: string) =>
     dedup(`byId:${platform}:${id}`, () => resolveById(platform, id)),
   );

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { useMediaStore } from "@/stores/media";
 import { useThemeStore } from "@/stores/theme";
+import { useSettingsStore } from "@/stores/settings";
+import { saveTrackTags } from "@/core/player";
 import { useCopyText } from "@/composables/useCopyText";
 import { toast } from "@/composables/useToast";
 import { createLyricPoster } from "@/utils/lyric/poster";
+import { createLyricSaveContent } from "@/utils/lyric/save";
 
 const props = defineProps<{ open: boolean }>();
 
@@ -12,6 +15,7 @@ const emit = defineEmits<{ "update:open": [value: boolean] }>();
 const { t } = useI18n();
 const media = useMediaStore();
 const theme = useThemeStore();
+const settings = useSettingsStore();
 const { copy } = useCopyText();
 
 /** 复制内容过滤项 */
@@ -117,6 +121,111 @@ const handleCopyRaw = async (): Promise<void> => {
 
 /** 导出中，防重复点击 */
 const exporting = ref(false);
+const saving = ref(false);
+const saveMetadata = ref(true);
+const saveLrc = ref(false);
+const saveTtml = ref(true);
+const saveFeedback = ref<string[]>([]);
+const canWriteMetadata = computed(
+  () => media.track?.source === "local" && !!media.track.path && !media.track.cuePath,
+);
+const canSaveTtml = computed(
+  () =>
+    media.lyricFormat === "ttml" &&
+    !!media.lyricContent?.content &&
+    settings.system.localLyric.enableLocalTTMLOverride &&
+    !!settings.system.localLyric.repoDir,
+);
+const canSaveLyrics = computed(
+  () =>
+    !!media.track &&
+    !media.lyricLoading &&
+    !!media.lyricContent?.content &&
+    !!media.lyricFormat &&
+    media.parsedLyric.length > 0 &&
+    ((canWriteMetadata.value && saveMetadata.value) ||
+      saveLrc.value ||
+      (canSaveTtml.value && saveTtml.value)),
+);
+
+watch(
+  () => media.track?.id,
+  () => {
+    saveFeedback.value = [];
+  },
+);
+
+/** 保存前固定歌曲与歌词快照，标签写入重载歌曲时不会混入新歌词。 */
+const handleSaveLyrics = async (): Promise<void> => {
+  const track = media.track;
+  const input = media.lyricContent;
+  const format = media.lyricFormat;
+  if (saving.value || !track || !input || !format || !canSaveLyrics.value) return;
+  const lyrics = input.content;
+  const lyricData = {
+    format,
+    translation: input.translation,
+    translationFormat: input.translationFormat,
+    romaji: input.romaji,
+    romajiFormat: input.romajiFormat,
+    kana: input.kana,
+  };
+  const writeMetadata = canWriteMetadata.value && saveMetadata.value;
+  const writeLrc = saveLrc.value;
+  const ttml = canSaveTtml.value && saveTtml.value ? media.lyricContent?.content : undefined;
+  saving.value = true;
+  saveFeedback.value = [];
+  const saved: string[] = [];
+  const failed: string[] = [];
+  try {
+    // 先保存文件，让标签写入后的歌曲重载能发现同名 LRC 与新的 TTML。
+    if (writeLrc || ttml)
+      try {
+        const content = createLyricSaveContent(track, media.parsedLyric, ttml);
+        const result = await window.api.lyrics.saveFiles({
+          track: toRaw(track),
+          lrc: writeLrc ? content.lrc : undefined,
+          ttml: content.ttml,
+        });
+        for (const [target, outcome] of Object.entries(result)) {
+          const label = target.toUpperCase();
+          if (outcome.status === "saved") {
+            saved.push(label);
+            saveFeedback.value.push(`${label}: ${outcome.path}`);
+          } else if (outcome.status === "failed") {
+            failed.push(`${label}: ${outcome.error}`);
+          }
+        }
+      } catch {
+        failed.push(t("player.copyLyric.saveFilesFailed"));
+      }
+    if (writeMetadata) {
+      try {
+        const outcomes = await saveTrackTags([{ path: track.path!, lyrics, lyricData }]);
+        const outcome = outcomes?.[0];
+        if (outcome?.success) {
+          saved.push(t("player.copyLyric.musicTags"));
+        } else {
+          failed.push(
+            `${t("player.copyLyric.musicTags")}: ${outcome?.error ?? t("player.copyLyric.saveFailed")}`,
+          );
+        }
+      } catch {
+        failed.push(`${t("player.copyLyric.musicTags")}: ${t("player.copyLyric.saveFailed")}`);
+      }
+    }
+    if (saved.length)
+      toast.success(t("player.copyLyric.saveSuccess", { targets: saved.join(" / ") }));
+    if (failed.length) {
+      saveFeedback.value.push(...failed);
+      toast.error(failed.join("\n"));
+    }
+  } catch {
+    toast.error(t("player.copyLyric.saveFailed"));
+  } finally {
+    saving.value = false;
+  }
+};
 
 /** 导出歌词图片 */
 const handleExport = async (): Promise<void> => {
@@ -159,7 +268,7 @@ const handleExport = async (): Promise<void> => {
   >
     <div class="flex flex-col gap-3">
       <!-- 歌词列表 -->
-      <div class="max-h-[46vh] overflow-y-auto flex flex-col">
+      <div class="max-h-[36vh] overflow-y-auto flex flex-col">
         <SCheckbox
           v-for="line in displayLyrics"
           :key="line.index"
@@ -202,6 +311,61 @@ const handleExport = async (): Promise<void> => {
             {{ t("player.copyLyric.copyRaw") }}
           </SButton>
         </div>
+      </div>
+      <div class="flex flex-col gap-2 border-t border-outline-variant/30 pt-3">
+        <span class="text-xs text-on-surface/50">{{ t("player.copyLyric.saveFullLyrics") }}</span>
+        <div class="flex flex-wrap items-center gap-3">
+          <SCheckbox
+            :checked="canWriteMetadata && saveMetadata"
+            :disabled="!canWriteMetadata || saving"
+            :label="t('player.copyLyric.musicTags')"
+            size="small"
+            @update:checked="saveMetadata = $event"
+          />
+          <SCheckbox
+            v-model:checked="saveLrc"
+            :disabled="saving"
+            :label="t('player.copyLyric.lrcFile')"
+            size="small"
+          />
+          <SCheckbox
+            v-if="canSaveTtml"
+            v-model:checked="saveTtml"
+            :disabled="saving"
+            :label="t('player.copyLyric.ttmlFile')"
+            size="small"
+          />
+          <SButton
+            variant="secondary"
+            size="small"
+            class="ml-auto shrink-0"
+            :loading="saving"
+            :disabled="!canSaveLyrics"
+            @click="handleSaveLyrics"
+          >
+            {{ t("player.copyLyric.saveLyrics") }}
+          </SButton>
+        </div>
+        <p class="text-xs text-on-surface/50 leading-relaxed">
+          {{
+            t(
+              canWriteMetadata
+                ? "player.copyLyric.saveLocalHint"
+                : "player.copyLyric.saveExportHint",
+            )
+          }}
+          {{ t("player.copyLyric.saveCompleteHint") }}
+        </p>
+        <p v-if="canSaveTtml && saveTtml" class="text-xs text-on-surface/50">
+          {{ t("player.copyLyric.saveTtmlHint") }}
+        </p>
+        <p
+          v-for="(text, index) in saveFeedback"
+          :key="index"
+          class="text-xs text-on-surface/60 break-all"
+        >
+          {{ text }}
+        </p>
       </div>
     </div>
 

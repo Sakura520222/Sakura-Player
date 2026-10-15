@@ -230,6 +230,7 @@ impl AudioPlayer {
             bit_rate: meta.bit_rate,
             codec: meta.codec,
             embedded_lyric: meta.embedded_lyric,
+            embedded_lyric_data: meta.embedded_lyric_data,
             external_lyrics: meta
                 .external_lyrics
                 .into_iter()

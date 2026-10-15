@@ -24,7 +24,7 @@ export interface ResolvedLyric {
 }
 
 /** 本地歌词读取结果 */
-export type LocalLyric = { source: NonNullable<LyricData>; content: string };
+export type LocalLyric = ResolvedLyric;
 
 /** 匹配结果转为在线歌词结果 */
 const toOnlineResult = (data: LyricMatchResult): OnlineResult => ({
@@ -62,8 +62,11 @@ export const resolveStreamingLyric = async (track: Track): Promise<ResolvedLyric
 export const embeddedLyricFromDetail = (detail: TrackDetail | null): LocalLyric | null => {
   if (!detail?.embeddedLyric) return null;
   return {
-    source: { source: "embedded", format: detectFormat(detail.embeddedLyric) },
-    content: detail.embeddedLyric,
+    source: {
+      source: "embedded",
+      format: detail.embeddedLyricData?.format ?? detectFormat(detail.embeddedLyric),
+    },
+    input: { content: detail.embeddedLyric, ...detail.embeddedLyricData },
   };
 };
 

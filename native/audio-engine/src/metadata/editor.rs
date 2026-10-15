@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{Context, Result};
+#[cfg(test)]
 use lofty::config::WriteOptions;
 use lofty::file::TaggedFile;
 use lofty::file::{FileType, TaggedFileExt};
@@ -34,6 +35,7 @@ pub struct TrackTags {
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
     pub lyrics: Option<String>,
+    pub lyric_data: Option<String>,
     pub has_cover: bool,
 }
 
@@ -50,6 +52,7 @@ pub struct TagWriteRequest {
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
     pub lyrics: Option<String>,
+    pub lyric_data: Option<String>,
     pub cover: Option<Vec<u8>>,
 }
 
@@ -92,6 +95,12 @@ pub fn read_tags(path: &str) -> Result<TrackTags> {
         track_number: tag.track(),
         disc_number: tag.disk(),
         lyrics: read_lyrics_from_tag(tag),
+        lyric_data: super::lyric_data::ContainerTag::open(
+            Path::new(path),
+            tagged.file_type(),
+            tag,
+        )?
+        .data(),
         has_cover: !tag.pictures().is_empty(),
     })
 }
@@ -154,6 +163,12 @@ fn apply_to_file(path: &Path, request: &TagWriteRequest) -> Result<()> {
     if tagged.tag(tag_type).is_none() {
         tagged.insert_tag(Tag::new(tag_type));
     }
+    let original = super::lyric_data::ContainerTag::open(
+        path,
+        tagged.file_type(),
+        tagged.tag(tag_type).expect("tag 必然存在"),
+    )?;
+    let retained_data = original.data();
     let tag = tagged.tag_mut(tag_type).expect("tag 必然存在");
 
     match request.title {
@@ -198,11 +213,17 @@ fn apply_to_file(path: &Path, request: &TagWriteRequest) -> Result<()> {
         Some(disk) => tag.set_disk(disk),
     }
     apply_text(tag, ItemKey::AlbumArtist, &request.album_artist);
-    // ID3v2 只认 UnsyncLyrics（USLT），其他格式两者等价；清除时两个键都清
-    if request.lyrics.as_deref() == Some("") {
+    // 替换时清掉两个旧字段，避免解码器优先读到旧 LYRICS；ID3v2 的文本歌词使用 USLT。
+    if request.lyrics.is_some() {
         tag.remove_key(ItemKey::Lyrics);
+        tag.remove_key(ItemKey::UnsyncLyrics);
+        let key = if tag_type == TagType::Id3v2 {
+            ItemKey::UnsyncLyrics
+        } else {
+            ItemKey::Lyrics
+        };
+        apply_text(tag, key, &request.lyrics);
     }
-    apply_text(tag, ItemKey::UnsyncLyrics, &request.lyrics);
 
     if let Some(ref data) = request.cover {
         // from_reader 校验图片签名并识别 mime，非图片数据直接报错
@@ -214,8 +235,14 @@ fn apply_to_file(path: &Path, request: &TagWriteRequest) -> Result<()> {
         tag.push_picture(picture);
     }
 
-    tagged
-        .save_to_path(path, WriteOptions::default())
+    let data = match request.lyrics.as_deref() {
+        None => retained_data.as_deref(),
+        Some("") => None,
+        Some(_) => request.lyric_data.as_deref(),
+    };
+    let updated = std::mem::replace(tag, Tag::new(tag_type));
+    original
+        .write(path, updated, data, request.lyrics.is_some())
         .context("写入标签失败")?;
     Ok(())
 }

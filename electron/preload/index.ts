@@ -15,6 +15,7 @@ import type { StreamingServerInput } from "@shared/types/streaming";
 import type { RecognitionConfig, RecognitionEvent } from "@shared/types/recognition";
 import type { PlayEventInput, FavoriteEventInput } from "@shared/types/stats";
 import type { TagEditRequest } from "@shared/types/tagEditor";
+import type { LyricSaveFilesRequest } from "@shared/types/lyrics";
 import type { UpdateEvent } from "@shared/types/update";
 import type { CloudUploadProgress } from "@shared/types/cloudUpload";
 import type { MusicCommentQuery } from "@shared/types/comment";
@@ -484,6 +485,7 @@ const api = {
     matchLocalTTML: (track: unknown) => ipcRenderer.invoke("lyrics:matchLocalTTML", track),
     // 选择本地 TTML 歌词库目录
     pickLyricRepoDir: () => ipcRenderer.invoke("lyrics:pickLyricRepoDir"),
+    saveFiles: (request: LyricSaveFilesRequest) => ipcRenderer.invoke("lyrics:saveFiles", request),
   },
   opencc: {
     // 转换单个文本

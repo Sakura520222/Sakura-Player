@@ -35,6 +35,8 @@ pub struct JsMusicMetadata {
     pub codec: String,
     /// 内嵌歌词（从音频文件 tag 中读取）
     pub embedded_lyric: Option<String>,
+    /// 原始歌词的格式及独立辅助轨道
+    pub embedded_lyric_data: Option<String>,
     /// 同目录下找到的所有歌词文件
     pub external_lyrics: Vec<JsExternalLyric>,
     /// 封面缩略图路径（300x300，用于前端日常显示）

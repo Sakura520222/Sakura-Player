@@ -12,12 +12,15 @@
  */
 
 import { readdir, stat } from "node:fs/promises";
-import { join, extname } from "node:path";
+import { join, extname, relative, isAbsolute } from "node:path";
+import { createHash } from "node:crypto";
+import { writeFile } from "atomically";
 import { readFileAutoEncoding } from "@main/utils/encoding";
 import { store } from "@main/store";
 import { normalize } from "@main/apis/common/lyric/utils";
 import { buildFingerprint, getMatchedId } from "@main/database/lyricMatchCache";
 import { coreLog } from "@main/utils/logger";
+import { sanitizeSegment } from "@main/utils/filename";
 import type { Track } from "@shared/types/player";
 
 /** 同名候选：艺术家仅作区分，不作硬门槛 */
@@ -52,8 +55,23 @@ const extractMeta = (
   const meta: { name?: string; artist?: string; ncmId?: string; qqId?: string } = {};
   for (const tag of head.matchAll(/<amll:meta\b[^>]*>/gi)) {
     const key = tag[0].match(/\bkey="([^"]*)"/)?.[1];
-    const value = tag[0].match(/\bvalue="([^"]*)"/)?.[1];
-    if (!key || !value) continue;
+    const encoded = tag[0].match(/\bvalue="([^"]*)"/)?.[1];
+    if (!key || !encoded) continue;
+    const value = encoded.replace(
+      /&(#x[\da-f]+|#\d+|quot|apos|lt|gt|amp);/gi,
+      (entity, code: string) => {
+        if (code.startsWith("#")) {
+          const point =
+            code[1].toLowerCase() === "x"
+              ? parseInt(code.slice(2), 16)
+              : parseInt(code.slice(1), 10);
+          return point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+        }
+        return ({ quot: '"', apos: "'", lt: "<", gt: ">", amp: "&" } as Record<string, string>)[
+          code.toLowerCase()
+        ];
+      },
+    );
     if (key === "musicName" && !meta.name) meta.name = value;
     else if (key === "artists" && !meta.artist) meta.artist = value;
     else if (key === "ncmMusicId" && !meta.ncmId) meta.ncmId = value;
@@ -216,4 +234,45 @@ export const matchLocalTTML = async (track: Track): Promise<string | null> => {
   }
   // 兜底：平台 id 回查
   return matchByCachedId(track, index);
+};
+
+/**
+ * 保存当前 TTML 并使下一次匹配重新读取索引
+ * @param track - 当前歌曲，用于选择已有文件及生成稳定文件名
+ * @param content - 含歌曲匹配元信息的 TTML
+ * @returns 写入的文件路径
+ */
+export const saveLocalTTML = async (track: Track, content: string): Promise<string> => {
+  const dir = store.get("localLyric.repoDir");
+  if (!store.get("localLyric.enableLocalTTMLOverride") || !dir) {
+    throw new Error("本地 TTML 歌词库未启用或未配置目录");
+  }
+  if (!(await stat(dir)).isDirectory()) throw new Error("TTML 歌词库目录无效");
+  if (!content.trim()) throw new Error("没有可保存的 TTML 歌词");
+  const index = await getIndex();
+  const artist = normalize(track.artists[0]?.name ?? "");
+  const existing =
+    (track.source === "netease" ? index?.byNcm.get(track.id) : undefined) ??
+    (track.source === "qqmusic" ? index?.byQq.get(track.extId ?? track.id) : undefined) ??
+    index?.byTitle.get(normalize(track.title))?.find((candidate) => candidate.artist === artist)
+      ?.file;
+  const key = createHash("sha256")
+    .update(`${track.source}:${track.path ?? track.id}`)
+    .digest("hex")
+    .slice(0, 12);
+  const name = sanitizeSegment(
+    `${track.title} - ${track.artists.map((item) => item.name).join(", ")}`,
+  ).slice(0, 80);
+  let filePath = join(dir, `${name || "lyrics"} [${key}].ttml`);
+  if (existing) {
+    const rel = relative(dir, existing);
+    if (!isAbsolute(rel) && rel !== ".." && !rel.startsWith("../") && !rel.startsWith("..\\")) {
+      filePath = existing;
+    }
+  }
+  await writeFile(filePath, content, "utf8");
+  // 等待旧扫描完成后再丢弃缓存，防止旧索引覆盖刚写入的歌词。
+  await building;
+  cache = null;
+  return filePath;
 };

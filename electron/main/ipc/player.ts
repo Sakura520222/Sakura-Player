@@ -9,6 +9,7 @@ import { extname } from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import { sendToMain } from "@main/utils/broadcast";
 import { readFileAutoEncoding } from "@main/utils/encoding";
+import { decodeLyricStorage } from "@main/services/lyricStorage";
 import { wsBroadcast } from "@main/server/broadcast";
 import { toCacheUrl } from "@main/utils/protocol";
 import { toMs } from "@main/utils/time";
@@ -345,6 +346,7 @@ const completeTrackLoad = (
       detail: {
         quality,
         embeddedLyric: meta.embeddedLyric,
+        embeddedLyricData: decodeLyricStorage(meta.embeddedLyric, meta.embeddedLyricData),
         externalLyrics: meta.externalLyrics,
       },
       mediaInfo: {

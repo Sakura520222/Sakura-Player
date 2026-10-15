@@ -248,6 +248,8 @@ export interface JsMusicMetadata {
   codec: string
   /** 内嵌歌词（从音频文件 tag 中读取） */
   embeddedLyric?: string
+  /** 原始歌词的格式及独立辅助轨道 */
+  embeddedLyricData?: string
   /** 同目录下找到的所有歌词文件 */
   externalLyrics: Array<JsExternalLyric>
   /** 封面缩略图路径（300x300，用于前端日常显示） */
@@ -350,6 +352,7 @@ export interface JsTagWriteRequest {
   trackNumber?: number
   discNumber?: number
   lyrics?: string
+  lyricData?: string
   /** 新封面图片数据（jpg/png），undefined 表示保留现有封面 */
   cover?: Buffer
 }
@@ -375,6 +378,8 @@ export interface JsTrackTags {
   discNumber?: number
   /** 内嵌歌词纯文本 */
   lyrics?: string
+  /** 原始歌词的格式及辅助轨道 */
+  lyricData?: string
   /** 是否有内嵌封面 */
   hasCover: boolean
 }

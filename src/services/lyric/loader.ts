@@ -55,18 +55,18 @@ const bestExternalIndex = (
  * 读取本地歌词
  * @param detail - 歌曲详细信息
  */
-const readLocal = async (
-  detail: TrackDetail,
-): Promise<{ source: NonNullable<LyricData>; content: string } | null> => {
+const readLocal = async (detail: TrackDetail): Promise<LocalLyric | null> => {
   const order = useSettingsStore().lyric.lyricFormatOrder ?? DEFAULT_LYRIC_FORMAT_ORDER;
+  const embedded = embeddedLyricFromDetail(detail);
   const idx = bestExternalIndex(detail.externalLyrics, order);
   if (idx !== -1) {
     const ext = detail.externalLyrics[idx];
+    if (embedded && isBetterFormat(embedded.source.format, ext.format)) return embedded;
     const result = await window.api.player.readLyricFile(ext.path);
-    if (!result.success || result.data == null) return null;
-    return { source: { source: "external", format: ext.format }, content: result.data };
+    if (!result.success || result.data == null) return embedded;
+    return { source: { source: "external", format: ext.format }, input: { content: result.data } };
   }
-  return embeddedLyricFromDetail(detail);
+  return embedded;
 };
 
 /**
@@ -82,7 +82,7 @@ const commit = (token: number, source: LyricData, input: LyricInput | null): voi
 
 /** 提交本地歌词 */
 const commitLocal = (token: number, local: LocalLyric): void => {
-  commit(token, local.source, { content: local.content });
+  commit(token, local.source, local.input);
 };
 
 /**
@@ -291,7 +291,7 @@ const loadStreamingLyric = (
     if (token !== currentToken) return;
     if (await tryPluginFallback(token, track)) return;
     if (embeddedFallback) {
-      commitIfBetter(token, embeddedFallback.source, { content: embeddedFallback.content });
+      commitIfBetter(token, embeddedFallback.source, embeddedFallback.input);
     } else if (useMediaStore().parsedLyric.length === 0) {
       commit(token, null, null);
     }

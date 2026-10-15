@@ -142,6 +142,8 @@ pub fn prepare_decode(
         bit_rate: stream_info.bit_rate,
         codec,
         embedded_lyric,
+        embedded_lyric_data: metadata::dict_get(&raw_metadata, metadata::LYRIC_DATA_KEY)
+            .map(str::to_owned),
         external_lyrics,
         cover,
         cover_raw,
