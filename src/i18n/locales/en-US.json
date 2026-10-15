@@ -1887,6 +1887,11 @@
       "description": "Configure AI models used by the app"
     },
     "aiModel": {
+      "test": "Test connection",
+      "cancelTest": "Cancel test",
+      "testSuccess": "Connected · {model} · {latency} ms",
+      "testCancelled": "Connection test cancelled",
+      "testFailed": "Connection test failed. Please try again.",
       "hint": "AI Model Configuration",
       "hintDetail": "Provides model support for selected AI features in the app",
       "add": "Add model",

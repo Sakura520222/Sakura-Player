@@ -19,7 +19,7 @@ import type { LyricSaveFilesRequest } from "@shared/types/lyrics";
 import type { UpdateEvent } from "@shared/types/update";
 import type { CloudUploadProgress } from "@shared/types/cloudUpload";
 import type { MusicCommentQuery } from "@shared/types/comment";
-import type { AiModelSaveInput } from "@shared/types/ai";
+import { aiModelApi } from "./aiModel";
 import type {
   DesktopLyricUnlockButtonBounds,
   DynamicIslandVisibilityChange,
@@ -761,12 +761,7 @@ const api = {
       return subscribe<McpStatus>("mcp:status", callback);
     },
   },
-  aiModel: {
-    list: () => ipcRenderer.invoke("aiModel:list"),
-    save: (input: AiModelSaveInput) => ipcRenderer.invoke("aiModel:save", input),
-    remove: (id: string) => ipcRenderer.invoke("aiModel:remove", id),
-    setActive: (id: string | null) => ipcRenderer.invoke("aiModel:setActive", id),
-  },
+  aiModel: aiModelApi,
   update: {
     getState: () => ipcRenderer.invoke("update:getState"),
     // 检查更新
