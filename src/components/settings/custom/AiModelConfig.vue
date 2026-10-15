@@ -15,6 +15,11 @@ const activeModelId = ref<string | null>(null);
 const loading = ref(true);
 const saving = ref(false);
 const switchingId = ref<string | null>(null);
+const testingId = ref<string | null>(null);
+const testContext = ref<string | null>(null);
+const testFeedback = ref<{ success: boolean; message: string } | null>(null);
+let testRevision = 0;
+let disposed = false;
 
 const dialogOpen = ref(false);
 const editingId = ref<string | null>(null);
@@ -73,6 +78,7 @@ const load = async (): Promise<void> => {
 };
 
 const openAdd = (): void => {
+  testFeedback.value = null;
   editingId.value = null;
   form.value = { ...EMPTY_FORM };
   formError.value = null;
@@ -80,6 +86,7 @@ const openAdd = (): void => {
 };
 
 const openEdit = (model: AiModelConfig): void => {
+  testFeedback.value = null;
   editingId.value = model.id;
   form.value = {
     id: model.id,
@@ -155,6 +162,78 @@ const handleConfirmRemove = async (): Promise<void> => {
   }
 };
 
+/** 取消操作直接中断主进程网络请求 */
+const cancelTest = async (): Promise<void> => {
+  if (testingId.value) await window.api.aiModel.cancel(testingId.value);
+};
+
+const testConnection = async (input: AiModelSaveInput, context: string): Promise<void> => {
+  if (testingId.value) return;
+  if (context === "dialog") {
+    const invalid = validate();
+    if (invalid) {
+      formError.value = invalid;
+      return;
+    }
+    formError.value = null;
+  }
+  const requestId = crypto.randomUUID();
+  testingId.value = requestId;
+  testContext.value = context;
+  testFeedback.value = null;
+  const revision = testRevision;
+  try {
+    const result = await window.api.aiModel.test({ requestId, config: { ...toRaw(input) } });
+    const feedback =
+      result.status === "completed"
+        ? {
+            success: true,
+            message: t("settings.aiModel.testSuccess", {
+              model: result.data.model,
+              latency: result.data.latencyMs,
+            }),
+          }
+        : {
+            success: false,
+            message:
+              result.status === "cancelled" ? t("settings.aiModel.testCancelled") : result.error,
+          };
+    if (disposed || (context === "dialog" && revision !== testRevision)) return;
+    if (context === "dialog") testFeedback.value = feedback;
+    else if (result.status !== "cancelled") {
+      if (feedback.success) toast.success(feedback.message);
+      else toast.error(feedback.message);
+    }
+  } catch {
+    if (disposed || (context === "dialog" && revision !== testRevision)) return;
+    const message = t("settings.aiModel.testFailed");
+    if (context === "dialog") testFeedback.value = { success: false, message };
+    else toast.error(message);
+  } finally {
+    testingId.value = null;
+    testContext.value = null;
+  }
+};
+
+watch(
+  form,
+  () => {
+    testRevision++;
+    testFeedback.value = null;
+    if (testContext.value === "dialog") void cancelTest();
+  },
+  { deep: true },
+);
+watch(dialogOpen, (open) => {
+  if (!open && testContext.value === "dialog") {
+    testRevision++;
+    void cancelTest();
+  }
+});
+onBeforeUnmount(() => {
+  disposed = true;
+  void cancelTest();
+});
 onMounted(load);
 </script>
 
@@ -210,6 +289,20 @@ onMounted(load);
             </div>
           </div>
           <div class="flex shrink-0 items-center gap-2">
+            <SButton
+              variant="secondary"
+              size="small"
+              :disabled="testingId !== null && testContext !== item.id"
+              @click="
+                testingId && testContext === item.id ? cancelTest() : testConnection(item, item.id)
+              "
+            >
+              {{
+                testingId && testContext === item.id
+                  ? t("settings.aiModel.cancelTest")
+                  : t("settings.aiModel.test")
+              }}
+            </SButton>
             <SButton
               v-if="activeModelId !== item.id"
               variant="secondary"
@@ -293,11 +386,38 @@ onMounted(load);
           {{ formError }}
         </div>
       </div>
+      <p
+        v-if="testFeedback"
+        class="mt-3 text-sm"
+        :class="testFeedback.success ? 'text-primary' : 'text-error'"
+        role="status"
+      >
+        {{ testFeedback.message }}
+      </p>
       <template #footer="{ close }">
+        <SButton
+          variant="secondary"
+          :disabled="saving || (testingId !== null && testContext !== 'dialog')"
+          @click="
+            testingId && testContext === 'dialog' ? cancelTest() : testConnection(form, 'dialog')
+          "
+        >
+          {{
+            testingId && testContext === "dialog"
+              ? t("settings.aiModel.cancelTest")
+              : t("settings.aiModel.test")
+          }}
+        </SButton>
         <SButton variant="secondary" :disabled="saving" @click="close">
           {{ t("common.cancel") }}
         </SButton>
-        <SButton variant="secondary" type="primary" :loading="saving" @click="handleSubmit">
+        <SButton
+          variant="secondary"
+          type="primary"
+          :loading="saving"
+          :disabled="testingId !== null"
+          @click="handleSubmit"
+        >
           {{ t("common.save") }}
         </SButton>
       </template>

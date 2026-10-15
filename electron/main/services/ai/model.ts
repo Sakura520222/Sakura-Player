@@ -5,19 +5,16 @@ import { safeStorage } from "electron";
 import { writeFileSync as atomicWriteSync } from "atomically";
 import { configDir } from "@main/utils/paths";
 import { ipcLog } from "@main/utils/logger";
-import type {
-  AiModelConfig,
-  AiModelProtocol,
-  AiModelSaveInput,
-  AiModelState,
-} from "@shared/types/ai";
+import { isLinux } from "@main/utils/config";
+import { normalizeModelInput } from "./validation";
+import type { AiModelConfig, AiModelSaveInput, AiModelState } from "@shared/types/ai";
 
 const STORAGE_FILE = path.join(configDir, "ai-models.json");
 
 interface PersistedAiModel {
   id: string;
   name: string;
-  protocol: AiModelProtocol;
+  protocol: AiModelSaveInput["protocol"];
   baseUrl: string;
   model: string;
   encryptedApiKey: string;
@@ -53,10 +50,18 @@ const writePersisted = (state: PersistedAiModelState): void => {
   }
 };
 
-const encryptApiKey = (apiKey: string): string => {
-  if (!safeStorage.isEncryptionAvailable()) {
+/** basic_text 使用固定口令，不能作为保存或复用密钥的安全后端 */
+const ensureSecureStorage = (): void => {
+  if (
+    !safeStorage.isEncryptionAvailable() ||
+    (isLinux && safeStorage.getSelectedStorageBackend() === "basic_text")
+  ) {
     throw new Error("系统安全存储不可用，无法保存 API Key");
   }
+};
+
+const encryptApiKey = (apiKey: string): string => {
+  ensureSecureStorage();
   return safeStorage.encryptString(apiKey).toString("base64");
 };
 
@@ -72,17 +77,38 @@ const toPublicState = (state: PersistedAiModelState): AiModelState => ({
   })),
 });
 
-const normalizeInput = (input: AiModelSaveInput): Omit<AiModelSaveInput, "id" | "apiKey"> => {
-  const name = input.name?.trim();
-  const baseUrl = input.baseUrl?.trim().replace(/\/+$/, "");
-  const model = input.model?.trim();
-  if (!name || !model || !/^https?:\/\//i.test(baseUrl)) {
-    throw new Error("请填写有效的模型名称、API 地址和模型 ID");
+/** 主进程内部使用的解密配置，不得通过 IPC 返回 */
+export interface AiConnection {
+  protocol: AiModelSaveInput["protocol"];
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+}
+
+/**
+ * 读取已保存模型或校验临时表单，只有调用前才解密密钥
+ * @param modelId - 指定配置 ID，留空时读取启用配置
+ * @param draft - 只用于本次请求的临时表单
+ * @returns 仅供主进程内部使用的连接配置
+ */
+export const resolveAiConnection = (modelId?: string, draft?: AiModelSaveInput): AiConnection => {
+  const state = readPersisted();
+  const id = draft ? draft.id : (modelId ?? state.activeModelId);
+  const saved = id ? state.models.find((item) => item.id === id) : undefined;
+  if (id && !saved) throw new Error("AI 模型配置不存在");
+  if (!draft && !saved) throw new Error("请先配置并启用 AI 模型");
+  const config = normalizeModelInput(draft ?? saved!);
+  let apiKey = draft?.apiKey?.trim();
+  if (!apiKey && saved?.encryptedApiKey) {
+    ensureSecureStorage();
+    try {
+      apiKey = safeStorage.decryptString(Buffer.from(saved.encryptedApiKey, "base64"));
+    } catch {
+      throw new Error("无法解密 AI 模型密钥，请重新填写 API Key");
+    }
   }
-  if (input.protocol !== "openai-compatible" && input.protocol !== "anthropic") {
-    throw new Error("不支持的 AI 模型协议");
-  }
-  return { name, protocol: input.protocol, baseUrl, model };
+  if (!apiKey) throw new Error("请填写 API Key");
+  return { protocol: config.protocol, baseUrl: config.baseUrl, model: config.model, apiKey };
 };
 
 /**
@@ -98,9 +124,10 @@ export const listAiModels = (): AiModelState => toPublicState(readPersisted());
  */
 export const saveAiModel = (input: AiModelSaveInput): AiModelState => {
   const state = readPersisted();
-  const normalized = normalizeInput(input);
+  const normalized = normalizeModelInput(input);
   const existing = input.id ? state.models.find((item) => item.id === input.id) : undefined;
   if (input.id && !existing) throw new Error("AI 模型配置不存在");
+  if (!input.apiKey?.trim()) ensureSecureStorage();
 
   const encryptedApiKey = input.apiKey?.trim()
     ? encryptApiKey(input.apiKey.trim())

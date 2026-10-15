@@ -1875,6 +1875,11 @@
       "description": "配置应用使用的 AI 模型"
     },
     "aiModel": {
+      "test": "测试连接",
+      "cancelTest": "取消测试",
+      "testSuccess": "连接成功 · {model} · {latency} ms",
+      "testCancelled": "连接测试已取消",
+      "testFailed": "连接测试失败，请重试",
       "hint": "AI 模型配置",
       "hintDetail": "可为项目中的部分 AI 功能提供支持",
       "add": "添加模型",
