@@ -451,6 +451,38 @@
     }
   },
   "player": {
+    "aiTranslation": {
+      "title": "AI 歌词翻译",
+      "hint": "将当前歌词发送至已启用的模型，逐行预览译文。取消不会修改当前歌词。",
+      "target": "目标语言",
+      "model": "当前模型：{name}",
+      "noModel": "请先启用一个 AI 模型",
+      "configure": "配置 AI 模型",
+      "modelLoadFailed": "无法读取模型配置，请关闭后重试",
+      "progress": "已翻译 {done} / {total} 行",
+      "completed": "翻译完成",
+      "cancelled": "已取消",
+      "cancelling": "正在取消…",
+      "waiting": "等待翻译",
+      "noLyrics": "当前没有可翻译的歌词",
+      "tooLarge": "歌词过长，暂时无法翻译",
+      "invalidOutput": "模型返回的译文不完整或格式无效，请重试",
+      "sourceChanged": "歌曲或歌词已更新，请重新开始翻译",
+      "applyHint": "应用后替换当前歌词的译文并同步外部歌词窗口，不会自动写入音频文件。",
+      "start": "开始翻译",
+      "retry": "重新翻译",
+      "cancel": "取消翻译",
+      "apply": "应用译文",
+      "applyAndShow": "应用并显示译文",
+      "applied": "AI 译文已应用",
+      "languages": {
+        "zh-CN": "简体中文",
+        "zh-TW": "繁體中文",
+        "en": "English",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
     "prev": "上一首",
     "next": "下一首",
     "transitioning": "过渡",

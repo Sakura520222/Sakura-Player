@@ -11,6 +11,7 @@ import {
 } from "lyric-kit";
 import { applyLyricExclude } from "@/utils/lyric/lyricStripper";
 import { applyLyricCjkTransform } from "@/utils/lyric/cjkTransform";
+import { createTranslationTrack } from "@/utils/lyric/translation";
 
 export const useMediaStore = defineStore("media", () => {
   watchLyricPreference();
@@ -44,6 +45,8 @@ export const useMediaStore = defineStore("media", () => {
 
   /** 当前歌词文件制作者列表 */
   const lyricAuthors = ref<string[]>([]);
+  const lyricRevision = ref(0);
+  let transformToken = 0;
 
   /** 同步当前歌词源到主进程 */
   const syncToMain = (): void => {
@@ -67,6 +70,7 @@ export const useMediaStore = defineStore("media", () => {
   const setTrack = (newTrack: Track, newDetail?: TrackDetail): void => {
     track.value = newTrack;
     if (newDetail) detail.value = newDetail;
+    lyricRevision.value++;
   };
 
   /**
@@ -124,17 +128,16 @@ export const useMediaStore = defineStore("media", () => {
 
   /** 重置歌词状态 */
   const resetLyricState = (): void => {
+    transformToken++;
     activeLyric.value = null;
     lyricContent.value = null;
     parsedLyric.value = [];
     lyricAuthors.value = [];
     lyricIndex.value = -1;
     lyricLoading.value = true;
+    lyricRevision.value++;
     syncToMain();
   };
-
-  /** 简繁转换竞态 token */
-  let transformToken = 0;
 
   // 监听简繁转换设置变化并重新解析当前歌词
   watch(
@@ -152,6 +155,7 @@ export const useMediaStore = defineStore("media", () => {
    * @param input - 主歌词 + 可选翻译 / 音译；传 null 即清空
    */
   const setLyric = (source: LyricData, input: LyricInput | null): void => {
+    const token = ++transformToken;
     let nextLines: LyricLine[] = [];
     let authors: string[] = [];
     const settings = useSettingsStore();
@@ -192,18 +196,54 @@ export const useMediaStore = defineStore("media", () => {
     lyricAuthors.value = hasContent && source && input ? authors : [];
     lyricIndex.value = -1;
     lyricLoading.value = false;
+    lyricRevision.value++;
     syncToMain();
 
     // 应用 OpenCC 简繁转换
     const cjkMode = settings.lyric.cjkTransform;
     if (hasContent && cjkMode && cjkMode !== "none") {
-      const token = ++transformToken;
       applyLyricCjkTransform(nextLines, cjkMode).then((transformed) => {
         if (token !== transformToken) return;
         parsedLyric.value = transformed;
+        lyricRevision.value++;
         syncToMain();
       });
     }
+  };
+
+  /**
+   * 原子应用完整 AI 译文；版本检查防止切歌或更新歌词后写入过期结果
+   * @param revision - 翻译开始时的歌词版本
+   * @param translations - 已校验的行下标与译文
+   * @param language - 目标语言
+   * @returns 是否成功应用
+   */
+  const applyLyricTranslation = (
+    revision: number,
+    translations: ReadonlyMap<number, string>,
+    language: string,
+  ): boolean => {
+    if (revision !== lyricRevision.value || !lyricContent.value || !activeLyric.value) return false;
+    const lines = parsedLyric.value;
+    const expected = lines
+      .map((line, index) => (line.words.some((word) => word.word.trim()) ? index : -1))
+      .filter((index) => index !== -1);
+    if (
+      !expected.length ||
+      expected.length !== translations.size ||
+      expected.some((index) => !translations.get(index)?.trim())
+    )
+      return false;
+    const translation = createTranslationTrack(lines, translations, language);
+    transformToken++;
+    lyricContent.value = { ...toRaw(lyricContent.value), translation, translationFormat: "ttml" };
+    parsedLyric.value = lines.map((line, index) => ({
+      ...line,
+      translatedLyric: translations.get(index) ?? line.translatedLyric,
+    }));
+    lyricRevision.value++;
+    syncToMain();
+    return true;
   };
 
   /**
@@ -216,6 +256,7 @@ export const useMediaStore = defineStore("media", () => {
 
   /** 清空所有状态 */
   const clear = (): void => {
+    transformToken++;
     track.value = null;
     playbackContext.value = undefined;
     detail.value = null;
@@ -225,6 +266,7 @@ export const useMediaStore = defineStore("media", () => {
     lyricAuthors.value = [];
     lyricLoading.value = false;
     lyricIndex.value = -1;
+    lyricRevision.value++;
     syncToMain();
   };
 
@@ -239,12 +281,14 @@ export const useMediaStore = defineStore("media", () => {
     lyricAuthors,
     lyricLoading,
     lyricIndex,
+    lyricRevision,
     setTrack,
     setPlaybackContext,
     enrichTrack,
     patchCover,
     resetLyricState,
     setLyric,
+    applyLyricTranslation,
     updateLyricIndex,
     clear,
   };

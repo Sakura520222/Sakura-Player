@@ -4,6 +4,7 @@ import type { LyricLine } from "@shared/types/lyrics";
 import type { Track } from "@shared/types/player";
 import { createLyricSaveContent } from "./save";
 import { LYRIC_SAVE_FIXTURES } from "@shared/testFixtures/lyricSave";
+import { createTranslationTrack } from "./translation";
 
 const track: Track = {
   id: "123",
@@ -25,6 +26,30 @@ const lines: LyricLine[] = [
 ];
 
 describe("当前歌词保存内容", () => {
+  it("TTML 导出合入 AI 译文，替换头部与行内旧译文并保留原始注音、逐字、背景和自定义属性", () => {
+    const original = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:i="http://music.apple.com/lyric-ttml-internal"><head><metadata><translations><translation xml:lang="zh-CN"><text for="line">旧主译文<span ttm:role="x-bg">旧背景译文</span></text></translation></translations></metadata></head><body><div><p begin="1s" end="3s" i:key="line" custom="keep"><span begin="1s" end="2s" tts:ruby="container"><span tts:ruby="base">光</span><span tts:ruby="textContainer"><span tts:ruby="text" begin="1s" end="2s">ひかり</span></span></span><span ttm:role="x-roman">hikari</span><span ttm:role="x-translation">行内旧译文</span><span ttm:role="x-bg" begin="2s" end="3s">echo<span ttm:role="x-translation">旧回声</span></span></p></div></body></tt>`;
+    const before = parseTTML(original).lines;
+    const auxiliary = {
+      translation: createTranslationTrack(
+        before,
+        new Map([
+          [0, "Light < glow"],
+          [1, "Echo & voice"],
+        ]),
+        "en",
+      ),
+      translationFormat: "ttml" as const,
+    };
+    const current = parseLyric({ content: original, format: "ttml", ...auxiliary }).lines;
+    const saved = createLyricSaveContent(track, current, original, auxiliary);
+    const after = parseTTML(saved.ttml!, { preferredLang: "zh-CN" }).lines;
+    expect(after.map((row) => row.translatedLyric)).toEqual(["Light < glow", "Echo & voice"]);
+    expect(after.map((row) => ({ ...row, translatedLyric: "" }))).toEqual(
+      before.map((row) => ({ ...row, translatedLyric: "" })),
+    );
+    expect(saved.ttml).toContain('custom="keep"');
+    expect(saved.ttml).not.toContain("旧主译文");
+  });
   it("逐行歌词仍使用普通 LRC，并保留翻译和音译且不修改显示数据", () => {
     const content = createLyricSaveContent(track, lines);
     expect(content.lrc).toBe("[00:01.234]歌词\n[00:01.234]翻译\n[00:01.234]ka shi");
