@@ -8,6 +8,34 @@ import { applyTimedAuxiliary } from "./auxiliary";
 import { createLyricSaveContent } from "./save";
 
 describe("逐字辅助歌词对齐与重载", () => {
+  it("已保存的逆序逐字译文重载后修正顺序，保留文本且不修改原数据", () => {
+    const source = structuredClone(ALIGNMENT_LINES);
+    const input = {
+      content: toTTML(source),
+      format: "ttml" as const,
+      translation: createTranslationTrack(
+        source,
+        new Map([
+          [
+            0,
+            [
+              { word: "Walk ", startTime: 2200, endTime: 4000 },
+              { word: "with ", startTime: 1700, endTime: 2000 },
+              { word: "you", startTime: 1100, endTime: 1600 },
+            ],
+          ],
+        ]),
+        "en",
+      ),
+      translationFormat: "ttml" as const,
+    };
+    const original = structuredClone(input);
+    const loaded: LyricLine[] = parseLyric(input).lines;
+    applyTimedAuxiliary(loaded, input);
+    expect(loaded[0].translatedLyric).toBe("Walk with you");
+    expect(loaded[0].translationWords).toEqual(aligned()[0].translationWords);
+    expect(input).toEqual(original);
+  });
   it("内嵌逐字译文跟随主歌词所选语言", () => {
     const input = {
       content: `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata"><body><div><p begin="1s" end="3s"><span begin="1s" end="3s">君</span><span ttm:role="x-translation" xml:lang="zh-CN"><span begin="1s" end="3s">你</span></span><span ttm:role="x-translation" xml:lang="en"><span begin="1s" end="3s">you</span></span></p></div></body></tt>`,
@@ -205,13 +233,13 @@ describe("逐字辅助歌词对齐与重载", () => {
     expect(source[0].words[1].romanWord).toBe("stale");
   });
 
-  it("按原字词区间生成语义译文和音译，不均摊或修改原文时间，保留注音", () => {
+  it("保留原文字词时间与注音，仅顺排译文中的语序冲突区间", () => {
     const before = structuredClone(ALIGNMENT_LINES);
     const result = aligned()[0];
     expect(result.translationWords).toEqual([
-      { word: "Walk ", startTime: 2200, endTime: 4000 },
-      { word: "with ", startTime: 1700, endTime: 2000 },
-      { word: "you", startTime: 1100, endTime: 1600 },
+      { word: "Walk ", startTime: 1100, endTime: 2155 },
+      { word: "with ", startTime: 2155, endTime: 3209 },
+      { word: "you", startTime: 3209, endTime: 4000 },
     ]);
     expect(result.words.map((word) => word.romanWord)).toEqual(["kimi", "to", "aruku"]);
     expect(result.translatedLyric).toBe("Walk with you");

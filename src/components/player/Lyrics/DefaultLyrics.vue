@@ -220,7 +220,7 @@ onMounted(() => {
           node instanceof HTMLElement &&
           line.translationWords?.length
         )
-          targets.push({ element: node, words: line.translationWords });
+          targets.push({ element: node, words: line.translationWords, kind: "translation" });
       }
       if (
         props.showRomanization &&
@@ -229,7 +229,7 @@ onMounted(() => {
       ) {
         const node = subs[sub];
         if (node instanceof HTMLElement && line.romanizationWords?.length)
-          targets.push({ element: node, words: line.romanizationWords });
+          targets.push({ element: node, words: line.romanizationWords, kind: "romanization" });
       }
     }
     return targets;

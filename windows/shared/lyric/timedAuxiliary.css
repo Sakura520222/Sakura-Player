@@ -2,20 +2,22 @@
   display: inline-block;
   max-width: 100%;
   overflow-wrap: anywhere;
-  --aux-progress: clamp(
-    0,
-    calc((var(--lyric-aux-time, 0) - var(--aux-start)) / var(--aux-duration)),
-    1
-  );
   white-space: pre-wrap;
+  opacity: 0.266667;
+}
+.timed-auxiliary [data-aux-state="played"] {
+  opacity: 1;
+}
+.timed-auxiliary [data-aux-state="active"] {
+  opacity: 1;
   mask-image: linear-gradient(
     to right,
-    #000 calc(var(--aux-progress) * 104% - 4%),
-    #0004 calc(var(--aux-progress) * 104%)
+    #000 calc(var(--aux-progress, 0) * 104% - 4%),
+    #0004 calc(var(--aux-progress, 0) * 104%)
   );
   -webkit-mask-image: linear-gradient(
     to right,
-    #000 calc(var(--aux-progress) * 104% - 4%),
-    #0004 calc(var(--aux-progress) * 104%)
+    #000 calc(var(--aux-progress, 0) * 104% - 4%),
+    #0004 calc(var(--aux-progress, 0) * 104%)
   );
 }

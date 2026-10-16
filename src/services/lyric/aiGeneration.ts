@@ -69,12 +69,23 @@ export const getGenerationCoverage = (lines: LyricLine[]) => {
       spans
         .map((word) => word.word)
         .join("")
-        .trim() === line.translatedLyric.trim() &&
-      words.every((word) =>
-        spans.some((span) => span.startTime <= word.startTime && span.endTime >= word.endTime),
+        .trim() === line.translatedLyric.trim()
+    ) {
+      // 顺排译文可能在一个原词范围内切分，以区间并集判断完整覆盖。
+      const ranges: { start: number; end: number }[] = [];
+      for (const span of spans.slice().sort((a, b) => a.startTime - b.startTime)) {
+        const previous = ranges.at(-1);
+        if (previous && previous.end >= span.startTime)
+          previous.end = Math.max(previous.end, span.endTime);
+        else ranges.push({ start: span.startTime, end: span.endTime });
+      }
+      if (
+        words.every((word) =>
+          ranges.some((range) => range.start <= word.startTime && range.end >= word.endTime),
+        )
       )
-    )
-      existing.wordTranslation++;
+        existing.wordTranslation++;
+    }
   }
   return { total, existing };
 };
