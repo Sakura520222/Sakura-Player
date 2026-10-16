@@ -181,7 +181,7 @@ const handleSaveLyrics = async (): Promise<void> => {
     // 先保存文件，让标签写入后的歌曲重载能发现同名 LRC 与新的 TTML。
     if (writeLrc || ttml)
       try {
-        const content = createLyricSaveContent(track, media.parsedLyric, ttml);
+        const content = createLyricSaveContent(track, media.parsedLyric, ttml, lyricData);
         const result = await window.api.lyrics.saveFiles({
           track: toRaw(track),
           lrc: writeLrc ? content.lrc : undefined,

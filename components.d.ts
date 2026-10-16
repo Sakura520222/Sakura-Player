@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AbLoopDialog: typeof import('./src/components/modals/AbLoopDialog.vue')['default']
     AboutSettings: typeof import('./src/components/settings/custom/AboutSettings.vue')['default']
+    AiLyricTranslationDialog: typeof import('./src/components/modals/AiLyricTranslationDialog.vue')['default']
     AiModelConfig: typeof import('./src/components/settings/custom/AiModelConfig.vue')['default']
     AmllDbServerConfig: typeof import('./src/components/settings/custom/AmllDbServerConfig.vue')['default']
     AMLLLyrics: typeof import('./src/components/player/Lyrics/AMLLLyrics.vue')['default']
@@ -114,6 +115,7 @@ declare module 'vue' {
     IconLucideInfinity: typeof import('~icons/lucide/infinity')['default']
     IconLucideKey: typeof import('~icons/lucide/key')['default']
     IconLucideKeyRound: typeof import('~icons/lucide/key-round')['default']
+    IconLucideLanguages: typeof import('~icons/lucide/languages')['default']
     IconLucideLink: typeof import('~icons/lucide/link')['default']
     IconLucideLink2: typeof import('~icons/lucide/link2')['default']
     IconLucideListMusic: typeof import('~icons/lucide/list-music')['default']

@@ -1,5 +1,5 @@
-import { toEnhancedLRC, toLRC } from "lyric-kit";
-import type { LyricLine } from "@shared/types/lyrics";
+import { parseLyric, toEnhancedLRC, toLRC } from "lyric-kit";
+import type { LyricInput, LyricLine } from "@shared/types/lyrics";
 import type { Track } from "@shared/types/player";
 
 /**
@@ -7,12 +7,14 @@ import type { Track } from "@shared/types/player";
  * @param track - 当前歌曲
  * @param lines - 当前显示的完整歌词，包含翻译、音译和背景人声
  * @param ttml - 当前 TTML 原文，其他格式不传
+ * @param auxiliary - 当前外部翻译轨道，导出时合入 TTML 原文
  * @returns 保留逐字时间的 LRC 及可选的 TTML
  */
 export const createLyricSaveContent = (
   track: Track,
   lines: LyricLine[],
   ttml?: string,
+  auxiliary?: Pick<LyricInput, "translation" | "translationFormat">,
 ): { lrc: string; ttml?: string } => {
   const exportLines = lines
     .filter((line) => line.words.some((word) => word.word.trim()))
@@ -40,6 +42,44 @@ export const createLyricSaveContent = (
   if (!metadata) {
     metadata = doc.createElementNS(namespace, "metadata");
     head.appendChild(metadata);
+  }
+  if (auxiliary?.translation) {
+    const translated = parseLyric({ content: ttml, format: "ttml", ...auxiliary }).lines;
+    const metadataNamespace = "http://www.w3.org/ns/ttml#metadata";
+    const role = (element: Element): string | null =>
+      element.getAttributeNS(metadataNamespace, "role") ?? element.getAttribute("ttm:role");
+    const body = doc.getElementsByTagName("body")[0];
+    const paragraphs = body
+      ? Array.from(body.children).flatMap((element) =>
+          element.localName === "div"
+            ? Array.from(element.getElementsByTagName("p"))
+            : element.localName === "p"
+              ? [element]
+              : [],
+        )
+      : [];
+    const owners = paragraphs.flatMap((paragraph) => [
+      paragraph,
+      ...Array.from(paragraph.children).filter((element) => role(element) === "x-bg"),
+    ]);
+    if (owners.length !== translated.length) throw new Error("TTML 译文无法对应原歌词");
+    // 仅替换翻译，保留原始逐字、注音、声部及自定义 XML；头部译文优先级高于行内译文。
+    for (const element of Array.from(head.getElementsByTagName("*"))) {
+      if (element.localName === "translations") element.remove();
+    }
+    root.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:ttm", metadataNamespace);
+    for (const [index, owner] of owners.entries()) {
+      for (const child of Array.from(owner.children)) {
+        if (role(child) === "x-translation") child.remove();
+      }
+      const text = translated[index].translatedLyric;
+      if (!text) continue;
+      const span = doc.createElementNS(namespace, "span");
+      span.setAttributeNS(metadataNamespace, "ttm:role", "x-translation");
+      // 外部轨道是用户选定的当前译文，不再按界面语言过滤。
+      span.textContent = text;
+      owner.appendChild(span);
+    }
   }
   const amllNamespace = "http://www.example.com/ns/amll";
   root.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:amll", amllNamespace);
