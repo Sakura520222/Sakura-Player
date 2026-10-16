@@ -124,6 +124,47 @@ describe("逐字辅助歌词对齐与重载", () => {
     expect(lines[0].translatedLyric).toBe("普通译文");
     expect(lines[0].translationWords).toBeUndefined();
   });
+
+  it.each(["lrc", "ttml"] as const)("%s 音译保留真实分段的逐字对应与时间", (format) => {
+    const content = "[03:02.000]<03:02.000>鼓動のせい <03:04.000>ぱっちり目が覚めた<03:08.300>";
+    const source = parseLyric(content).lines;
+    const romanization = [
+      { word: "ko do u no se i ", startTime: 182000, endTime: 184000 },
+      { word: "pa tchi ri me ga sa me ta", startTime: 184000, endTime: 188300 },
+    ];
+    const input = {
+      content,
+      format: "lrc" as const,
+      romaji:
+        format === "lrc"
+          ? "[03:02.000]<03:02.000>ko do u no se i <03:04.000>pa tchi ri me ga sa me ta<03:08.300>"
+          : createTranslationTrack(source, new Map([[0, romanization]]), "und-Latn", "normalized"),
+      romajiFormat: format,
+    };
+    const lines: LyricLine[] = parseLyric(input).lines;
+    applyTimedAuxiliary(lines, input);
+    expect(lines[0].words.map((word) => word.romanWord)).toEqual(
+      romanization.map((word) => word.word.trim()),
+    );
+    expect(lines[0].romanizationWords).toEqual(romanization);
+    expect(
+      lines[0].words.map(({ word, startTime, endTime }) => ({ word, startTime, endTime })),
+    ).toEqual(source[0].words);
+  });
+
+  it("单个原词保留对应的单词音译", () => {
+    const input = {
+      content: "[00:01]君\n[00:02]",
+      format: "lrc" as const,
+      romaji: "[00:01]kimi\n[00:02]",
+      romajiFormat: "lrc" as const,
+    };
+    const lines: LyricLine[] = parseLyric(input).lines;
+    applyTimedAuxiliary(lines, input);
+    expect(lines[0].words[0].romanWord).toBe("kimi");
+    expect(lines[0].romanLyric).toBe("kimi");
+  });
+
   const aligned = () =>
     alignGeneratedLyrics(structuredClone(ALIGNMENT_LINES), new Map([[0, ALIGNMENT_RESULT]]))!;
 
