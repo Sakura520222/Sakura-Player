@@ -82,6 +82,35 @@ afterAll(async () => {
 });
 
 describe("统一模型请求", () => {
+  it.each([
+    ["schema", "响应结构无效"],
+    ["json", "无法解析的 JSON"],
+    ["encoding", "文本编码无效"],
+    ["network", "网络连接失败"],
+  ])("%s 失败给出独立类别且不暴露密钥或服务端原文", async (kind, expected) => {
+    if (kind === "network") {
+      vi.mocked(fetchWithProxy).mockRejectedValueOnce(new TypeError("fetch failed test-secret"));
+    } else {
+      respond = (response) =>
+        response.end(
+          kind === "encoding"
+            ? Buffer.from([0xff])
+            : kind === "json"
+              ? "not-json test-secret"
+              : JSON.stringify({ choices: "test-secret" }),
+        );
+    }
+    let failure: unknown;
+    try {
+      await requestAi(connection, { messages: [message] }, new AbortController().signal);
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain(expected);
+    expect((failure as Error).message).not.toContain("test-secret");
+  });
+
   it("OpenAI 请求保留自定义路径、对话与生成参数，归一化文本和用量", async () => {
     const result = await requestAi(
       connection,

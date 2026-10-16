@@ -289,9 +289,16 @@ export const requestAi = async (
   } catch (error) {
     if (signal.aborted) signal.throwIfAborted();
     if (timeout.aborted) throw new Error("AI 请求超时，请稍后重试");
-    if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError) {
-      throw new Error("AI 请求失败：网络不可用或服务响应格式无效");
-    }
+    if (error instanceof z.ZodError) throw new Error("AI 服务响应结构无效，请检查接口协议兼容性");
+    if (error instanceof SyntaxError)
+      throw new Error("AI 服务返回了无法解析的 JSON，请检查接口服务");
+    if (
+      error instanceof TypeError &&
+      "code" in error &&
+      error.code === "ERR_ENCODING_INVALID_ENCODED_DATA"
+    )
+      throw new Error("AI 服务响应文本编码无效，请检查接口服务");
+    if (error instanceof TypeError) throw new Error("AI 网络连接失败，请检查网络、代理或接口服务");
     const message = error instanceof Error ? error.message : "AI 请求失败，请稍后重试";
     throw new Error(message.replaceAll(connection.apiKey, "[REDACTED]").slice(0, 500));
   } finally {
