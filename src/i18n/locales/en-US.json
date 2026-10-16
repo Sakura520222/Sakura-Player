@@ -490,7 +490,7 @@
       "retry": "Generate again",
       "resume": "Resume translation",
       "resumeCancelled": "Resume generation",
-      "resumeHint": "Validated lines are kept so you can process the remaining lyrics. Closing this dialog or changing the lyrics, language or selected tasks clears progress.",
+      "resumeHint": "Validated lines are kept so you can process the remaining lyrics. Closing this dialog or changing the lyrics, language, selected tasks or generation mode clears progress.",
       "cancel": "Cancel generation",
       "apply": "Apply translation",
       "applyAndShow": "Apply and show translation",
@@ -514,7 +514,17 @@
       "selectionHint": "Missing or incomplete items are selected by default; unselected content is kept. Word-only tasks align existing text and generate missing text when needed.",
       "selectAtLeastOne": "Select at least one item to generate.",
       "applySelected": "Apply selected content",
-      "resetAlignmentHint": "Regenerating line text clears its old word alignment. Select the word task too to update both."
+      "resetAlignmentHint": "Regenerating line text clears its old word alignment. Select the word task too to update both.",
+      "modes": {
+        "missing": "Fill missing (keep existing)",
+        "full": "Regenerate all"
+      },
+      "modeHints": {
+        "missing": "Reuse existing text and generate selected content only for missing or incomplete lines. Word tasks align the existing translation or romanization.",
+        "full": "Regenerate selected content from the original lyrics, replacing its text and alignment. Unselected content is kept."
+      },
+      "nothingMissing": "Selected content is complete. Choose Regenerate all to replace it.",
+      "preserved": "Keeping {count} existing lines"
     },
     "prev": "Previous",
     "next": "Next",

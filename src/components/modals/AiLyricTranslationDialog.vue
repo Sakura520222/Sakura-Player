@@ -5,7 +5,7 @@ import { useMediaStore } from "@/stores/media";
 import { useSettingsStore } from "@/stores/settings";
 import { useSettingsDialog } from "@/settings/useSettingsDialog";
 import { toast } from "@/composables/useToast";
-import { GENERATION_TASKS } from "@/services/lyric/aiGeneration";
+import { GENERATION_TASKS, type GenerationMode } from "@/services/lyric/aiGeneration";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ "update:open": [value: boolean] }>();
@@ -15,6 +15,7 @@ const settings = useSettingsStore();
 const settingsDialog = useSettingsDialog();
 const {
   targetLanguage,
+  generationMode,
   selected,
   coverage,
   hasSelection,
@@ -25,6 +26,8 @@ const {
   phase,
   error,
   translatedCount,
+  generationCount,
+  preservedCount,
   canApply,
   canStart,
   canResume,
@@ -39,22 +42,29 @@ const languageOptions = computed(() =>
     label: t(`player.aiTranslation.languages.${value}`),
   })),
 );
+const generationModeOptions = computed(() =>
+  (["missing", "full"] as const).map((value) => ({
+    value,
+    label: t(`player.aiTranslation.modes.${value}`),
+  })),
+);
 const needsTranslationLanguage = computed(
   () =>
-    selected.value.translation ||
-    (selected.value.wordTranslation && coverage.value.existing.translation < coverage.value.total),
+    (selected.value.translation || selected.value.wordTranslation) &&
+    (generationMode.value === "full" || coverage.value.existing.translation < coverage.value.total),
 );
 const clearsAlignment = computed(
   () =>
-    (selected.value.translation &&
+    generationMode.value === "full" &&
+    ((selected.value.translation &&
       !selected.value.wordTranslation &&
       media.parsedLyric.some((line) => line.translationWords?.length)) ||
-    (selected.value.romanization &&
-      !selected.value.wordRomanization &&
-      media.parsedLyric.some(
-        (line) =>
-          line.romanizationWords?.length || line.words.some((word) => word.romanWord?.trim()),
-      )),
+      (selected.value.romanization &&
+        !selected.value.wordRomanization &&
+        media.parsedLyric.some(
+          (line) =>
+            line.romanizationWords?.length || line.words.some((word) => word.romanWord?.trim()),
+        ))),
 );
 
 const configureModel = (): void => {
@@ -81,20 +91,37 @@ const applyTranslation = (): void => {
     width="720px"
     @update:open="emit('update:open', $event)"
   >
-    <div class="flex flex-col gap-4" data-ai-lyric-translation>
+    <div class="flex flex-col gap-3" data-ai-lyric-translation>
       <div>
         <div class="truncate text-sm font-medium text-on-surface">{{ media.track?.title }}</div>
         <p class="m-0 mt-1 text-xs leading-5 text-on-surface-variant">
           {{ t("player.aiTranslation.hint") }}
         </p>
       </div>
-      <div class="flex flex-col gap-3" role="group" :aria-label="t('player.aiTranslation.tasks')">
-        <div class="text-sm font-medium text-on-surface">{{ t("player.aiTranslation.tasks") }}</div>
-        <div class="grid grid-cols-2 gap-3">
+      <div
+        class="flex flex-col gap-2"
+        role="group"
+        :aria-label="t('player.aiTranslation.tasks')"
+        data-generation-options
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-sm font-medium text-on-surface">
+            {{ t("player.aiTranslation.tasks") }}
+          </div>
+          <div class="w-52" role="group" :aria-label="t('player.aiTranslation.mode')">
+            <SSelect
+              :model-value="generationMode"
+              :options="generationModeOptions"
+              :disabled="busy"
+              @update:model-value="generationMode = $event as GenerationMode"
+            />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div
             v-for="task in GENERATION_TASKS"
             :key="task"
-            class="rounded-lg border border-solid border-outline-variant/25 p-3"
+            class="rounded-lg border border-solid border-outline-variant/25 px-2.5 py-2"
             :data-generation-task="task"
           >
             <SCheckbox
@@ -102,7 +129,7 @@ const applyTranslation = (): void => {
               :disabled="busy || !rows.length"
               :label="t(`player.aiTranslation.taskLabels.${task}`)"
             />
-            <div class="mt-1 text-xs leading-5 text-on-surface-variant">
+            <div class="mt-0.5 text-xs leading-4 text-on-surface-variant">
               {{
                 t(
                   coverage.existing[task]
@@ -115,19 +142,16 @@ const applyTranslation = (): void => {
           </div>
         </div>
         <p class="m-0 text-xs leading-5 text-on-surface-variant">
-          {{ t("player.aiTranslation.selectionHint") }}
+          {{ t(`player.aiTranslation.modeHints.${generationMode}`) }}
         </p>
         <p v-if="clearsAlignment" class="m-0 text-xs leading-5 text-on-surface-variant">
           {{ t("player.aiTranslation.resetAlignmentHint") }}
         </p>
-        <p
-          v-if="selected.wordTranslation || selected.wordRomanization"
-          class="m-0 text-xs leading-5 text-on-surface-variant"
-        >
-          {{ t("player.aiTranslation.alignmentHint") }}
-        </p>
         <p v-if="!hasSelection && rows.length" class="m-0 text-xs text-on-surface-variant">
           {{ t("player.aiTranslation.selectAtLeastOne") }}
+        </p>
+        <p v-else-if="!generationCount && rows.length" class="m-0 text-xs text-on-surface-variant">
+          {{ t("player.aiTranslation.nothingMissing") }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-3">
@@ -169,7 +193,12 @@ const applyTranslation = (): void => {
       >
         <SLoading v-if="busy && phase === 'running'" class="size-4 shrink-0" />
         <span>
-          {{ t("player.aiTranslation.progress", { done: translatedCount, total: rows.length }) }}
+          {{
+            t("player.aiTranslation.progress", { done: translatedCount, total: generationCount })
+          }}
+        </span>
+        <span v-if="preservedCount && hasSelection" class="text-xs">
+          {{ t("player.aiTranslation.preserved", { count: preservedCount }) }}
         </span>
         <span v-if="phase === 'completed'" class="text-primary">
           {{ t("player.aiTranslation.completed") }}
