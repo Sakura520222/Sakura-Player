@@ -5,6 +5,11 @@ import { parseLyric, toTTML } from "lyric-kit";
 import { ALIGNMENT_LINES, ALIGNMENT_RESULT } from "@shared/testFixtures/lyricAlignment";
 import type { LyricLine } from "@shared/types/lyrics";
 import type { CjkTransformMode } from "@shared/types/opencc";
+import {
+  GENERATION_TASKS,
+  type GeneratedLyric,
+  type GenerationOptions,
+} from "@/services/lyric/aiGeneration";
 
 let settings: {
   locale: string;
@@ -50,6 +55,98 @@ const translations = new Map([
 ]);
 
 describe("当前歌曲 AI 译文应用", () => {
+  it.each(Array.from({ length: 15 }, (_, index) => index + 1))(
+    "选择组合 %s 只修改所选轨道，原文、注音和保存重载保持一致",
+    (mask) => {
+      const media = load();
+      const content = toTTML(ALIGNMENT_LINES);
+      media.setLyric({ source: "embedded", format: "ttml" }, { content });
+      media.applyAlignedLyricTranslation(
+        media.lyricRevision,
+        new Map([[0, ALIGNMENT_RESULT]]),
+        "en",
+      );
+      const before = structuredClone(media.parsedLyric[0]);
+      const saved = { ...toRaw(media.lyricContent!) };
+      const options = Object.fromEntries(
+        GENERATION_TASKS.map((key, bit) => [key, !!(mask & (1 << bit))]),
+      ) as GenerationOptions;
+      const value: GeneratedLyric = {};
+      if (options.wordTranslation)
+        value.translation = options.translation
+          ? [{ text: "新的译文", from: 0, to: 2 }]
+          : ALIGNMENT_RESULT.translation;
+      else if (options.translation) value.translation = "新的逐行译文";
+      if (options.wordRomanization)
+        value.romanization = options.romanization
+          ? [{ index: 0, text: "anata" }, ...ALIGNMENT_RESULT.romanization.slice(1)]
+          : ALIGNMENT_RESULT.romanization;
+      else if (options.romanization) value.romanization = "anata to aruku";
+      expect(
+        media.applyGeneratedLyric(media.lyricRevision, new Map([[0, value]]), options, "zh-CN"),
+      ).toBe(true);
+      const applied = structuredClone(media.parsedLyric[0]);
+      if (!options.translation && !options.wordTranslation) {
+        expect(applied.translatedLyric).toBe(before.translatedLyric);
+        expect(applied.translationWords).toEqual(before.translationWords);
+        expect(media.lyricContent!.translation).toBe(saved.translation);
+      }
+      if (!options.romanization && !options.wordRomanization) {
+        expect(applied.romanLyric).toBe(before.romanLyric);
+        expect(applied.words).toEqual(before.words);
+        expect(media.lyricContent!.romaji).toBe(saved.romaji);
+      }
+      if (options.wordTranslation && !options.translation) {
+        expect(applied.translatedLyric).toBe(before.translatedLyric);
+        expect(
+          parseLyric(
+            { content: media.lyricContent!.translation!, format: "ttml" },
+            { extractMetadata: true },
+          ).metadata.language,
+        ).toBe("en");
+      }
+      if (options.translation && !options.wordTranslation)
+        expect(applied.translationWords).toBeUndefined();
+      if (options.romanization && !options.wordRomanization) {
+        expect(applied.romanizationWords).toBeUndefined();
+        expect(applied.words.every((word) => !word.romanWord)).toBe(true);
+      }
+      expect(media.lyricContent!.content).toBe(content);
+      expect(applied.words.map(({ romanWord: _roman, ...word }) => word)).toEqual(
+        before.words.map(({ romanWord: _roman, ...word }) => word),
+      );
+      media.setLyric(media.activeLyric, media.lyricContent);
+      expect(media.parsedLyric[0].translatedLyric).toBe(applied.translatedLyric);
+      expect(media.parsedLyric[0].romanLyric).toBe(applied.romanLyric);
+      expect(media.parsedLyric[0].translationWords).toEqual(applied.translationWords);
+      expect(media.parsedLyric[0].words).toEqual(applied.words);
+    },
+  );
+
+  it("逐字单选不得改写已有文本或应用不完整结果，失败时不修改状态", () => {
+    const media = load();
+    media.setLyric({ source: "embedded", format: "ttml" }, { content: toTTML(ALIGNMENT_LINES) });
+    media.applyAlignedLyricTranslation(media.lyricRevision, new Map([[0, ALIGNMENT_RESULT]]), "en");
+    const current = media.parsedLyric;
+    const revision = media.lyricRevision;
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: false,
+    };
+    expect(media.applyGeneratedLyric(revision, new Map(), options, "en")).toBe(false);
+    expect(
+      media.applyGeneratedLyric(
+        revision,
+        new Map([[0, { translation: [{ text: "rewrite", from: 0, to: 2 }] }]]),
+        options,
+        "en",
+      ),
+    ).toBe(false);
+    expect(media.parsedLyric).toBe(current);
+    expect(media.lyricRevision).toBe(revision);
+  });
   it("逐字结果原子写入两条辅助轨道并同步窗口，重载和切换普通翻译时状态正确", () => {
     const media = load();
     const content = toTTML(ALIGNMENT_LINES);

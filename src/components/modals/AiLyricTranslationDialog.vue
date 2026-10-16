@@ -5,6 +5,7 @@ import { useMediaStore } from "@/stores/media";
 import { useSettingsStore } from "@/stores/settings";
 import { useSettingsDialog } from "@/settings/useSettingsDialog";
 import { toast } from "@/composables/useToast";
+import { GENERATION_TASKS } from "@/services/lyric/aiGeneration";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ "update:open": [value: boolean] }>();
@@ -14,7 +15,9 @@ const settings = useSettingsStore();
 const settingsDialog = useSettingsDialog();
 const {
   targetLanguage,
-  mode,
+  selected,
+  coverage,
+  hasSelection,
   model,
   loadingModel,
   rows,
@@ -36,6 +39,23 @@ const languageOptions = computed(() =>
     label: t(`player.aiTranslation.languages.${value}`),
   })),
 );
+const needsTranslationLanguage = computed(
+  () =>
+    selected.value.translation ||
+    (selected.value.wordTranslation && coverage.value.existing.translation < coverage.value.total),
+);
+const clearsAlignment = computed(
+  () =>
+    (selected.value.translation &&
+      !selected.value.wordTranslation &&
+      media.parsedLyric.some((line) => line.translationWords?.length)) ||
+    (selected.value.romanization &&
+      !selected.value.wordRomanization &&
+      media.parsedLyric.some(
+        (line) =>
+          line.romanizationWords?.length || line.words.some((word) => word.romanWord?.trim()),
+      )),
+);
 
 const configureModel = (): void => {
   emit("update:open", false);
@@ -44,11 +64,11 @@ const configureModel = (): void => {
 
 const applyTranslation = (): void => {
   if (!apply()) return;
-  settings.lyric.showTranslation = true;
-  if (mode.value === "aligned") {
-    settings.lyric.showWordRomanization = true;
-    settings.lyric.showWordTranslation = true;
-  }
+  if (selected.value.translation || selected.value.wordTranslation)
+    settings.lyric.showTranslation = true;
+  if (selected.value.wordTranslation) settings.lyric.showWordTranslation = true;
+  if (selected.value.romanization) settings.lyric.showRomanization = true;
+  if (selected.value.wordRomanization) settings.lyric.showWordRomanization = true;
   toast.success(t("player.aiTranslation.applied"));
   emit("update:open", false);
 };
@@ -68,34 +88,62 @@ const applyTranslation = (): void => {
           {{ t("player.aiTranslation.hint") }}
         </p>
       </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <span class="shrink-0 text-sm text-on-surface-variant">
-          {{ t("player.aiTranslation.mode") }}
-        </span>
-        <div class="w-64" role="group" :aria-label="t('player.aiTranslation.mode')">
-          <SSelect
-            :model-value="mode"
-            :disabled="busy"
-            :options="[
-              { value: 'aligned', label: t('player.aiTranslation.alignedMode') },
-              { value: 'line', label: t('player.aiTranslation.lineMode') },
-            ]"
-            @update:model-value="mode = $event as 'aligned' | 'line'"
-          />
+      <div class="flex flex-col gap-3" role="group" :aria-label="t('player.aiTranslation.tasks')">
+        <div class="text-sm font-medium text-on-surface">{{ t("player.aiTranslation.tasks") }}</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div
+            v-for="task in GENERATION_TASKS"
+            :key="task"
+            class="rounded-lg border border-solid border-outline-variant/25 p-3"
+            :data-generation-task="task"
+          >
+            <SCheckbox
+              v-model:checked="selected[task]"
+              :disabled="busy || !rows.length"
+              :label="t(`player.aiTranslation.taskLabels.${task}`)"
+            />
+            <div class="mt-1 text-xs leading-5 text-on-surface-variant">
+              {{
+                t(
+                  coverage.existing[task]
+                    ? "player.aiTranslation.existingCount"
+                    : "player.aiTranslation.missing",
+                  { done: coverage.existing[task], total: coverage.total },
+                )
+              }}
+            </div>
+          </div>
         </div>
-        <p v-if="mode === 'aligned'" class="m-0 text-xs leading-5 text-on-surface-variant">
+        <p class="m-0 text-xs leading-5 text-on-surface-variant">
+          {{ t("player.aiTranslation.selectionHint") }}
+        </p>
+        <p v-if="clearsAlignment" class="m-0 text-xs leading-5 text-on-surface-variant">
+          {{ t("player.aiTranslation.resetAlignmentHint") }}
+        </p>
+        <p
+          v-if="selected.wordTranslation || selected.wordRomanization"
+          class="m-0 text-xs leading-5 text-on-surface-variant"
+        >
           {{ t("player.aiTranslation.alignmentHint") }}
+        </p>
+        <p v-if="!hasSelection && rows.length" class="m-0 text-xs text-on-surface-variant">
+          {{ t("player.aiTranslation.selectAtLeastOne") }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-3">
-        <span class="shrink-0 text-sm text-on-surface-variant">
+        <span v-if="needsTranslationLanguage" class="shrink-0 text-sm text-on-surface-variant">
           {{ t("player.aiTranslation.target") }}
         </span>
-        <div class="w-44 shrink-0" role="group" :aria-label="t('player.aiTranslation.target')">
+        <div
+          v-if="needsTranslationLanguage"
+          class="w-44 shrink-0"
+          role="group"
+          :aria-label="t('player.aiTranslation.target')"
+        >
           <SSelect
             :model-value="targetLanguage"
             :options="languageOptions"
-            :disabled="busy"
+            :disabled="busy || !needsTranslationLanguage"
             @update:model-value="targetLanguage = $event as TranslationLanguage"
           />
         </div>
@@ -151,17 +199,18 @@ const applyTranslation = (): void => {
               {{ item.text }}
             </div>
             <div
+              v-if="selected.translation || selected.wordTranslation || item.translation"
               class="mt-1 whitespace-pre-wrap break-words text-sm leading-6"
               :class="item.translation ? 'text-primary' : 'text-on-surface-variant/50'"
             >
               {{ item.translation || t("player.aiTranslation.waiting") }}
             </div>
             <div
-              v-if="item.romanization"
+              v-if="selected.romanization || selected.wordRomanization || item.romanization"
               class="mt-1 whitespace-pre-wrap break-words text-xs leading-6 text-on-surface-variant"
               data-ai-romanization
             >
-              {{ item.romanization }}
+              {{ item.romanization || t("player.aiTranslation.waiting") }}
             </div>
           </div>
         </template>
@@ -192,15 +241,7 @@ const applyTranslation = (): void => {
           }}
         </SButton>
         <SButton type="primary" variant="secondary" :disabled="!canApply" @click="applyTranslation">
-          {{
-            t(
-              mode === "aligned"
-                ? "player.aiTranslation.applyAligned"
-                : settings.lyric.showTranslation
-                  ? "player.aiTranslation.apply"
-                  : "player.aiTranslation.applyAndShow",
-            )
-          }}
+          {{ t("player.aiTranslation.applySelected") }}
         </SButton>
       </div>
     </template>

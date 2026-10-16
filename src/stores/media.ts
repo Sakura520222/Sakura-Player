@@ -13,8 +13,9 @@ import { applyLyricExclude } from "@/utils/lyric/lyricStripper";
 import { applyLyricCjkTransform } from "@/utils/lyric/cjkTransform";
 import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
-import { alignGeneratedLyrics } from "@/utils/lyric/alignment";
+import { alignGeneratedLyrics, applyGeneratedLyrics } from "@/utils/lyric/alignment";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
+import type { GeneratedLyric, GenerationOptions } from "@/services/lyric/aiGeneration";
 
 export const useMediaStore = defineStore("media", () => {
   watchLyricPreference();
@@ -300,6 +301,73 @@ export const useMediaStore = defineStore("media", () => {
     return true;
   };
 
+  /**
+   * 所选辅助轨道完整生成后一次提交，未勾选轨道的内容与保存数据保持原样
+   * @param revision - 生成开始时的歌词版本
+   * @param results - 覆盖整首歌词的所选项目结果
+   * @param options - 用户勾选的生成项目
+   * @param language - 新译文的目标语言，已有译文仅对齐时保留其语言
+   * @returns 是否成功应用当前版本的完整结果
+   */
+  const applyGeneratedLyric = (
+    revision: number,
+    results: ReadonlyMap<number, GeneratedLyric>,
+    options: GenerationOptions,
+    language: string,
+  ): boolean => {
+    if (revision !== lyricRevision.value || !lyricContent.value || !activeLyric.value) return false;
+    const lines = applyGeneratedLyrics(parsedLyric.value, results, options);
+    if (!lines) return false;
+    const input = { ...toRaw(lyricContent.value) };
+    if (options.translation || options.wordTranslation) {
+      let translationLanguage = language;
+      if (!options.translation && parsedLyric.value.some((line) => line.translatedLyric.trim())) {
+        const meaningful = parsedLyric.value.filter((line) =>
+          line.words.some((word) => word.word.trim()),
+        );
+        translationLanguage =
+          meaningful.every((line) => line.translatedLyric.trim()) && input.translation
+            ? (parseLyric(
+                { content: input.translation, format: input.translationFormat },
+                { extractMetadata: true },
+              ).metadata.language ?? "und")
+            : "und";
+      }
+      input.translation = createTranslationTrack(
+        lines,
+        new Map(
+          lines.map((line, index) => [
+            index,
+            options.wordTranslation ? (line.translationWords ?? []) : line.translatedLyric,
+          ]),
+        ),
+        translationLanguage,
+        "normalized",
+      );
+      input.translationFormat = "ttml";
+    }
+    if (options.romanization || options.wordRomanization) {
+      input.romaji = createTranslationTrack(
+        lines,
+        new Map(
+          lines.map((line, index) => [
+            index,
+            options.wordRomanization ? (line.romanizationWords ?? []) : line.romanLyric,
+          ]),
+        ),
+        "und-Latn",
+        "normalized",
+      );
+      input.romajiFormat = "ttml";
+    }
+    transformToken++;
+    lyricContent.value = input;
+    parsedLyric.value = lines;
+    lyricRevision.value++;
+    syncToMain();
+    return true;
+  };
+
   /** 清空所有状态 */
   const clear = (): void => {
     transformToken++;
@@ -336,6 +404,7 @@ export const useMediaStore = defineStore("media", () => {
     setLyric,
     applyLyricTranslation,
     applyAlignedLyricTranslation,
+    applyGeneratedLyric,
     updateLyricIndex,
     clear,
   };

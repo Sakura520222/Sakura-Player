@@ -92,6 +92,7 @@ const onKeydown = (event: KeyboardEvent): void => {
   >
     <span
       role="checkbox"
+      :aria-label="label || undefined"
       :tabindex="mergedDisabled ? -1 : 0"
       :aria-checked="indeterminate ? 'mixed' : checked ? 'true' : 'false'"
       class="shrink-0 inline-flex items-center justify-center border border-solid outline-none transition-[background-color,border-color,color,box-shadow] duration-200"

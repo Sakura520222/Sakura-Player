@@ -100,61 +100,79 @@ export class AlignmentDecoder {
       !Array.isArray(value.romanization)
     )
       throw new Error("辅助歌词格式无效");
-    const indices = new Set(line.words.map((word) => word.index));
-    const covered = new Set<number>();
-    const romanized = new Set<number>();
-    if (
-      !value.translation.length ||
-      value.translation.length > line.words.length * 8 ||
-      value.romanization.length !== line.words.length
-    )
-      throw new Error("辅助歌词字词数量无效");
-    const translation = value.translation.map((part: unknown) => {
-      if (
-        !part ||
-        typeof part !== "object" ||
-        !("from" in part) ||
-        !("to" in part) ||
-        !("text" in part) ||
-        typeof part.from !== "number" ||
-        typeof part.to !== "number" ||
-        !Number.isInteger(part.from) ||
-        !Number.isInteger(part.to) ||
-        !indices.has(part.from) ||
-        !indices.has(part.to) ||
-        part.from > part.to ||
-        !isAlignedText(part.text)
-      )
-        throw new Error("译文字词关联无效");
-      for (const index of indices) if (index >= part.from && index <= part.to) covered.add(index);
-      return { from: part.from, to: part.to, text: part.text };
+    this.translations.set(value.id, {
+      translation: readTranslationAlignment(line, value.translation),
+      romanization: readRomanizationAlignment(line, value.romanization),
     });
-    const romanization = value.romanization.map((part: unknown) => {
-      if (
-        !part ||
-        typeof part !== "object" ||
-        !("index" in part) ||
-        typeof part.index !== "number" ||
-        !indices.has(part.index) ||
-        romanized.has(part.index) ||
-        !("text" in part) ||
-        !isAlignedText(part.text) ||
-        /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(part.text)
-      )
-        throw new Error("音译字词关联无效");
-      romanized.add(part.index);
-      return { index: part.index, text: part.text.trim() };
-    });
-    if (covered.size !== indices.size) throw new Error("译文缺少原文字词关联");
-    romanization.sort((a, b) => a.index - b.index);
-    this.translations.set(value.id, { translation, romanization });
   }
 }
 
+/** 校验语义译文完整覆盖本行原词，保留模型给出的译文顺序 */
+export const readTranslationAlignment = (
+  line: AlignmentLine,
+  value: unknown,
+): AlignedTranslation["translation"] => {
+  if (!Array.isArray(value) || !value.length || value.length > line.words.length * 8)
+    throw new Error("译文字词数量无效");
+  const indices = new Set(line.words.map((word) => word.index));
+  const covered = new Set<number>();
+  const translation = value.map((part: unknown) => {
+    if (
+      !part ||
+      typeof part !== "object" ||
+      !("from" in part) ||
+      !("to" in part) ||
+      !("text" in part) ||
+      typeof part.from !== "number" ||
+      typeof part.to !== "number" ||
+      !Number.isInteger(part.from) ||
+      !Number.isInteger(part.to) ||
+      !indices.has(part.from) ||
+      !indices.has(part.to) ||
+      part.from > part.to ||
+      !isAlignedText(part.text)
+    )
+      throw new Error("译文字词关联无效");
+    for (const index of indices) if (index >= part.from && index <= part.to) covered.add(index);
+    return { from: part.from, to: part.to, text: part.text };
+  });
+  if (covered.size !== indices.size) throw new Error("译文缺少原文字词关联");
+  return translation;
+};
+
+/** 校验逐词音译一对一覆盖原词，统一按稳定字词下标排列 */
+export const readRomanizationAlignment = (
+  line: AlignmentLine,
+  value: unknown,
+): AlignedTranslation["romanization"] => {
+  if (!Array.isArray(value) || value.length !== line.words.length)
+    throw new Error("音译字词数量无效");
+  const indices = new Set(line.words.map((word) => word.index));
+  const romanized = new Set<number>();
+  const romanization = value.map((part: unknown) => {
+    if (
+      !part ||
+      typeof part !== "object" ||
+      !("index" in part) ||
+      typeof part.index !== "number" ||
+      !indices.has(part.index) ||
+      romanized.has(part.index) ||
+      !("text" in part) ||
+      !isAlignedText(part.text) ||
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(part.text)
+    )
+      throw new Error("音译字词关联无效");
+    romanized.add(part.index);
+    return { index: part.index, text: part.text.trim() };
+  });
+  romanization.sort((a, b) => a.index - b.index);
+  return romanization;
+};
+
 /** 允许显式空格连接语义片段，拒绝换行与控制字符 */
-const isAlignedText = (value: unknown): value is string =>
+export const isAlignedText = (value: unknown, maxLength = 8192): value is string =>
   typeof value === "string" &&
-  value.length <= 8192 &&
+  value.length <= maxLength &&
   !!value.trim() &&
   // eslint-disable-next-line no-control-regex -- 辅助歌词仅接收单行纯文本。
   !/[\u0000-\u0008\u000a-\u001f\u007f\u2028\u2029]/.test(value);
