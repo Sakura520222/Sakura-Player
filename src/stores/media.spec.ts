@@ -55,8 +55,111 @@ const translations = new Map([
 ]);
 
 describe("当前歌曲 AI 译文应用", () => {
+  it("补齐缺失行后保存重载，完整行的译文、逐字时间和未选音译均保持原样", () => {
+    const media = load();
+    const source = Array.from({ length: 3 }, (_, index) => ({
+      ...structuredClone(ALIGNMENT_LINES[0]),
+      startTime: ALIGNMENT_LINES[0].startTime + index * 5000,
+      endTime: ALIGNMENT_LINES[0].endTime + index * 5000,
+      words: ALIGNMENT_LINES[0].words.map((word) => ({
+        ...word,
+        startTime: word.startTime + index * 5000,
+        endTime: word.endTime + index * 5000,
+      })),
+    }));
+    const content = toTTML(source);
+    media.setLyric({ source: "embedded", format: "ttml" }, { content });
+    expect(
+      media.applyAlignedLyricTranslation(
+        media.lyricRevision,
+        new Map([0, 1, 2].map((id) => [id, ALIGNMENT_RESULT])),
+        "en",
+      ),
+    ).toBe(true);
+    const before = structuredClone(media.parsedLyric);
+    const originalRomanTrack = media.lyricContent!.romaji;
+    const unchanged = media.parsedLyric[0];
+    media.parsedLyric = media.parsedLyric.map((line, id) =>
+      id === 0
+        ? line
+        : {
+            ...line,
+            translationWords: undefined,
+            translatedLyric: id === 2 ? "" : line.translatedLyric,
+          },
+    );
+    const options = {
+      translation: true,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: false,
+    };
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        new Map([
+          [1, { translation: ALIGNMENT_RESULT.translation }],
+          [2, { translation: [{ text: "补齐译文", from: 0, to: 2 }] }],
+        ]),
+        options,
+        "zh-CN",
+        "missing",
+      ),
+    ).toBe(true);
+    expect(media.parsedLyric[0]).toBe(unchanged);
+    expect(media.parsedLyric[1].translatedLyric).toBe(before[1].translatedLyric);
+    expect(media.parsedLyric[2].translatedLyric).toBe("补齐译文");
+    expect(media.lyricContent!.romaji).toBe(originalRomanTrack);
+    expect(media.lyricContent!.content).toBe(content);
+    media.setLyric(media.activeLyric, media.lyricContent);
+    expect(media.parsedLyric[0].translationWords).toEqual(before[0].translationWords);
+    expect(media.parsedLyric.map((line) => line.words)).toEqual(before.map((line) => line.words));
+    expect(media.parsedLyric[1].translatedLyric).toBe("Walk with you");
+    expect(media.parsedLyric[2].translatedLyric).toBe("补齐译文");
+  });
+
+  it("仅对齐缺失的逐字轨道时保留已有文本语言，完整模式可替换已有文本", () => {
+    const media = load();
+    media.setLyric({ source: "embedded", format: "ttml" }, { content: toTTML(ALIGNMENT_LINES) });
+    media.applyAlignedLyricTranslation(media.lyricRevision, new Map([[0, ALIGNMENT_RESULT]]), "en");
+    media.parsedLyric = media.parsedLyric.map((line) => ({ ...line, translationWords: undefined }));
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: false,
+    };
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        new Map([[0, { translation: ALIGNMENT_RESULT.translation }]]),
+        options,
+        "zh-CN",
+        "missing",
+      ),
+    ).toBe(true);
+    expect(
+      parseLyric(
+        { content: media.lyricContent!.translation!, format: "ttml" },
+        { extractMetadata: true },
+      ).metadata.language,
+    ).toBe("en");
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        new Map([[0, { translation: [{ text: "完整重做", from: 0, to: 2 }] }]]),
+        options,
+        "zh-CN",
+        "full",
+      ),
+    ).toBe(true);
+    expect(media.parsedLyric[0].translatedLyric).toBe("完整重做");
+    media.setLyric(media.activeLyric, media.lyricContent);
+    expect(media.parsedLyric[0].translatedLyric).toBe("完整重做");
+  });
+
   it.each(Array.from({ length: 15 }, (_, index) => index + 1))(
-    "选择组合 %s 只修改所选轨道，原文、注音和保存重载保持一致",
+    "完整生成选择组合 %s 只修改所选轨道，原文、注音和保存重载保持一致",
     (mask) => {
       const media = load();
       const content = toTTML(ALIGNMENT_LINES);
@@ -83,7 +186,13 @@ describe("当前歌曲 AI 译文应用", () => {
           : ALIGNMENT_RESULT.romanization;
       else if (options.romanization) value.romanization = "anata to aruku";
       expect(
-        media.applyGeneratedLyric(media.lyricRevision, new Map([[0, value]]), options, "zh-CN"),
+        media.applyGeneratedLyric(
+          media.lyricRevision,
+          new Map([[0, value]]),
+          options,
+          "zh-CN",
+          "full",
+        ),
       ).toBe(true);
       const applied = structuredClone(media.parsedLyric[0]);
       if (!options.translation && !options.wordTranslation) {
@@ -103,7 +212,7 @@ describe("当前歌曲 AI 译文应用", () => {
             { content: media.lyricContent!.translation!, format: "ttml" },
             { extractMetadata: true },
           ).metadata.language,
-        ).toBe("en");
+        ).toBe("zh-CN");
       }
       if (options.translation && !options.wordTranslation)
         expect(applied.translationWords).toBeUndefined();
@@ -127,6 +236,7 @@ describe("当前歌曲 AI 译文应用", () => {
     const media = load();
     media.setLyric({ source: "embedded", format: "ttml" }, { content: toTTML(ALIGNMENT_LINES) });
     media.applyAlignedLyricTranslation(media.lyricRevision, new Map([[0, ALIGNMENT_RESULT]]), "en");
+    media.parsedLyric = media.parsedLyric.map((line) => ({ ...line, translationWords: undefined }));
     const current = media.parsedLyric;
     const revision = media.lyricRevision;
     const options = {

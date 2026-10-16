@@ -1,15 +1,17 @@
 import type { Ref } from "vue";
 import type { AiModelConfig } from "@shared/types/ai";
 import { useMediaStore } from "@/stores/media";
-import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
 import {
   GENERATION_TASKS,
   collectGenerationLines,
   createGenerationMessages,
+  createGenerationPlan,
   GenerationDecoder,
   getGenerationCoverage,
   type GeneratedLyric,
   type GenerationOptions,
+  type GenerationMode,
+  type GenerationLine,
 } from "@/services/lyric/aiGeneration";
 import {
   MAX_BATCH_LINES,
@@ -22,6 +24,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
   const media = useMediaStore();
   const { t } = useI18n();
   const targetLanguage = ref<TranslationLanguage>("zh-CN");
+  const generationMode = ref<GenerationMode>("missing");
   const selected = ref<GenerationOptions>({
     translation: true,
     romanization: true,
@@ -29,9 +32,13 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     wordTranslation: true,
   });
   const coverage = computed(() => getGenerationCoverage(media.parsedLyric));
-  const selectionKey = computed(() =>
-    GENERATION_TASKS.map((key) => (selected.value[key] ? "1" : "0")).join(""),
-  );
+  const planned = shallowRef<GenerationLine[]>([]);
+  const plannedIds = computed(() => new Set(planned.value.map((line) => line.id)));
+  const generationCount = computed(() => planned.value.length);
+  const preservedCount = computed(() => rows.value.length - generationCount.value);
+  const optionsKey = (options: GenerationOptions) =>
+    GENERATION_TASKS.map((key) => (options[key] ? "1" : "0")).join("");
+  const selectionKey = computed(() => `${generationMode.value}:${optionsKey(selected.value)}`);
   const hasSelection = computed(() => GENERATION_TASKS.some((key) => selected.value[key]));
   const model = shallowRef<AiModelConfig | null>(null);
   const loadingModel = ref(false);
@@ -53,6 +60,8 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     revision: number;
     language: TranslationLanguage;
     options: GenerationOptions;
+    mode: GenerationMode;
+    lines: GenerationLine[];
     key: string;
     results: Map<number, GeneratedLyric>;
     responseSize: number;
@@ -65,7 +74,9 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     requestId: string | null;
   } | null = null;
 
-  const translatedCount = computed(() => rows.value.filter((row) => row.done).length);
+  const translatedCount = computed(
+    () => rows.value.filter((row) => row.done && plannedIds.value.has(row.id)).length,
+  );
   const canApply = computed(
     () =>
       !disposed &&
@@ -82,6 +93,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       !!media.track &&
       !media.lyricLoading &&
       rows.value.length > 0 &&
+      generationCount.value > 0 &&
       hasSelection.value &&
       !!model.value &&
       !loadingModel.value &&
@@ -114,14 +126,20 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     phase.value = "idle";
     error.value = "";
     rows.value = [];
+    planned.value = [];
     if (open.value && !media.lyricLoading) {
       try {
+        planned.value = createGenerationPlan(
+          media.parsedLyric,
+          selected.value,
+          generationMode.value,
+        );
         rows.value = collectGenerationLines(media.parsedLyric).map((line) => ({
           id: line.id,
           text: line.text,
           translation: line.existingTranslation,
           romanization: line.existingRomanization,
-          done: false,
+          done: !plannedIds.value.has(line.id),
         }));
       } catch {
         error.value = t("player.aiTranslation.tooLarge");
@@ -162,19 +180,21 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
         revision: media.lyricRevision,
         language: targetLanguage.value,
         options: { ...selected.value },
+        mode: generationMode.value,
+        lines: planned.value,
         key: selectionKey.value,
         results: new Map(),
         responseSize: 0,
         responseSizes: new Map(),
       };
     }
-    if (!rows.value.length || !progress) return;
+    if (!rows.value.length || !progress || !progress.lines.length) return;
     const saved = progress;
     const source = collectGenerationLines(media.parsedLyric);
-    const aligned = saved.options.wordTranslation || saved.options.wordRomanization;
-    const remaining = source.filter((line) => !saved.results.has(line.id));
+    const remaining = saved.lines.filter((line) => !saved.results.has(line.id));
     // 全部行已预览但请求未成功结束时，重试末行后才允许应用。
-    if (!remaining.length) remaining.push(source.at(-1)!);
+    if (!remaining.length) remaining.push(saved.lines.at(-1)!);
+    remaining.sort((a, b) => optionsKey(a.options!).localeCompare(optionsKey(b.options!)));
     const song = {
       title: media.track.title,
       artists: media.track.artists.map((artist) => artist.name),
@@ -224,7 +244,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
                 ? result.romanization
                 : (result?.romanization?.map((part) => part.text).join(" ") ??
                   line.existingRomanization),
-            done: !!result,
+            done: !plannedIds.value.has(line.id) || !!result,
           };
         });
       }
@@ -240,18 +260,21 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       }
       for (let offset = 0; offset < remaining.length;) {
         if (!isCurrent()) return;
+        const options = remaining[offset].options!;
+        const aligned = options.wordTranslation || options.wordRomanization;
         let end = offset,
           characters = 0,
           words = 0;
         // 字词映射和已有文本也计入批次预算，避免对齐请求超出模型输出上限。
         while (end < remaining.length && end - offset < (aligned ? 6 : MAX_BATCH_LINES)) {
           const line = remaining[end];
+          if (optionsKey(line.options!) !== optionsKey(options)) break;
           const length =
             line.text.length +
-            (saved.options.wordTranslation && !saved.options.translation
+            (options.wordTranslation && !options.translation
               ? line.existingTranslation.length
               : 0) +
-            (saved.options.wordRomanization && !saved.options.romanization
+            (options.wordRomanization && !options.romanization
               ? line.existingRomanization.length
               : 0);
           if (
@@ -265,7 +288,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           end++;
         }
         const batch = remaining.slice(offset, end);
-        const decoder = new GenerationDecoder(batch, saved.options);
+        const decoder = new GenerationDecoder(batch, options);
         const requestId = crypto.randomUUID();
         current.requestId = requestId;
         let previousCount = 0;
@@ -273,7 +296,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           {
             requestId,
             modelId: active.id,
-            messages: createGenerationMessages(batch, saved.options, saved.language, song),
+            messages: createGenerationMessages(batch, options, saved.language, song),
             maxTokens: 4096,
           },
           (text) => {
@@ -308,7 +331,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           return;
         }
         // 隐藏窗口无增量时仍以最终结果恢复预览；失败尾记录不进入续译进度。
-        const finalDecoder = new GenerationDecoder(batch, saved.options);
+        const finalDecoder = new GenerationDecoder(batch, options);
         for (const { id } of batch) {
           saved.responseSize -= saved.responseSizes.get(id) ?? 0;
           saved.responseSizes.delete(id);
@@ -344,29 +367,19 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
   const apply = (): boolean => {
     if (!canApply.value || !progress) return false;
     const saved = progress;
-    if (GENERATION_TASKS.every((key) => saved.options[key]))
-      return media.applyAlignedLyricTranslation(
-        saved.revision,
-        saved.results as ReadonlyMap<number, AlignedTranslation>,
-        saved.language,
-      );
-    if (
-      saved.options.translation &&
-      !saved.options.romanization &&
-      !saved.options.wordTranslation &&
-      !saved.options.wordRomanization
-    )
-      return media.applyLyricTranslation(
-        saved.revision,
-        new Map(Array.from(saved.results, ([id, value]) => [id, value.translation as string])),
-        saved.language,
-      );
-    return media.applyGeneratedLyric(saved.revision, saved.results, saved.options, saved.language);
+    return media.applyGeneratedLyric(
+      saved.revision,
+      saved.results,
+      saved.options,
+      saved.language,
+      saved.mode,
+    );
   };
 
   watch(
     open,
     (visible) => {
+      if (visible) generationMode.value = "missing";
       reset();
       if (visible) {
         selected.value = Object.fromEntries(
@@ -385,6 +398,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     () => media.lyricRevision,
     () => {
       const hadResult = busy.value || translatedCount.value > 0;
+      generationMode.value = "missing";
       reset();
       selected.value = Object.fromEntries(
         GENERATION_TASKS.map((key) => [key, coverage.value.existing[key] < coverage.value.total]),
@@ -400,10 +414,12 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     cancel();
     progress = null;
     rows.value = [];
+    planned.value = [];
   });
 
   return {
     targetLanguage,
+    generationMode,
     selected,
     coverage,
     hasSelection,
@@ -414,6 +430,8 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     phase,
     error,
     translatedCount,
+    generationCount,
+    preservedCount,
     canApply,
     canStart,
     canResume,

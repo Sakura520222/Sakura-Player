@@ -18,6 +18,7 @@ export const GENERATION_TASKS = [
 ] as const;
 export type GenerationTask = (typeof GENERATION_TASKS)[number];
 export type GenerationOptions = Record<GenerationTask, boolean>;
+export type GenerationMode = "missing" | "full";
 export interface GeneratedLyric {
   translation?: string | AlignedTranslation["translation"];
   romanization?: string | AlignedTranslation["romanization"];
@@ -25,6 +26,7 @@ export interface GeneratedLyric {
 export interface GenerationLine extends AlignmentLine {
   existingTranslation: string;
   existingRomanization: string;
+  options?: GenerationOptions;
 }
 
 /** 逐词音译完整时也可作为已有行音译，避免把仅有逐词数据的歌词误判为缺失 */
@@ -97,6 +99,37 @@ export const collectGenerationLines = (lines: LyricLine[]): GenerationLine[] =>
     existingTranslation: lines[line.id].translatedLyric,
     existingRomanization: getExistingRomanization(lines[line.id]),
   }));
+
+/**
+ * 逐行规划所选项目；补齐模式复用已有文本和完整对齐，完整模式从主歌词重做
+ * @param lines - 当前歌词及已有辅助数据
+ * @param options - 用户选择的生成项目
+ * @param mode - 补齐缺失或从头完整生成
+ * @returns 仅包含需要请求模型的行及其实际任务
+ */
+export const createGenerationPlan = (
+  lines: LyricLine[],
+  options: GenerationOptions,
+  mode: GenerationMode,
+): GenerationLine[] =>
+  collectGenerationLines(lines).flatMap((line) => {
+    const { existing } = getGenerationCoverage([lines[line.id]]);
+    const requested = Object.fromEntries(
+      GENERATION_TASKS.map((task) => [
+        task,
+        options[task] && (mode === "full" || existing[task] === 0),
+      ]),
+    ) as GenerationOptions;
+    if (!GENERATION_TASKS.some((task) => requested[task])) return [];
+    return [
+      {
+        ...line,
+        existingTranslation: mode === "full" ? "" : line.existingTranslation,
+        existingRomanization: mode === "full" ? "" : line.existingRomanization,
+        options: requested,
+      },
+    ];
+  });
 
 /**
  * 按选择声明返回字段，逐字项可单独对齐已有文本
@@ -188,13 +221,14 @@ export class GenerationDecoder {
       throw new Error("辅助歌词行号无效");
     const line = this.expected.get(value.id);
     if (!line || this.results.has(value.id)) throw new Error("辅助歌词行号重复或越界");
+    const options = line.options ?? this.options;
     const output: GeneratedLyric = {};
     const translation = "translation" in value ? value.translation : undefined;
     const romanization = "romanization" in value ? value.romanization : undefined;
-    if (this.options.wordTranslation) {
+    if (options.wordTranslation) {
       const parts = readTranslationAlignment(line, translation);
       if (
-        !this.options.translation &&
+        !options.translation &&
         line.existingTranslation.trim() &&
         parts
           .map((part) => part.text)
@@ -203,14 +237,14 @@ export class GenerationDecoder {
       )
         throw new Error("逐字对齐不得改写已有译文");
       output.translation = parts;
-    } else if (this.options.translation) {
+    } else if (options.translation) {
       if (!isAlignedText(translation, 16_384)) throw new Error("译文内容无效");
       output.translation = translation.trim();
     } else if (translation !== undefined) throw new Error("返回了未选择的译文");
-    if (this.options.wordRomanization) {
+    if (options.wordRomanization) {
       const parts = readRomanizationAlignment(line, romanization);
       if (
-        !this.options.romanization &&
+        !options.romanization &&
         line.existingRomanization.trim() &&
         parts
           .map((part) => part.text)
@@ -219,7 +253,7 @@ export class GenerationDecoder {
       )
         throw new Error("逐字对齐不得改写已有音译");
       output.romanization = parts;
-    } else if (this.options.romanization) {
+    } else if (options.romanization) {
       if (
         !isAlignedText(romanization, 16_384) ||
         /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(

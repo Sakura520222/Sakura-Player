@@ -15,7 +15,12 @@ import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { alignGeneratedLyrics, applyGeneratedLyrics } from "@/utils/lyric/alignment";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
-import type { GeneratedLyric, GenerationOptions } from "@/services/lyric/aiGeneration";
+import {
+  getExistingRomanization,
+  type GeneratedLyric,
+  type GenerationOptions,
+  type GenerationMode,
+} from "@/services/lyric/aiGeneration";
 
 export const useMediaStore = defineStore("media", () => {
   watchLyricPreference();
@@ -304,9 +309,10 @@ export const useMediaStore = defineStore("media", () => {
   /**
    * 所选辅助轨道完整生成后一次提交，未勾选轨道的内容与保存数据保持原样
    * @param revision - 生成开始时的歌词版本
-   * @param results - 覆盖整首歌词的所选项目结果
+   * @param results - 覆盖本次待生成行的所选项目结果
    * @param options - 用户勾选的生成项目
    * @param language - 新译文的目标语言，已有译文仅对齐时保留其语言
+   * @param mode - 补齐缺失或从头完整生成
    * @returns 是否成功应用当前版本的完整结果
    */
   const applyGeneratedLyric = (
@@ -314,14 +320,15 @@ export const useMediaStore = defineStore("media", () => {
     results: ReadonlyMap<number, GeneratedLyric>,
     options: GenerationOptions,
     language: string,
+    mode: GenerationMode = "missing",
   ): boolean => {
     if (revision !== lyricRevision.value || !lyricContent.value || !activeLyric.value) return false;
-    const lines = applyGeneratedLyrics(parsedLyric.value, results, options);
+    const lines = applyGeneratedLyrics(parsedLyric.value, results, options, mode);
     if (!lines) return false;
     const input = { ...toRaw(lyricContent.value) };
     if (options.translation || options.wordTranslation) {
       let translationLanguage = language;
-      if (!options.translation && parsedLyric.value.some((line) => line.translatedLyric.trim())) {
+      if (mode === "missing" && parsedLyric.value.some((line) => line.translatedLyric.trim())) {
         const meaningful = parsedLyric.value.filter((line) =>
           line.words.some((word) => word.word.trim()),
         );
@@ -338,7 +345,7 @@ export const useMediaStore = defineStore("media", () => {
         new Map(
           lines.map((line, index) => [
             index,
-            options.wordTranslation ? (line.translationWords ?? []) : line.translatedLyric,
+            line.translationWords?.length ? line.translationWords : line.translatedLyric,
           ]),
         ),
         translationLanguage,
@@ -352,7 +359,7 @@ export const useMediaStore = defineStore("media", () => {
         new Map(
           lines.map((line, index) => [
             index,
-            options.wordRomanization ? (line.romanizationWords ?? []) : line.romanLyric,
+            line.romanizationWords?.length ? line.romanizationWords : getExistingRomanization(line),
           ]),
         ),
         "und-Latn",

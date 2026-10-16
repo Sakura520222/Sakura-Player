@@ -3,11 +3,12 @@ import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
 import { AlignmentDecoder, collectAlignmentLines } from "@/services/lyric/aiAlignment";
 import {
-  collectGenerationLines,
+  createGenerationPlan,
   GenerationDecoder,
   getExistingRomanization,
   type GeneratedLyric,
   type GenerationOptions,
+  type GenerationMode,
 } from "@/services/lyric/aiGeneration";
 
 /** 排除空白词占位时间，在原词语义范围内顺排译文的语序冲突片段 */
@@ -90,17 +91,21 @@ export const alignGeneratedLyrics = (
  * @param lines - 当前主歌词与已有辅助数据
  * @param results - 覆盖整首有效歌词行的生成结果
  * @param options - 用户勾选的生成项目
+ * @param mode - 补齐时保留已有内容，完整生成时重新生成所选轨道
  * @returns 完整新歌词；不完整、改写既有文本或格式无效时返回 null
  */
 export const applyGeneratedLyrics = (
   lines: LyricLine[],
   results: ReadonlyMap<number, GeneratedLyric>,
   options: GenerationOptions,
+  mode: GenerationMode = "missing",
 ): LyricLine[] | null => {
   let validated: Map<number, GeneratedLyric>;
+  let planned: Map<number, ReturnType<typeof createGenerationPlan>[number]>;
   try {
-    const source = collectGenerationLines(lines);
+    const source = createGenerationPlan(lines, options, mode);
     if (!source.length || source.length !== results.size) return null;
+    planned = new Map(source.map((line) => [line.id, line]));
     const decoder = new GenerationDecoder(source, options);
     for (const [id, value] of results) decoder.push(JSON.stringify({ id, ...value }) + "\n");
     validated = decoder.finish();
@@ -110,11 +115,12 @@ export const applyGeneratedLyrics = (
   return lines.map((line, id) => {
     const result = validated.get(id);
     if (!result) return line;
+    const request = planned.get(id)!;
     const next = { ...line };
     if (Array.isArray(result.translation)) {
       next.translationWords = createTranslationWords(line, result.translation);
       next.translatedLyric =
-        !options.translation && line.translatedLyric.trim()
+        !request.options!.translation && request.existingTranslation.trim()
           ? line.translatedLyric
           : next.translationWords.map((word) => word.word).join("");
     } else if (typeof result.translation === "string") {
@@ -123,7 +129,7 @@ export const applyGeneratedLyrics = (
     }
     if (Array.isArray(result.romanization)) {
       Object.assign(next, createRomanizedWords(line, result.romanization));
-      if (!options.romanization && getExistingRomanization(line))
+      if (!request.options!.romanization && request.existingRomanization)
         next.romanLyric = getExistingRomanization(line);
     } else if (typeof result.romanization === "string") {
       next.romanLyric = result.romanization;

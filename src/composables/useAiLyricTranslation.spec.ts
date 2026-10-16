@@ -98,6 +98,127 @@ afterEach(() => {
 });
 
 describe("AI 歌词翻译任务生命周期", () => {
+  it("按行补齐混合缺失项目，保留完整行且失败续译只请求尚未完成的缺失行", async () => {
+    media.parsedLyric = parseLyric("[00:01]one\n[00:02]two\n[00:03]three").lines;
+    media.parsedLyric[0].translatedLyric = "已有一";
+    media.parsedLyric[0].romanLyric = "one";
+    media.parsedLyric[1].translatedLyric = "已有二";
+    media.parsedLyric[2].romanLyric = "three";
+    const state = await setup(false);
+    state.selected.value = {
+      translation: true,
+      romanization: true,
+      wordTranslation: false,
+      wordRomanization: false,
+    };
+    expect(state.generationCount.value).toBe(2);
+    expect(state.preservedCount.value).toBe(1);
+    expect(state.translatedCount.value).toBe(0);
+    api.stream
+      .mockImplementationOnce(async (request) => {
+        expect(JSON.parse(request.messages[1].content).lines.map(({ id }) => id)).toEqual([1]);
+        expect(request.messages[1].content).not.toContain("已有二");
+        return result('{"id":1,"romanization":"two"}');
+      })
+      .mockResolvedValueOnce({ status: "error", error: "fixture" });
+    await state.start();
+    expect(state.translatedCount.value).toBe(1);
+    expect(state.canResume.value).toBe(true);
+    api.stream.mockImplementationOnce(async (request) => {
+      expect(JSON.parse(request.messages[1].content).lines.map(({ id }) => id)).toEqual([2]);
+      return result('{"id":2,"translation":"补齐三"}');
+    });
+    await state.resume();
+    expect(state.translatedCount.value).toBe(2);
+    expect(
+      state.rows.value.map(({ translation, romanization }) => [translation, romanization]),
+    ).toEqual([
+      ["已有一", "one"],
+      ["已有二", "two"],
+      ["补齐三", "three"],
+    ]);
+    expect(state.apply()).toBe(true);
+    expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
+      1,
+      new Map([
+        [1, { romanization: "two" }],
+        [2, { translation: "补齐三" }],
+      ]),
+      state.selected.value,
+      "zh-CN",
+      "missing",
+    );
+  });
+
+  it("同时勾选文本和逐字项目时仍复用已有文本，完整模式允许从主歌词全部重做", async () => {
+    media.parsedLyric = structuredClone(ALIGNMENT_LINES);
+    media.parsedLyric[0].translatedLyric = "Walk with you";
+    media.parsedLyric[0].romanLyric = "kimi to aruku";
+    const state = await setup(false);
+    selectMode(state, "aligned");
+    api.stream.mockImplementationOnce(async (request) => {
+      expect(JSON.parse(request.messages[1].content).lines[0]).toMatchObject({
+        existingTranslation: "Walk with you",
+        existingRomanization: "kimi to aruku",
+      });
+      return result(JSON.stringify({ id: 0, ...ALIGNMENT_RESULT }));
+    });
+    await state.start();
+    expect(state.canApply.value).toBe(true);
+    state.generationMode.value = "full";
+    expect(state.canApply.value).toBe(false);
+    expect(state.canResume.value).toBe(false);
+    expect(state.translatedCount.value).toBe(0);
+    api.stream.mockImplementationOnce(async (request) => {
+      expect(request.messages[1].content).not.toContain("existingTranslation");
+      expect(request.messages[1].content).not.toContain("existingRomanization");
+      return result(JSON.stringify({ id: 0, ...ALIGNMENT_RESULT }));
+    });
+    await state.start();
+    expect(state.apply()).toBe(true);
+    expect(media.applyGeneratedLyric.mock.calls.at(-1)?.at(-1)).toBe("full");
+  });
+
+  it("失败时全部待补行已预览，重试的仍是待补行而非原歌词末行", async () => {
+    media.parsedLyric[1].translatedLyric = "末行已有译文";
+    const state = await setup();
+    api.stream.mockImplementationOnce(async (request, delta) => {
+      expect(JSON.parse(request.messages[1].content).lines.map(({ id }) => id)).toEqual([0]);
+      delta('{"id":0,"translation":"已预览"}\n');
+      return { status: "error", error: "fixture" };
+    });
+    await state.start();
+    expect(state.translatedCount.value).toBe(1);
+    expect(state.canApply.value).toBe(false);
+    api.stream.mockImplementationOnce(async (request) => {
+      expect(JSON.parse(request.messages[1].content).lines.map(({ id }) => id)).toEqual([0]);
+      return result('{"id":0,"translation":"最终译文"}');
+    });
+    await state.resume();
+    expect(state.rows.value[1].translation).toBe("末行已有译文");
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it("补齐策略改为完整生成时立即取消在途请求，迟到结果不能用于新策略", async () => {
+    const state = await setup();
+    let finish!: (value: AiRequestResult<AiCompletionResult>) => void;
+    api.stream.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const running = state.start();
+    await flushPromises();
+    state.generationMode.value = "full";
+    expect(api.cancel).toHaveBeenCalledWith(api.stream.mock.calls[0][0].requestId);
+    finish(result(output));
+    await running;
+    expect(state.canApply.value).toBe(false);
+    expect(state.translatedCount.value).toBe(0);
+    expect(media.applyGeneratedLyric).not.toHaveBeenCalled();
+  });
+
   it("自动检测已有逐行内容，默认只勾选缺失的逐字项目；全部已有时不自动覆盖", async () => {
     media.parsedLyric = structuredClone(ALIGNMENT_LINES);
     media.parsedLyric[0].translatedLyric = "Walk with you";
@@ -121,6 +242,7 @@ describe("AI 歌词翻译任务生命周期", () => {
       new Map([[0, ALIGNMENT_RESULT]]),
       state.selected.value,
       "zh-CN",
+      "missing",
     );
     media.parsedLyric[0].words = media.parsedLyric[0].words.map((word, index) => ({
       ...word,
@@ -175,6 +297,7 @@ describe("AI 歌词翻译任务生命周期", () => {
       ]),
       state.selected.value,
       "zh-CN",
+      "missing",
     );
   });
 
@@ -221,10 +344,12 @@ describe("AI 歌词翻译任务生命周期", () => {
     await state.start();
     expect(state.rows.value[0].translation).toBe("Walk with you");
     expect(state.apply()).toBe(true);
-    expect(media.applyAlignedLyricTranslation).toHaveBeenCalledWith(
+    expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
       1,
       new Map([[0, ALIGNMENT_RESULT]]),
+      state.selected.value,
       "zh-CN",
+      "missing",
     );
     expect(media.applyLyricTranslation).not.toHaveBeenCalled();
     selectMode(state, "line");
@@ -356,13 +481,15 @@ describe("AI 歌词翻译任务生命周期", () => {
     expect(state.translatedCount.value).toBe(2);
     expect(state.canApply.value).toBe(true);
     expect(state.apply()).toBe(true);
-    expect(media.applyLyricTranslation).toHaveBeenCalledWith(
+    expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
       1,
       new Map([
-        [0, "雨后的光"],
-        [1, "与你同行"],
+        [0, { translation: "雨后的光" }],
+        [1, { translation: "与你同行" }],
       ]),
+      state.selected.value,
       "zh-CN",
+      "missing",
     );
   });
 
@@ -540,16 +667,20 @@ describe("AI 歌词翻译任务生命周期", () => {
     expect(state.rows.value.filter((row) => [0, 3].includes(row.id))).toEqual(kept);
     expect(state.apply()).toBe(true);
     if (mode === "aligned") {
-      expect(media.applyAlignedLyricTranslation).toHaveBeenCalledWith(
+      expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
         1,
         new Map([0, 2, 3, 4].map((id) => [id, ALIGNMENT_RESULT])),
+        state.selected.value,
         "zh-CN",
+        "missing",
       );
     } else {
-      expect(media.applyLyricTranslation).toHaveBeenCalledWith(
+      expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
         1,
-        new Map([0, 2, 3, 4].map((id) => [id, `译文${id}`])),
+        new Map([0, 2, 3, 4].map((id) => [id, { translation: `译文${id}` }])),
+        state.selected.value,
         "zh-CN",
+        "missing",
       );
     }
     await state.resume();

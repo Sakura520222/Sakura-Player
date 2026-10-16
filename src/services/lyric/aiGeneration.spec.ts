@@ -5,6 +5,7 @@ import {
   GENERATION_TASKS,
   collectGenerationLines,
   createGenerationMessages,
+  createGenerationPlan,
   GenerationDecoder,
   getGenerationCoverage,
   type GeneratedLyric,
@@ -19,6 +20,90 @@ const combinations = Array.from({ length: 15 }, (_, index) => ({
 }));
 
 describe("按选择生成辅助歌词", () => {
+  it("补齐模式跳过完整行，逐字任务复用已有文本并按行确定实际缺失项目", () => {
+    const complete = alignGeneratedLyrics(ALIGNMENT_LINES, new Map([[0, ALIGNMENT_RESULT]]))![0];
+    const source = [
+      complete,
+      {
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        translatedLyric: "Walk with you",
+        romanLyric: "kimi to aruku",
+      },
+      structuredClone(ALIGNMENT_LINES[0]),
+    ];
+    const before = structuredClone(source);
+    const options = combinations.at(-1)!.options;
+    const plan = createGenerationPlan(source, options, "missing");
+    expect(plan.map((line) => line.id)).toEqual([1, 2]);
+    expect(plan[0].options).toEqual({
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: true,
+    });
+    expect(plan[1].options).toEqual(options);
+    const messages = createGenerationMessages([plan[0]], plan[0].options!, "zh-CN", {
+      title: "原创",
+      artists: [],
+    });
+    expect(JSON.parse(messages[1].content).lines[0]).toMatchObject({
+      id: 1,
+      existingTranslation: "Walk with you",
+      existingRomanization: "kimi to aruku",
+    });
+    const textOnly = createGenerationPlan(
+      source,
+      {
+        translation: true,
+        romanization: false,
+        wordTranslation: false,
+        wordRomanization: false,
+      },
+      "missing",
+    );
+    expect(textOnly.map((line) => line.id)).toEqual([2]);
+    expect(source).toEqual(before);
+  });
+
+  it("完整生成可从主歌词重做已有逐字内容，即使只勾选逐字项目", () => {
+    const source = alignGeneratedLyrics(ALIGNMENT_LINES, new Map([[0, ALIGNMENT_RESULT]]))!;
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: true,
+    };
+    expect(createGenerationPlan(source, options, "missing")).toEqual([]);
+    const plan = createGenerationPlan(source, options, "full");
+    expect(plan.map((line) => line.id)).toEqual([0]);
+    const messages = createGenerationMessages(plan, options, "en", { title: "原创", artists: [] });
+    expect(messages[1].content).not.toContain("existingTranslation");
+    expect(messages[1].content).not.toContain("existingRomanization");
+    const decoder = new GenerationDecoder(plan, options);
+    decoder.push(JSON.stringify({ id: 0, ...ALIGNMENT_RESULT }));
+    expect(decoder.finish().size).toBe(1);
+  });
+
+  it("补齐混合轨道时拒绝模型顺带改写已有轨道，进度只接收本行缺失项目", () => {
+    const source = structuredClone(ALIGNMENT_LINES);
+    source[0].translatedLyric = "保留已有翻译";
+    const options = {
+      translation: true,
+      romanization: true,
+      wordTranslation: false,
+      wordRomanization: false,
+    };
+    const plan = createGenerationPlan(source, options, "missing");
+    const decoder = new GenerationDecoder(plan, options);
+    expect(() => decoder.push('{"id":0,"translation":"不得替换","romanization":"kimi"}\n')).toThrow(
+      /未选择/,
+    );
+    expect(decoder.results.size).toBe(0);
+    const valid = new GenerationDecoder(plan, options);
+    valid.push('{"id":0,"romanization":"kimi"}');
+    expect(valid.finish().get(0)).toEqual({ romanization: "kimi" });
+  });
+
   it.each(combinations)("组合 $mask 仅返回所选项目，逐字项可独立生成", ({ options }) => {
     const source = collectGenerationLines(ALIGNMENT_LINES);
     const value: GeneratedLyric = {};
