@@ -544,6 +544,27 @@
       "lrcFile": "LRC file",
       "ttmlFile": "TTML file",
       "saveLyrics": "Save lyrics",
+      "preview": {
+        "title": "Preview changes",
+        "hint": "Compare the selected save targets. Red marks removals and green marks additions.",
+        "before": "Before",
+        "after": "After",
+        "unchanged": "No content changes",
+        "lineEndings": "Line endings",
+        "noNewline": "No newline at end of file",
+        "autoFormat": "Auto-detect",
+        "newLyrics": "New lyrics",
+        "readFailed": "Unable to read existing lyrics. Please try again.",
+        "chooseOnSave": "Choose an LRC path when saving. This previews the export; existing destination content has not been compared.",
+        "back": "Back",
+        "targets": { "metadata": "Music tags", "lrc": "LRC file", "ttml": "TTML file" },
+        "fields": {
+          "lyrics": "Original lyrics",
+          "translation": "Translation",
+          "romaji": "Romanization",
+          "kana": "Pronunciation"
+        }
+      },
       "saveLocalHint": "Music tags keep the original lyric text and format. LRC is exported separately beside the music file, replacing existing lyrics.",
       "saveExportHint": "Music tags require a local song without CUE splitting. Choose a location to export LRC.",
       "saveCompleteHint": "Saves all lyrics, translations and romanization with word timing, regardless of the selections above.",

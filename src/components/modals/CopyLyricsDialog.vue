@@ -7,6 +7,9 @@ import { useCopyText } from "@/composables/useCopyText";
 import { toast } from "@/composables/useToast";
 import { createLyricPoster } from "@/utils/lyric/poster";
 import { createLyricSaveContent } from "@/utils/lyric/save";
+import type { LyricSavePreviewTarget } from "@/types/lyric-preview";
+
+const LyricSavePreviewDialog = defineAsyncComponent(() => import("./LyricSavePreviewDialog.vue"));
 
 const props = defineProps<{ open: boolean }>();
 
@@ -126,6 +129,10 @@ const saveMetadata = ref(true);
 const saveLrc = ref(false);
 const saveTtml = ref(true);
 const saveFeedback = ref<string[]>([]);
+const previewing = ref(false);
+const previewOpen = ref(false);
+const previewTargets = shallowRef<LyricSavePreviewTarget[]>([]);
+let previewRequestId = 0;
 const canWriteMetadata = computed(
   () => media.track?.source === "local" && !!media.track.path && !media.track.cuePath,
 );
@@ -148,6 +155,156 @@ const canSaveLyrics = computed(
       (canSaveTtml.value && saveTtml.value)),
 );
 
+const saveSnapshot = computed(() => {
+  const track = media.track;
+  const input = media.lyricContent;
+  const format = media.lyricFormat;
+  if (!track || !input || !format) return null;
+  return {
+    track: toRaw(track),
+    lyrics: input.content,
+    lyricData: {
+      format,
+      translation: input.translation,
+      translationFormat: input.translationFormat,
+      romaji: input.romaji,
+      romajiFormat: input.romajiFormat,
+      kana: input.kana,
+    },
+    lines: media.parsedLyric,
+    writeMetadata: canWriteMetadata.value && saveMetadata.value,
+    writeLrc: saveLrc.value,
+    ttml: canSaveTtml.value && saveTtml.value ? input.content : undefined,
+  };
+});
+
+watch(
+  [() => props.open, saveSnapshot, () => settings.system.localLyric.repoDir],
+  () => {
+    previewRequestId++;
+    previewing.value = false;
+    previewOpen.value = false;
+    previewTargets.value = [];
+  },
+  { flush: "sync" },
+);
+watch(previewOpen, (open) => {
+  if (!open) previewTargets.value = [];
+});
+onBeforeUnmount(() => {
+  previewRequestId++;
+});
+
+/** 按保存快照读取原歌词，过期的请求不会重新打开预览。 */
+const handlePreviewLyrics = async (): Promise<void> => {
+  const snapshot = saveSnapshot.value;
+  if (!snapshot || saving.value || previewing.value || !canSaveLyrics.value) return;
+  const id = ++previewRequestId;
+  previewing.value = true;
+  const { track, lyrics, lyricData, lines, writeMetadata, writeLrc, ttml } = snapshot;
+  const tasks: Promise<LyricSavePreviewTarget[]>[] = [];
+  if (writeMetadata)
+    tasks.push(
+      (async () => {
+        try {
+          const result = await window.api.library.readTags(track.path!);
+          if (!result.success || !result.data)
+            throw new Error(t("player.copyLyric.preview.readFailed"));
+          const before = result.data;
+          const fields: LyricSavePreviewTarget["fields"] = [
+            {
+              key: "lyrics",
+              before: before.lyrics ?? "",
+              after: lyrics,
+              beforeFormat: before.lyricData?.format,
+              afterFormat: lyricData.format,
+            },
+            {
+              key: "translation",
+              before: before.lyricData?.translation ?? "",
+              after: lyricData.translation ?? "",
+              beforeFormat: before.lyricData?.translationFormat,
+              afterFormat: lyricData.translationFormat,
+            },
+            {
+              key: "romaji",
+              before: before.lyricData?.romaji ?? "",
+              after: lyricData.romaji ?? "",
+              beforeFormat: before.lyricData?.romajiFormat,
+              afterFormat: lyricData.romajiFormat,
+            },
+            { key: "kana", before: before.lyricData?.kana ?? "", after: lyricData.kana ?? "" },
+          ];
+          return [
+            {
+              key: "metadata",
+              path: track.path,
+              exists: !!before.lyrics,
+              fields: fields.filter((field) => field.before || field.after),
+            },
+          ];
+        } catch (error) {
+          return [
+            {
+              key: "metadata",
+              path: track.path,
+              fields: [],
+              error:
+                error instanceof Error ? error.message : t("player.copyLyric.preview.readFailed"),
+            },
+          ];
+        }
+      })(),
+    );
+  if (writeLrc || ttml)
+    tasks.push(
+      (async () => {
+        const selected = (["lrc", "ttml"] as const).filter((key) =>
+          key === "lrc" ? writeLrc : !!ttml,
+        );
+        try {
+          const content = createLyricSaveContent(track, lines, ttml, lyricData);
+          const result = await window.api.lyrics.previewFiles({
+            track,
+            lrc: writeLrc ? content.lrc : undefined,
+            ttml: content.ttml,
+          });
+          return selected.map((key): LyricSavePreviewTarget => {
+            const before = result[key];
+            if (!before || before.status === "failed")
+              return {
+                key,
+                fields: [],
+                error: before?.error ?? t("player.copyLyric.preview.readFailed"),
+              };
+            return {
+              key,
+              path: before.path,
+              exists: before.exists,
+              needsDestination: before.needsDestination,
+              fields: [{ key: "lyrics", before: before.content, after: content[key]! }],
+            };
+          });
+        } catch (error) {
+          return selected.map((key) => ({
+            key,
+            fields: [],
+            error:
+              error instanceof Error ? error.message : t("player.copyLyric.preview.readFailed"),
+          }));
+        }
+      })(),
+    );
+  try {
+    const targets = (await Promise.all(tasks)).flat();
+    if (id !== previewRequestId) return;
+    previewTargets.value = targets;
+    previewOpen.value = true;
+  } finally {
+    if (id === previewRequestId) previewing.value = false;
+  }
+};
+
 watch(
   () => media.track?.id,
   () => {
@@ -157,22 +314,9 @@ watch(
 
 /** 保存前固定歌曲与歌词快照，标签写入重载歌曲时不会混入新歌词。 */
 const handleSaveLyrics = async (): Promise<void> => {
-  const track = media.track;
-  const input = media.lyricContent;
-  const format = media.lyricFormat;
-  if (saving.value || !track || !input || !format || !canSaveLyrics.value) return;
-  const lyrics = input.content;
-  const lyricData = {
-    format,
-    translation: input.translation,
-    translationFormat: input.translationFormat,
-    romaji: input.romaji,
-    romajiFormat: input.romajiFormat,
-    kana: input.kana,
-  };
-  const writeMetadata = canWriteMetadata.value && saveMetadata.value;
-  const writeLrc = saveLrc.value;
-  const ttml = canSaveTtml.value && saveTtml.value ? media.lyricContent?.content : undefined;
+  const snapshot = saveSnapshot.value;
+  if (saving.value || previewing.value || !snapshot || !canSaveLyrics.value) return;
+  const { track, lyrics, lyricData, lines, writeMetadata, writeLrc, ttml } = snapshot;
   saving.value = true;
   saveFeedback.value = [];
   const saved: string[] = [];
@@ -181,7 +325,7 @@ const handleSaveLyrics = async (): Promise<void> => {
     // 先保存文件，让标签写入后的歌曲重载能发现同名 LRC 与新的 TTML。
     if (writeLrc || ttml)
       try {
-        const content = createLyricSaveContent(track, media.parsedLyric, ttml, lyricData);
+        const content = createLyricSaveContent(track, lines, ttml, lyricData);
         const result = await window.api.lyrics.saveFiles({
           track: toRaw(track),
           lrc: writeLrc ? content.lrc : undefined,
@@ -317,34 +461,44 @@ const handleExport = async (): Promise<void> => {
         <div class="flex flex-wrap items-center gap-3">
           <SCheckbox
             :checked="canWriteMetadata && saveMetadata"
-            :disabled="!canWriteMetadata || saving"
+            :disabled="!canWriteMetadata || saving || previewing"
             :label="t('player.copyLyric.musicTags')"
             size="small"
             @update:checked="saveMetadata = $event"
           />
           <SCheckbox
             v-model:checked="saveLrc"
-            :disabled="saving"
+            :disabled="saving || previewing"
             :label="t('player.copyLyric.lrcFile')"
             size="small"
           />
           <SCheckbox
             v-if="canSaveTtml"
             v-model:checked="saveTtml"
-            :disabled="saving"
+            :disabled="saving || previewing"
             :label="t('player.copyLyric.ttmlFile')"
             size="small"
           />
-          <SButton
-            variant="secondary"
-            size="small"
-            class="ml-auto shrink-0"
-            :loading="saving"
-            :disabled="!canSaveLyrics"
-            @click="handleSaveLyrics"
-          >
-            {{ t("player.copyLyric.saveLyrics") }}
-          </SButton>
+          <div class="ml-auto flex shrink-0 items-center gap-2">
+            <SButton
+              variant="secondary"
+              size="small"
+              :loading="previewing"
+              :disabled="!canSaveLyrics || saving"
+              @click="handlePreviewLyrics"
+            >
+              {{ t("player.copyLyric.preview.title") }}
+            </SButton>
+            <SButton
+              variant="secondary"
+              size="small"
+              :loading="saving"
+              :disabled="!canSaveLyrics || previewing"
+              @click="handleSaveLyrics"
+            >
+              {{ t("player.copyLyric.saveLyrics") }}
+            </SButton>
+          </div>
         </div>
         <p class="text-xs text-on-surface/50 leading-relaxed">
           {{
@@ -392,4 +546,5 @@ const handleExport = async (): Promise<void> => {
       </SButton>
     </template>
   </SDialog>
+  <LyricSavePreviewDialog v-if="previewOpen" v-model:open="previewOpen" :targets="previewTargets" />
 </template>

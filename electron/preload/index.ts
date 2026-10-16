@@ -486,6 +486,8 @@ const api = {
     // 选择本地 TTML 歌词库目录
     pickLyricRepoDir: () => ipcRenderer.invoke("lyrics:pickLyricRepoDir"),
     saveFiles: (request: LyricSaveFilesRequest) => ipcRenderer.invoke("lyrics:saveFiles", request),
+    previewFiles: (request: LyricSaveFilesRequest) =>
+      ipcRenderer.invoke("lyrics:previewFiles", request),
   },
   opencc: {
     // 转换单个文本

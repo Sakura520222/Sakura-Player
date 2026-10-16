@@ -19,7 +19,7 @@ vi.mock("@main/database/lyricMatchCache", () => ({
   getMatchedId: vi.fn(() => null),
 }));
 
-import { saveLyricFiles } from "./lyricSave";
+import { previewLyricFiles, saveLyricFiles } from "./lyricSave";
 import { matchLocalTTML } from "./localLyricRepo";
 
 let root: string;
@@ -49,6 +49,74 @@ afterEach(async () => {
 });
 
 describe("歌词文件保存", () => {
+  it("预览读取同名 LRC 和已匹配 TTML，读取前后文件不变且实际保存使用相同路径", async () => {
+    const lrcPath = join(root, "music.v2.lrc");
+    const ttmlPath = join(state.dir, "existing.ttml");
+    await writeFile(lrcPath, "[00:01.00]旧歌词\r\n", "utf8");
+    await writeFile(
+      ttmlPath,
+      Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(ttml, "utf16le")]),
+    );
+    const before = await Promise.all([
+      readFile(lrcPath),
+      readFile(ttmlPath),
+      readFile(track.path!),
+    ]);
+    const request = { track, lrc, ttml: ttml.replace("歌词", "新歌词") };
+    const preview = await previewLyricFiles(request);
+    expect(preview).toEqual({
+      lrc: { status: "ready", path: lrcPath, content: "[00:01.00]旧歌词\r\n", exists: true },
+      ttml: { status: "ready", path: ttmlPath, content: ttml, exists: true },
+    });
+    expect(
+      await Promise.all([readFile(lrcPath), readFile(ttmlPath), readFile(track.path!)]),
+    ).toEqual(before);
+    expect(state.showSaveDialog).not.toHaveBeenCalled();
+    const saved = await saveLyricFiles(request);
+    expect(saved.lrc).toEqual({ status: "saved", path: lrcPath });
+    expect(saved.ttml).toEqual({ status: "saved", path: ttmlPath });
+    expect(await readFile(ttmlPath, "utf8")).toBe(request.ttml);
+  });
+
+  it("尚无歌词文件时只预览新增内容，不创建文件；其他目标的读取错误单独报告", async () => {
+    const preview = await previewLyricFiles({ track, lrc, ttml });
+    expect(preview.lrc).toMatchObject({ status: "ready", content: "", exists: false });
+    expect(preview.ttml).toMatchObject({ status: "ready", content: "", exists: false });
+    expect(await readdir(state.dir)).toEqual([]);
+    expect(await readdir(root)).toEqual(expect.arrayContaining(["music.v2.flac", "repo"]));
+    expect(await readdir(root)).toHaveLength(2);
+    await mkdir(join(root, "music.v2.lrc"));
+    const failed = await previewLyricFiles({ track, lrc, ttml });
+    expect(failed.lrc?.status).toBe("failed");
+    expect(failed.ttml?.status).toBe("ready");
+    state.enabled = false;
+    expect(await previewLyricFiles({ track, ttml })).toEqual({});
+  });
+
+  it.each(["online", "cue"])(
+    "%s 的预览不打开另存为对话框，明确返回路径尚未选择",
+    async (source) => {
+      const item =
+        source === "online"
+          ? { ...track, source: "netease" as const }
+          : { ...track, cuePath: "album.cue" };
+      expect(await previewLyricFiles({ track: item, lrc })).toEqual({
+        lrc: { status: "ready", content: "", exists: false, needsDestination: true },
+      });
+      expect(state.showSaveDialog).not.toHaveBeenCalled();
+    },
+  );
+
+  it("空导出内容在预览和保存中均报告失败", async () => {
+    const request = { track, lrc: " ", ttml: "" };
+    const preview = await previewLyricFiles(request);
+    const saved = await saveLyricFiles(request);
+    expect(preview.lrc?.status).toBe("failed");
+    expect(preview.ttml?.status).toBe("failed");
+    expect(saved.lrc?.status).toBe("failed");
+    expect(saved.ttml?.status).toBe("failed");
+  });
+
   it("覆盖同名 LRC，保存 UTF-8 TTML 后立即可按含 XML 特殊字符的歌曲匹配", async () => {
     await writeFile(join(root, "music.v2.lrc"), "old");
     const result = await saveLyricFiles({ track, lrc, ttml });
