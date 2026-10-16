@@ -7,6 +7,7 @@ import type { LyricLine } from "@shared/types/lyrics";
 import type { CjkTransformMode } from "@shared/types/opencc";
 import {
   GENERATION_TASKS,
+  getGenerationCoverage,
   type GeneratedLyric,
   type GenerationOptions,
 } from "@/services/lyric/aiGeneration";
@@ -55,6 +56,43 @@ const translations = new Map([
 ]);
 
 describe("当前歌曲 AI 译文应用", () => {
+  it("已有译文的空关联规范化后可应用与重载，原词和逐字完整状态均保留", () => {
+    const media = load();
+    const content = toTTML(ALIGNMENT_LINES);
+    media.setLyric({ source: "embedded", format: "ttml" }, { content });
+    media.applyLyricTranslation(media.lyricRevision, new Map([[0, "You walk"]]), "en");
+    const words = structuredClone(media.parsedLyric[0].words);
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        new Map([
+          [
+            0,
+            {
+              translation: [
+                { text: "You ", from: 0, to: 0 },
+                { text: "", from: 1, to: 1 },
+                { text: "walk", from: 2, to: 2 },
+              ],
+            },
+          ],
+        ]),
+        { translation: false, romanization: false, wordTranslation: true, wordRomanization: false },
+        "zh-CN",
+      ),
+    ).toBe(true);
+    const applied = structuredClone(media.parsedLyric[0]);
+    expect(applied.translatedLyric).toBe("You walk");
+    expect(applied.translationWords?.every((span) => span.word.trim())).toBe(true);
+    expect(getGenerationCoverage(media.parsedLyric).existing.wordTranslation).toBe(1);
+    media.setLyric(media.activeLyric, media.lyricContent);
+    expect(media.parsedLyric[0].translatedLyric).toBe("You walk");
+    expect(media.parsedLyric[0].translationWords).toEqual(applied.translationWords);
+    expect(media.parsedLyric[0].words).toEqual(words);
+    expect(getGenerationCoverage(media.parsedLyric).existing.wordTranslation).toBe(1);
+    expect(media.lyricContent!.content).toBe(content);
+  });
+
   it("补齐缺失行后保存重载，完整行的译文、逐字时间和未选音译均保持原样", () => {
     const media = load();
     const source = Array.from({ length: 3 }, (_, index) => ({
