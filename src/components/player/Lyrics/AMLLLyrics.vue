@@ -441,6 +441,15 @@ defineExpose({
   font-size: var(--lp-sub-font-size, max(0.5em, 10px));
 }
 
+:deep([class*="lyricMainLine"] span:has(> [class*="romanWord"])) {
+  text-align: center;
+}
+
+:deep([class*="lyricMainLine"] [class*="romanWord"]) {
+  justify-content: center;
+  padding-inline: 0.15em;
+}
+
 :deep(:lang(zh)) {
   font-family: var(--lyric-font-zh, inherit);
 }
