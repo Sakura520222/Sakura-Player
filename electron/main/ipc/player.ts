@@ -17,6 +17,8 @@ import * as mediaService from "@main/services/media";
 import * as nowPlaying from "@main/services/nowPlaying";
 import * as lastfm from "@main/services/lastfm";
 import * as neteaseScrobble from "@main/services/neteaseScrobble";
+import * as streamingPlayback from "@main/services/streaming/playback";
+import { invalidateStreamingSession } from "@main/services/streaming/adapters/resolve";
 import { fetchBytes } from "@main/utils/fetchBytes";
 import { getPlayer, resetPlayer, onPlayerCreated, onPlayerReset } from "@main/services/engine";
 import {
@@ -152,6 +154,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
         syncDynamicIslandVisibility();
         lastfm.onState(state === "playing");
         neteaseScrobble.onState(state === "playing");
+        streamingPlayback.onStreamingState(state);
         const statusEvent = {
           type: "status",
           data: {
@@ -173,6 +176,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
         mediaService.setPlayState({ status: "Paused" });
         lastfm.onEnded();
         neteaseScrobble.onEnded();
+        void streamingPlayback.stopStreamingPlayback();
         setTaskbarProgress(-1);
         break;
       }
@@ -181,6 +185,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
         sendToMain("player:event", { type: "sourceError" });
         mediaService.setPlayState({ status: "Paused" });
         neteaseScrobble.onState(false);
+        void streamingPlayback.stopStreamingPlayback();
         setTaskbarProgress(-1);
         break;
       }
@@ -212,6 +217,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
         nowPlaying.onPosition(posMs, true);
         lastfm.onPosition();
         neteaseScrobble.onPosition(posMs);
+        streamingPlayback.onStreamingPosition(posMs);
         if (store.get("system.taskbarProgress") && durMs > 0) setTaskbarProgress(posMs / durMs);
         break;
       }
@@ -259,11 +265,28 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
   });
 };
 
-/** 播放操作代次，加载、停止、跳转和实例重置都会作废旧响应。 */
+/** 播放操作代次，加载、停止、跳转和实例重置都会作废旧响应 */
 let loadSeq = 0;
+let streamingServerId: string | undefined;
 onPlayerReset(() => {
   loadSeq++;
+  void streamingPlayback.stopStreamingPlayback();
 });
+
+/**
+ * 服务器断开或身份变化时停止对应曲目，并作废在途加载
+ * @param serverId - 服务器 ID
+ * @returns 服务端停止通知完成
+ */
+export const stopStreamingPlayer = (serverId: string): Promise<void> => {
+  if (streamingServerId === serverId) {
+    loadSeq++;
+    streamingServerId = undefined;
+    cancelPreparedTrack();
+    getPlayer().stop();
+  }
+  return streamingPlayback.stopStreamingPlayback(serverId);
+};
 
 /**
  * 在原生加载或交叉交接完成后统一更新媒体信息与播放统计
@@ -384,6 +407,11 @@ export const registerPlayerIpc = (): void => {
       const seq = loadSeq;
       const current = getPlayer();
       try {
+        const streamingSource =
+          options.meta?.source === "streaming"
+            ? await streamingPlayback.prepareStreamingPlayback(options.meta, source)
+            : undefined;
+        if (seq !== loadSeq || current !== getPlayer()) return { success: false };
         playerLog.info("开始寻找曲尾交接点", {
           to: options.meta?.title,
           preference,
@@ -412,6 +440,9 @@ export const registerPlayerIpc = (): void => {
           return { success: false };
         }
         activeCueRange = cueRangeFromTrack(options.meta);
+        streamingServerId =
+          options.meta?.source === "streaming" ? options.meta.serverId : undefined;
+        void streamingPlayback.stopStreamingPlayback();
         const completedSeq = ++loadSeq;
         cancelPreparedTrack(id);
         const inst = getPlayer();
@@ -421,6 +452,12 @@ export const registerPlayerIpc = (): void => {
           { ...options, autoPlay: state === "playing" },
           meta,
           completedSeq,
+        );
+        streamingPlayback.startStreamingPlayback(
+          options.meta,
+          streamingSource,
+          result.data.mediaInfo.duration,
+          state === "playing",
         );
         const playback = {
           position: toDisplayPositionMs(toMs(inst.getPosition())),
@@ -467,9 +504,18 @@ export const registerPlayerIpc = (): void => {
     activeCueRange = cueRange;
     setCurrentTransitionRange();
     const seq = ++loadSeq;
+    streamingServerId = authoritative?.source === "streaming" ? authoritative.serverId : undefined;
+    void streamingPlayback.stopStreamingPlayback();
     if (!options.preparedId) cancelPreparedTrack();
     try {
       const inst = getPlayer();
+      if (authoritative?.source === "streaming" && !options.preparedId) inst.stop();
+      let streamingSource =
+        options.meta?.source === "streaming"
+          ? await streamingPlayback.prepareStreamingPlayback(options.meta, source)
+          : undefined;
+      if (seq !== loadSeq || inst !== getPlayer()) return fail(ErrorCode.LOAD_SUPERSEDED);
+      source = streamingSource?.url ?? source;
       const loadingEvent = {
         type: "status",
         data: {
@@ -529,11 +575,26 @@ export const registerPlayerIpc = (): void => {
       } else {
         applyDisplay(source.split(/[/\\]/).pop() || source, [], "", undefined, 0);
       }
-      const meta = await inst
-        .load(source, cueRange ? false : autoPlay, options.preparedId)
-        .finally(() => {
-          if (options.preparedId) cancelPreparedTrack(options.preparedId);
-        });
+      const meta = await (async () => {
+        try {
+          return await inst.load(source, cueRange ? false : autoPlay, options.preparedId);
+        } catch (error) {
+          if (
+            !streamingSource ||
+            !authoritative?.serverId ||
+            !/401|Unauthorized/i.test(String(error)) ||
+            seq !== loadSeq
+          )
+            throw error;
+          invalidateStreamingSession(authoritative.serverId);
+          streamingSource = await streamingPlayback.prepareStreamingPlayback(authoritative, source);
+          if (seq !== loadSeq) throw new Error("[Cancelled]");
+          source = streamingSource!.url;
+          return inst.load(source, cueRange ? false : autoPlay);
+        }
+      })().finally(() => {
+        if (options.preparedId) cancelPreparedTrack(options.preparedId);
+      });
       if (seq !== loadSeq || inst !== getPlayer()) return fail(ErrorCode.LOAD_SUPERSEDED);
       if (cueRange) {
         if (meta.preparedPosition !== cueRange.startMs / 1000)
@@ -543,7 +604,14 @@ export const registerPlayerIpc = (): void => {
       }
       if (seq !== loadSeq || inst !== getPlayer()) return fail(ErrorCode.LOAD_SUPERSEDED);
       playerLog.debug(`加载成功: ${authoritative?.title ?? meta.title ?? source}`);
-      return completeTrackLoad(source, options, meta, seq);
+      const result = completeTrackLoad(source, options, meta, seq);
+      streamingPlayback.startStreamingPlayback(
+        options.meta,
+        streamingSource,
+        result.data.mediaInfo.duration,
+        inst.getStatus().state === "playing",
+      );
+      return result;
     } catch (error) {
       if (seq === loadSeq) activeCueRange = null;
       const code = classifyLoadError(error, source);
@@ -585,6 +653,7 @@ export const registerPlayerIpc = (): void => {
   // 停止播放并释放资源
   ipcMain.handle("player:stop", () => {
     loadSeq++;
+    void streamingPlayback.stopStreamingPlayback();
     try {
       neteaseScrobble.onStopped();
       lastfm.onStopped();
@@ -612,6 +681,7 @@ export const registerPlayerIpc = (): void => {
       const positionSecs = enginePositionMs / 1000;
       await getPlayer().seek(positionSecs);
       if (seq !== loadSeq) return { success: false };
+      streamingPlayback.onStreamingSeek(positionMs);
       mediaService.setTimeline({
         currentMs: positionMs,
         totalMs: toDisplayDurationMs(toMs(getPlayer().getDuration())),
@@ -903,6 +973,7 @@ export const registerPlayerIpc = (): void => {
           break;
         case "Stop":
           loadSeq++;
+          void streamingPlayback.stopStreamingPlayback();
           cancelPreparedTrack();
           setCurrentTransitionRange();
           inst.stop();
@@ -914,6 +985,7 @@ export const registerPlayerIpc = (): void => {
             sendToMain("player:event", { type: "seek", data: { position: targetMs } });
             void inst.seek(toEnginePositionMs(targetMs) / 1000).then(() => {
               if (seq !== loadSeq || inst !== getPlayer()) return;
+              streamingPlayback.onStreamingSeek(targetMs);
               mediaService.setTimeline({
                 currentMs: targetMs,
                 totalMs: toMs(inst.getDuration()),
@@ -1015,5 +1087,15 @@ export const registerPlayerIpc = (): void => {
   app.on("before-quit", () => {
     stopDeviceMonitoring();
     releasePowerBlocker();
+  });
+  let quitting = false;
+  app.on("before-quit", (event) => {
+    if (quitting) return;
+    quitting = true;
+    event.preventDefault();
+    void Promise.race([
+      streamingPlayback.stopStreamingPlayback(),
+      new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+    ]).finally(() => app.quit());
   });
 };
