@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use cpal::traits::StreamTrait;
@@ -19,6 +20,7 @@ pub struct PlaybackHandle {
     stream: OutputStream,
     volume: Arc<AtomicU32>,
     stopped: Arc<AtomicBool>,
+    playing: AtomicBool,
     transition: TransitionControl,
 }
 
@@ -68,6 +70,7 @@ impl PlaybackHandle {
                 .play()
                 .context("启动音频输出失败")
                 .with_audio_kind(AudioErrorKind::Device)?;
+            self.playing.store(true, Ordering::Release);
         }
         Ok(())
     }
@@ -76,13 +79,14 @@ impl PlaybackHandle {
     /// 传入 `volume` 为初始音量，`paused` 为 true 时保持暂停（恢复时由 `play` 启动）
     pub fn attach(
         output: &AudioOutput,
-        source: DecoderSource,
+        mut source: DecoderSource,
         volume: f32,
         paused: bool,
     ) -> Result<Self> {
         let volume = Arc::new(AtomicU32::new(volume.to_bits()));
         let stopped = Arc::new(AtomicBool::new(false));
         let transition = source.control();
+        source.fade_in();
         let stream =
             output.build_stream(source, Arc::clone(&volume), Arc::clone(&stopped), paused)?;
         if !paused {
@@ -95,6 +99,7 @@ impl PlaybackHandle {
             stream,
             volume,
             stopped,
+            playing: AtomicBool::new(!paused),
             transition,
         })
     }
@@ -120,24 +125,49 @@ impl PlaybackHandle {
     }
 
     pub fn play(&self) {
-        if let Err(error) = self.stream.play() {
-            warn!(%error, "恢复音频输出失败");
+        match self.stream.play() {
+            Ok(()) => self.playing.store(true, Ordering::Release),
+            Err(error) => warn!(%error, "恢复音频输出失败"),
         }
     }
 
     pub fn pause(&self) {
-        if let Err(error) = self.stream.pause() {
-            warn!(%error, "暂停音频输出失败");
+        match self.stream.pause() {
+            Ok(()) => self.playing.store(false, Ordering::Release),
+            Err(error) => warn!(%error, "暂停音频输出失败"),
         }
     }
 
-    /// 停止播放：实时回调转入静音填充，随句柄销毁释放输出流
+    /// 停止播放：实时回调用 5ms 斜坡转入静音，随句柄销毁释放输出流
     pub fn stop(&self) {
-        self.stopped.store(true, Ordering::Release);
+        self.transition.fade_out();
     }
 
     pub fn set_volume(&self, volume: f32) {
         self.volume.store(volume.to_bits(), Ordering::Relaxed);
+    }
+}
+
+impl Drop for PlaybackHandle {
+    fn drop(&mut self) {
+        self.transition.fade_out();
+        if self.playing.load(Ordering::Acquire) {
+            // 设备失效时可能不再回调，限制等待以免资源回收永久阻塞。
+            let deadline = Instant::now() + Duration::from_millis(100);
+            while !self.transition.is_silent() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            if self.transition.is_silent() {
+                let delay = self
+                    .transition
+                    .output_delay()
+                    .min(deadline.saturating_duration_since(Instant::now()));
+                std::thread::sleep(delay);
+            }
+        }
+        self.stopped.store(true, Ordering::Release);
+        // CPAL 的 WASAPI Terminate 仅退出供数线程；先发 Stop，避免设备重放末个缓冲。
+        let _ = self.stream.pause();
     }
 }
 

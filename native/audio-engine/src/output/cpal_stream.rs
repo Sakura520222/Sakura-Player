@@ -51,7 +51,9 @@ where
 
         device.build_output_stream(
             config,
-            move |data: &mut [T], _| {
+            move |data: &mut [T], info| {
+                let timestamp = info.timestamp();
+                source.set_output_delay(timestamp.playback.duration_since(timestamp.callback));
                 source.begin_callback();
                 let gain = f32::from_bits(volume.load(Ordering::Relaxed));
                 if stopped.load(Ordering::Acquire) {

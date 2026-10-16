@@ -16,9 +16,10 @@ use parking_lot::Mutex;
 
 use super::{InnerPlayer, PlayerEvent, PlayerState};
 
-/// 切换/seek 时要 join 的旧线程集合，全部挪到 spawn_blocking 工作线程 join，
-/// 主线程持锁阶段只 take handle，避免最坏 200ms+ 的卡顿
+/// 切换/seek 时的旧线程与输出句柄，统一在 spawn_blocking 工作线程回收，
+/// 主线程持锁阶段只移交资源，避免等待设备静音和线程退出时阻塞界面。
 pub struct OldThreads {
+    pub playback: Option<Arc<PlaybackHandle>>,
     pub decoder_thread: Option<JoinHandle<decoder::DecoderData>>,
     pub position_timer: Option<JoinHandle<()>>,
     pub fft_timer: Option<JoinHandle<()>>,
@@ -26,7 +27,7 @@ pub struct OldThreads {
 }
 
 impl OldThreads {
-    /// 在工作线程上 join 所有旧 timer/fade，返回旧解码线程 handle 供调用方继续使用
+    /// 在工作线程回收旧 timer/fade 和输出流，返回旧解码线程供调用方继续使用
     /// 忽略 join 错误：辅助线程 panic 不阻止新加载，主播放路径不依赖它们
     pub fn join_aux(self) -> Option<JoinHandle<decoder::DecoderData>> {
         for h in [self.position_timer, self.fft_timer, self.fade_handle]
@@ -35,6 +36,7 @@ impl OldThreads {
         {
             let _ = h.join();
         }
+        drop(self.playback);
         self.decoder_thread
     }
 }
@@ -100,11 +102,11 @@ impl InnerPlayer {
             flag.store(true, Ordering::Relaxed);
         }
 
+        if let Some(playback) = &self.playback {
+            playback.stop();
+        }
         if let Some(ref shared) = self.shared {
             shared.stop();
-        }
-        if let Some(playback) = self.playback.take() {
-            playback.stop();
         }
         if let Some(ref shared) = self.shared {
             shared.drain_buffer();
@@ -117,6 +119,7 @@ impl InnerPlayer {
         self.tempo.lock().reset();
 
         let old_threads = OldThreads {
+            playback: self.playback.take(),
             decoder_thread: self.decoder_thread.take(),
             position_timer: self.position_timer_handle.take(),
             fft_timer: self.fft_timer_handle.take(),
@@ -176,14 +179,15 @@ impl InnerPlayer {
             flag.store(true, Ordering::Relaxed);
         }
 
+        if let Some(playback) = &self.playback {
+            playback.stop();
+        }
         if let Some(ref shared) = self.shared {
             shared.stop();
         }
-        if let Some(playback) = self.playback.take() {
-            playback.stop();
-        }
 
         let old_threads = OldThreads {
+            playback: self.playback.take(),
             decoder_thread: self.decoder_thread.take(),
             position_timer: self.position_timer_handle.take(),
             fft_timer: self.fft_timer_handle.take(),
