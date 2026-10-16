@@ -7,7 +7,12 @@ import { configDir } from "@main/utils/paths";
 import { ipcLog } from "@main/utils/logger";
 import { isLinux } from "@main/utils/config";
 import { normalizeModelInput } from "./validation";
-import type { AiModelConfig, AiModelSaveInput, AiModelState } from "@shared/types/ai";
+import type {
+  AiModelConfig,
+  AiModelSaveInput,
+  AiModelState,
+  AiReasoningEffort,
+} from "@shared/types/ai";
 
 const STORAGE_FILE = path.join(configDir, "ai-models.json");
 
@@ -17,6 +22,7 @@ interface PersistedAiModel {
   protocol: AiModelSaveInput["protocol"];
   baseUrl: string;
   model: string;
+  reasoningEffort?: AiReasoningEffort;
   encryptedApiKey: string;
 }
 
@@ -65,6 +71,11 @@ const encryptApiKey = (apiKey: string): string => {
   return safeStorage.encryptString(apiKey).toString("base64");
 };
 
+/**
+ * 返回含思考等级的公开配置，凭据仅返回是否已保存
+ * @param state - 持久化模型状态
+ * @returns 不包含密钥的配置列表
+ */
 const toPublicState = (state: PersistedAiModelState): AiModelState => ({
   activeModelId: state.activeModelId,
   models: state.models.map<AiModelConfig>((model) => ({
@@ -73,6 +84,7 @@ const toPublicState = (state: PersistedAiModelState): AiModelState => ({
     protocol: model.protocol,
     baseUrl: model.baseUrl,
     model: model.model,
+    ...(model.reasoningEffort ? { reasoningEffort: model.reasoningEffort } : {}),
     hasApiKey: Boolean(model.encryptedApiKey),
   })),
 });
@@ -82,6 +94,7 @@ export interface AiConnection {
   protocol: AiModelSaveInput["protocol"];
   baseUrl: string;
   model: string;
+  reasoningEffort?: AiReasoningEffort;
   apiKey: string;
 }
 
@@ -108,7 +121,13 @@ export const resolveAiConnection = (modelId?: string, draft?: AiModelSaveInput):
     }
   }
   if (!apiKey) throw new Error("请填写 API Key");
-  return { protocol: config.protocol, baseUrl: config.baseUrl, model: config.model, apiKey };
+  return {
+    protocol: config.protocol,
+    baseUrl: config.baseUrl,
+    model: config.model,
+    ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
+    apiKey,
+  };
 };
 
 /**

@@ -1,5 +1,6 @@
 import type { AiMessage } from "@shared/types/ai";
 import type { LyricLine } from "@shared/types/lyrics";
+import { JsonRecordDecoder } from "./jsonRecords";
 
 export const TRANSLATION_LANGUAGES = {
   "zh-CN": "Simplified Chinese",
@@ -21,7 +22,6 @@ export const MAX_BATCH_LINES = 40;
 export const MAX_BATCH_CHARACTERS = 4000;
 const MAX_LYRIC_LINES = 1000;
 const MAX_LYRIC_CHARACTERS = 64_000;
-const MAX_OUTPUT_CHARACTERS = 1024 * 1024;
 const MAX_RECORD_CHARACTERS = 16_384;
 
 /**
@@ -75,33 +75,36 @@ export const createTranslationMessages = (
 
 /** 有界的逐行译文解码器；模型输出只作为数据处理 */
 export class TranslationDecoder {
-  private buffer = "";
-  private length = 0;
+  private readonly records: JsonRecordDecoder;
   private readonly expected: Set<number>;
   readonly translations = new Map<number, string>();
 
+  /**
+   * 初始化本批需要翻译的稳定行号
+   * @param lines - 本批待翻译歌词
+   */
   constructor(lines: TranslationLine[]) {
     this.expected = new Set(lines.map((line) => line.id));
+    this.records = new JsonRecordDecoder(
+      (record) => this.readRecord(record),
+      MAX_RECORD_CHARACTERS,
+    );
   }
 
-  /** 接收任意分片，只提交完整记录 */
+  /**
+   * 接收任意分片，只提交完整且校验通过的记录
+   * @param delta - 新收到的模型文本
+   */
   push(delta: string): void {
-    this.length += delta.length;
-    if (this.length > MAX_OUTPUT_CHARACTERS) throw new Error("译文超过大小限制");
-    this.buffer += delta;
-    let end: number;
-    while ((end = this.buffer.indexOf("\n")) !== -1) {
-      const line = this.buffer.slice(0, end);
-      this.buffer = this.buffer.slice(end + 1);
-      this.readRecord(line);
-    }
-    if (this.buffer.length > MAX_RECORD_CHARACTERS) throw new Error("译文记录过长");
+    this.records.push(delta);
   }
 
-  /** 处理没有尾换行的最后一条记录，并确认没有缺行 */
+  /**
+   * 处理没有尾换行的最后一条记录，并确认没有缺行
+   * @returns 覆盖本批所有歌词行的译文
+   */
   finish(): Map<number, string> {
-    this.readRecord(this.buffer);
-    this.buffer = "";
+    this.records.finish();
     if (this.translations.size !== this.expected.size) throw new Error("译文缺少歌词行");
     return this.translations;
   }

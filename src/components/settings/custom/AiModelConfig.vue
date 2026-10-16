@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AiModelConfig, AiModelProtocol, AiModelSaveInput } from "@shared/types/ai";
+import { AI_REASONING_EFFORTS } from "@shared/types/ai";
 import { toast } from "@/composables/useToast";
 import IconLucideBot from "~icons/lucide/bot";
 import IconLucidePlus from "~icons/lucide/plus";
@@ -30,6 +31,7 @@ const EMPTY_FORM: AiModelSaveInput = {
   baseUrl: "https://api.openai.com/v1",
   model: "",
   apiKey: "",
+  reasoningEffort: "default",
 };
 const form = ref<AiModelSaveInput>({ ...EMPTY_FORM });
 
@@ -48,6 +50,12 @@ const protocolLabels: Record<AiModelProtocol, string> = {
   "openai-compatible": "OpenAI Compatible",
   anthropic: "Anthropic",
 };
+const reasoningOptions = computed(() =>
+  AI_REASONING_EFFORTS.map((value) => ({
+    value,
+    label: t(`settings.aiModel.reasoningLevels.${value}`),
+  })),
+);
 
 const handleProtocolChange = (protocol: AiModelProtocol): void => {
   const previousDefault =
@@ -85,6 +93,10 @@ const openAdd = (): void => {
   dialogOpen.value = true;
 };
 
+/**
+ * 编辑已保存模型，保留思考等级并以空密钥表示复用凭据
+ * @param model - 要编辑的公开模型配置
+ */
 const openEdit = (model: AiModelConfig): void => {
   testFeedback.value = null;
   editingId.value = model.id;
@@ -95,6 +107,7 @@ const openEdit = (model: AiModelConfig): void => {
     baseUrl: model.baseUrl,
     model: model.model,
     apiKey: "",
+    reasoningEffort: model.reasoningEffort ?? "default",
   };
   formError.value = null;
   dialogOpen.value = true;
@@ -378,6 +391,19 @@ onMounted(load);
             :placeholder="form.protocol === 'anthropic' ? 'claude-sonnet-4-5' : 'gpt-5.6'"
             spellcheck="false"
           />
+        </SFormItem>
+        <SFormItem
+          v-if="form.protocol === 'openai-compatible'"
+          :label="t('settings.aiModel.reasoningEffort')"
+        >
+          <SSelect
+            v-model="form.reasoningEffort"
+            :options="reasoningOptions"
+            data-reasoning-effort
+          />
+          <p class="m-0 mt-1 text-xs leading-5 text-on-surface-variant">
+            {{ t("settings.aiModel.reasoningHint") }}
+          </p>
         </SFormItem>
         <div
           v-if="formError"

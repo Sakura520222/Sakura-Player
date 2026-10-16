@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AiModelSaveInput } from "@shared/types/ai";
+import { AI_REASONING_EFFORTS } from "@shared/types/ai";
 
 export const requestIdSchema = z.string().regex(/^[\w-]{1,64}$/);
 
@@ -10,9 +11,14 @@ const modelSchema = z.object({
   protocol: z.enum(["openai-compatible", "anthropic"]),
   baseUrl: z.string().trim().url(),
   model: z.string().trim().min(1).max(256),
+  reasoningEffort: z.enum(AI_REASONING_EFFORTS).optional(),
 });
 
-/** 校验地址时拒绝 URL 凭据和查询参数，避免密钥被拼入请求地址或错误信息 */
+/**
+ * 校验模型及地址，仅为兼容协议保留思考等级
+ * @param input - 待保存或测试的模型配置
+ * @returns 不含密钥的标准化模型参数
+ */
 export const normalizeModelInput = (input: AiModelSaveInput) => {
   const parsed = modelSchema.safeParse(input);
   if (!parsed.success) throw new Error("请填写有效的模型名称、接口协议、API 地址和模型 ID");
@@ -20,8 +26,14 @@ export const normalizeModelInput = (input: AiModelSaveInput) => {
   if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.search || url.hash) {
     throw new Error("API 地址必须为不含账号、查询参数或片段的 HTTP(S) 地址");
   }
-  const { name, protocol, model } = parsed.data;
-  return { name, protocol, model, baseUrl: url.href.replace(/\/+$/, "") };
+  const { name, protocol, model, reasoningEffort } = parsed.data;
+  return {
+    name,
+    protocol,
+    model,
+    baseUrl: url.href.replace(/\/+$/, ""),
+    ...(protocol === "openai-compatible" && reasoningEffort ? { reasoningEffort } : {}),
+  };
 };
 
 export const completionSchema = z

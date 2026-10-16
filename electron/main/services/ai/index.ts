@@ -38,7 +38,10 @@ export const testAiConnection = async (
     connection,
     {
       messages: [{ role: "user", content: "Reply with OK only." }],
-      maxTokens: 128,
+      maxTokens:
+        connection.reasoningEffort && !["default", "none"].includes(connection.reasoningEffort)
+          ? 4096
+          : 128,
     },
     signal,
   );

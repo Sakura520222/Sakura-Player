@@ -92,6 +92,9 @@ export const requestAi = async (
   };
   if (options.temperature !== undefined) body.temperature = options.temperature;
   if (anthropic || options.maxTokens !== undefined) body.max_tokens = options.maxTokens ?? 4096;
+  if (!anthropic && connection.reasoningEffort && connection.reasoningEffort !== "default") {
+    body.reasoning_effort = connection.reasoningEffort;
+  }
   if (anthropic) {
     const system = options.messages
       .filter((message) => message.role === "system")
@@ -153,6 +156,7 @@ export const requestAi = async (
       if (anthropic || response.status !== 400 || !response.body) throw httpError;
 
       let rejectedField: string | undefined;
+      let rejectedReasoning = false;
       try {
         const value: unknown = JSON.parse(
           await readResponseText(response.body, requestSignal, MAX_ERROR_LENGTH),
@@ -162,6 +166,9 @@ export const requestAi = async (
         const parsedError = parameterErrorSchema.safeParse(payload);
         if (parsedError.success) {
           const { message, param } = parsedError.data;
+          rejectedReasoning =
+            "reasoning_effort" in body &&
+            (param === "reasoning_effort" || (!param && /\breasoning_effort\b/.test(message)));
           if (
             /unsupported|not supported|unknown|unrecognized|unexpected|not permitted|not allowed/i.test(
               message,
@@ -179,6 +186,8 @@ export const requestAi = async (
       } catch {
         requestSignal.throwIfAborted();
       }
+      if (rejectedReasoning)
+        throw new Error("模型或服务不支持所选思考等级，请在 AI 模型配置中调整等级或使用服务默认");
       // 只调整被明确拒绝的可选字段，各字段最多调整一次，不重放已开始的生成。
       if (rejectedField === "max_tokens") {
         body.max_completion_tokens = body.max_tokens;

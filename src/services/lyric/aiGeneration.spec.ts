@@ -20,6 +20,33 @@ const combinations = Array.from({ length: 15 }, (_, index) => ({
 }));
 
 describe("按选择生成辅助歌词", () => {
+  it("兼容缩进数组且继续拒绝已有译文被改写、行号重复和逐字缺失", () => {
+    const lines = structuredClone(ALIGNMENT_LINES);
+    lines[0].translatedLyric = "Walk with you";
+    const options = {
+      translation: false,
+      romanization: true,
+      wordRomanization: true,
+      wordTranslation: true,
+    };
+    const source = collectGenerationLines(lines);
+    const decoder = new GenerationDecoder(source, options);
+    const text = "```json\n" + JSON.stringify([{ id: 0, ...ALIGNMENT_RESULT }], null, 2) + "\n```";
+    for (const character of text) decoder.push(character);
+    expect(decoder.finish().get(0)).toEqual(ALIGNMENT_RESULT);
+    for (const mutation of ["rewrite", "duplicate", "missing"] as const) {
+      const value = { id: 0, ...structuredClone(ALIGNMENT_RESULT) };
+      if (mutation === "rewrite") value.translation[0].text = "changed";
+      if (mutation === "missing") value.romanization.pop();
+      const rejected = new GenerationDecoder(source, options);
+      expect(() => {
+        rejected.push(JSON.stringify(mutation === "duplicate" ? [value, value] : [value], null, 2));
+        rejected.finish();
+      }).toThrow();
+      expect(rejected.failedLineId).toBe(0);
+    }
+  });
+
   it("补齐模式跳过完整行，逐字任务复用已有文本并按行确定实际缺失项目", () => {
     const complete = alignGeneratedLyrics(ALIGNMENT_LINES, new Map([[0, ALIGNMENT_RESULT]]))![0];
     const source = [

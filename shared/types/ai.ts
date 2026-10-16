@@ -1,6 +1,19 @@
 /** AI 模型接口协议 */
 export type AiModelProtocol = "openai-compatible" | "anthropic";
 
+/** 服务默认值不发送参数，具体可用等级由模型和兼容服务决定 */
+export const AI_REASONING_EFFORTS = [
+  "default",
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+export type AiReasoningEffort = (typeof AI_REASONING_EFFORTS)[number];
+
 /** AI 模型公开配置 */
 export interface AiModelConfig {
   /** 本地配置 ID */
@@ -13,6 +26,8 @@ export interface AiModelConfig {
   baseUrl: string;
   /** 服务端模型 ID */
   model: string;
+  /** OpenAI 兼容协议的思考等级，省略时使用服务默认值 */
+  reasoningEffort?: AiReasoningEffort;
   /** 是否已经保存密钥 */
   hasApiKey: boolean;
 }
@@ -30,6 +45,7 @@ export interface AiModelSaveInput {
   protocol: AiModelProtocol;
   baseUrl: string;
   model: string;
+  reasoningEffort?: AiReasoningEffort;
   /** 编辑时留空则保留已经保存的密钥 */
   apiKey?: string;
 }

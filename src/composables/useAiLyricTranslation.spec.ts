@@ -98,6 +98,51 @@ afterEach(() => {
 });
 
 describe("AI 歌词翻译任务生命周期", () => {
+  it("启用思考等级后预留推理预算，仍保持逐行校验和原子应用", async () => {
+    api.list.mockResolvedValue({
+      models: [{ ...active, reasoningEffort: "high" }],
+      activeModelId: active.id,
+    });
+    const state = await setup();
+    api.stream.mockImplementation(async (request) => {
+      expect(request.maxTokens).toBe(16384);
+      return result(output);
+    });
+    await state.start();
+    expect(state.canApply.value).toBe(true);
+    expect(state.apply()).toBe(true);
+  });
+
+  it("缩进数组可逐批预览，真实缺词仍显示失败行号和校验原因", async () => {
+    media.parsedLyric = [structuredClone(ALIGNMENT_LINES[0]), structuredClone(ALIGNMENT_LINES[0])];
+    const state = await setup();
+    selectMode(state, "aligned");
+    const invalid = { ...structuredClone(ALIGNMENT_RESULT), romanization: [] };
+    api.stream.mockImplementationOnce(async (_request, delta) => {
+      delta(
+        JSON.stringify(
+          [
+            { id: 0, ...ALIGNMENT_RESULT },
+            { id: 1, ...invalid },
+          ],
+          null,
+          2,
+        ),
+      );
+      return { status: "cancelled" };
+    });
+    await state.start();
+    expect(state.translatedCount.value).toBe(1);
+    expect(state.canResume.value).toBe(true);
+    expect(state.error.value).toBe("player.aiTranslation.invalidOutputLine");
+    expect(state.canApply.value).toBe(false);
+    api.stream.mockResolvedValueOnce(
+      result(JSON.stringify([{ id: 1, ...ALIGNMENT_RESULT }], null, 2)),
+    );
+    await state.resume();
+    expect(state.canApply.value).toBe(true);
+  });
+
   it("按行补齐混合缺失项目，保留完整行且失败续译只请求尚未完成的缺失行", async () => {
     media.parsedLyric = parseLyric("[00:01]one\n[00:02]two\n[00:03]three").lines;
     media.parsedLyric[0].translatedLyric = "已有一";

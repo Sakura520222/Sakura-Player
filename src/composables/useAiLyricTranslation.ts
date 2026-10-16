@@ -113,6 +113,19 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       translatedCount.value > 0,
   );
 
+  /**
+   * 展示校验原因及稳定行号，避免只有笼统重试提示
+   * @param failure - 本地响应校验错误
+   * @param lineId - 可定位时的原歌词行下标
+   * @returns 当前界面语言的错误说明
+   */
+  const describeOutputError = (failure: unknown, lineId?: number | null): string => {
+    if (!(failure instanceof Error)) return t("player.aiTranslation.invalidOutput");
+    return lineId == null
+      ? t("player.aiTranslation.invalidOutputDetail", { reason: failure.message })
+      : t("player.aiTranslation.invalidOutputLine", { line: lineId + 1, reason: failure.message });
+  };
+
   const cancel = (): void => {
     if (!job || job.cancelled) return;
     job.cancelled = true;
@@ -163,6 +176,10 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     }
   };
 
+  /**
+   * 按当前模型配置分批生成，显式启用思考时为推理和最终文本留出预算
+   * @param resuming - 是否沿用当前歌词与选项的已校验进度
+   */
   const run = async (resuming: boolean): Promise<void> => {
     if (
       disposed ||
@@ -297,7 +314,10 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
             requestId,
             modelId: active.id,
             messages: createGenerationMessages(batch, options, saved.language, song),
-            maxTokens: 4096,
+            maxTokens:
+              active.reasoningEffort && !["default", "none"].includes(active.reasoningEffort)
+                ? 16384
+                : 4096,
           },
           (text) => {
             if (!isCurrent() || current.requestId !== requestId || current.invalid) return;
@@ -311,9 +331,9 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
                   previousCount = decoder.results.size;
                 }
               }
-            } catch {
+            } catch (failure) {
               current.invalid = true;
-              error.value = t("player.aiTranslation.invalidOutput");
+              error.value = describeOutputError(failure, decoder.failedLineId);
               phase.value = "error";
               void window.api.aiModel.cancel(requestId).catch(() => {});
             }
@@ -341,17 +361,20 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           finalDecoder.push(result.data.text);
           finalDecoder.finish();
           if (["length", "max_tokens"].includes(result.data.finishReason ?? ""))
-            throw new Error("truncated");
+            throw new Error(t("player.aiTranslation.outputTruncated"));
+        } catch (failure) {
+          error.value = describeOutputError(failure, finalDecoder.failedLineId);
+          throw failure;
         } finally {
           publish(finalDecoder.results);
         }
         offset = end;
       }
       if (isCurrent()) phase.value = "completed";
-    } catch {
+    } catch (failure) {
       if (isCurrent()) {
         phase.value = "error";
-        error.value = t("player.aiTranslation.invalidOutput");
+        if (!error.value) error.value = describeOutputError(failure);
       }
     } finally {
       if (job === current) {

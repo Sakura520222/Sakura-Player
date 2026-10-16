@@ -69,6 +69,36 @@ beforeEach(() => {
 });
 
 describe("模型凭据与调用解析", () => {
+  it("思考等级随模型保存、公开与解析，编辑或临时测试可改等级并复用密钥", async () => {
+    const state = saveAiModel({ ...input, reasoningEffort: "high" });
+    const id = state.models[0].id;
+    expect(state.models[0].reasoningEffort).toBe("high");
+    expect(JSON.parse(mocks.disk).models[0].reasoningEffort).toBe("high");
+    expect(resolveAiConnection().reasoningEffort).toBe("high");
+    await testAiConnection(
+      { ...input, id, apiKey: "", reasoningEffort: "xhigh" },
+      new AbortController().signal,
+    );
+    expect(mocks.request.mock.calls[0][0]).toMatchObject({
+      reasoningEffort: "xhigh",
+      apiKey: input.apiKey,
+    });
+    expect(mocks.request.mock.calls[0][1].maxTokens).toBe(4096);
+    expect(listAiModels()).toEqual(state);
+    saveAiModel({ ...input, id, apiKey: "", reasoningEffort: "default" });
+    expect(resolveAiConnection()).toMatchObject({
+      reasoningEffort: "default",
+      apiKey: input.apiKey,
+    });
+  });
+
+  it("拒绝未知思考等级，Anthropic 配置不保留兼容协议专用参数", () => {
+    expect(() => saveAiModel({ ...input, reasoningEffort: "invalid" as never })).toThrow();
+    const state = saveAiModel({ ...input, protocol: "anthropic", reasoningEffort: "high" });
+    expect(state.models[0]).not.toHaveProperty("reasoningEffort");
+    expect(resolveAiConnection()).not.toHaveProperty("reasoningEffort");
+  });
+
   it("Linux basic_text 不可保存或复用持久化密钥，临时测试仍可使用本次输入", () => {
     const saved = saveAiModel(input);
     mocks.write.mockClear();

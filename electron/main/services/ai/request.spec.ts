@@ -82,6 +82,62 @@ afterAll(async () => {
 });
 
 describe("统一模型请求", () => {
+  it.each([undefined, "default", "none", "high", "max"] as const)(
+    "%s 思考等级按配置发送，默认配置不增加兼容性参数",
+    async (effort) => {
+      connection.reasoningEffort = effort;
+      await requestAi(connection, { messages: [message] }, new AbortController().signal);
+      if (effort && effort !== "default") expect(received.body.reasoning_effort).toBe(effort);
+      else expect(received.body).not.toHaveProperty("reasoning_effort");
+    },
+  );
+
+  it("流式请求携带思考等级，max_tokens 兼容切换仍保留用户选择", async () => {
+    connection.reasoningEffort = "xhigh";
+    let attempts = 0;
+    respond = (response) => {
+      if (++attempts === 1) {
+        response.statusCode = 400;
+        response.end(
+          JSON.stringify({ error: { param: "max_tokens", message: "Unsupported parameter" } }),
+        );
+      } else {
+        response.setHeader("Content-Type", "text/event-stream");
+        response.end(openAiStream());
+      }
+    };
+    const result = await requestAi(
+      connection,
+      { messages: [message], maxTokens: 16384 },
+      new AbortController().signal,
+      () => {},
+    );
+    expect(result.text).toBe("你好🌸");
+    expect(attempts).toBe(2);
+    expect(received.body).toMatchObject({
+      reasoning_effort: "xhigh",
+      max_completion_tokens: 16384,
+    });
+    expect(received.body).not.toHaveProperty("max_tokens");
+  });
+
+  it("服务拒绝思考等级时给出配置提示，不能静默移除等级重试", async () => {
+    connection.reasoningEffort = "high";
+    respond = (response) => {
+      response.statusCode = 400;
+      response.end(
+        JSON.stringify({
+          error: { param: "reasoning_effort", message: "Unsupported test-secret" },
+        }),
+      );
+    };
+    await expect(
+      requestAi(connection, { messages: [message] }, new AbortController().signal),
+    ).rejects.toThrow(/思考等级/);
+    expect(fetchWithProxy).toHaveBeenCalledOnce();
+    expect(received.body.reasoning_effort).toBe("high");
+  });
+
   it.each([
     ["schema", "响应结构无效"],
     ["json", "无法解析的 JSON"],

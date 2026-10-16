@@ -1,5 +1,6 @@
 import type { AiMessage } from "@shared/types/ai";
 import type { LyricLine } from "@shared/types/lyrics";
+import { JsonRecordDecoder } from "./jsonRecords";
 import {
   collectTranslationLines,
   TRANSLATION_LANGUAGES,
@@ -53,32 +54,33 @@ export const createAlignmentMessages = (
 
 /** 有界逐行解析；拒绝缺词、重复词及越界关联，模型文本只作为纯数据 */
 export class AlignmentDecoder {
-  private buffer = "";
-  private length = 0;
+  private readonly records: JsonRecordDecoder;
   private readonly expected: Map<number, AlignmentLine>;
   readonly translations = new Map<number, AlignedTranslation>();
 
+  /**
+   * 初始化本批需要对齐的稳定行号
+   * @param lines - 本批待对齐歌词
+   */
   constructor(lines: AlignmentLine[]) {
     this.expected = new Map(lines.map((line) => [line.id, line]));
+    this.records = new JsonRecordDecoder((record) => this.readRecord(record), 65536);
   }
 
-  /** 接收任意流式分片，只发布已完整校验的一行 */
+  /**
+   * 接收任意流式分片，只发布已完整校验的歌词行
+   * @param delta - 新收到的模型文本
+   */
   push(delta: string): void {
-    this.length += delta.length;
-    if (this.length > 1024 * 1024) throw new Error("辅助歌词响应过长");
-    this.buffer += delta;
-    let end: number;
-    while ((end = this.buffer.indexOf("\n")) !== -1) {
-      this.readRecord(this.buffer.slice(0, end));
-      this.buffer = this.buffer.slice(end + 1);
-    }
-    if (this.buffer.length > 65536) throw new Error("辅助歌词记录过长");
+    this.records.push(delta);
   }
 
-  /** 校验无尾换行的最后一行及整批完整性 */
+  /**
+   * 校验无尾换行的最后一行及整批完整性
+   * @returns 覆盖本批所有歌词行的逐字对齐结果
+   */
   finish(): Map<number, AlignedTranslation> {
-    this.readRecord(this.buffer);
-    this.buffer = "";
+    this.records.finish();
     if (this.translations.size !== this.expected.size) throw new Error("辅助歌词缺行");
     return this.translations;
   }

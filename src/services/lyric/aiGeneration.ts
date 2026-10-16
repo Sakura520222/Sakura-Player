@@ -9,6 +9,7 @@ import {
   type AlignmentLine,
 } from "./aiAlignment";
 import { TRANSLATION_LANGUAGES, type TranslationLanguage } from "./aiTranslation";
+import { JsonRecordDecoder } from "./jsonRecords";
 
 export const GENERATION_TASKS = [
   "translation",
@@ -178,40 +179,49 @@ export const createGenerationMessages = (
 
 /** 有界逐行解码器，整行所选项目全部有效后才提交续译进度 */
 export class GenerationDecoder {
-  private buffer = "";
-  private length = 0;
+  private readonly records: JsonRecordDecoder;
   private readonly expected: Map<number, GenerationLine>;
   readonly results = new Map<number, GeneratedLyric>();
+  failedLineId: number | null = null;
 
+  /**
+   * 初始化本批的稳定行号和所选生成项目
+   * @param lines - 本批待生成歌词
+   * @param options - 本批默认生成项目
+   */
   constructor(
     lines: GenerationLine[],
     private readonly options: GenerationOptions,
   ) {
     this.expected = new Map(lines.map((line) => [line.id, line]));
+    this.records = new JsonRecordDecoder((record) => this.readRecord(record), 65536);
   }
 
-  /** 任意流式分片只发布完整记录 */
+  /**
+   * 任意流式分片只发布完整且内容校验通过的记录
+   * @param delta - 新收到的模型文本
+   */
   push(delta: string): void {
-    this.length += delta.length;
-    if (this.length > 1024 * 1024) throw new Error("辅助歌词响应过长");
-    this.buffer += delta;
-    let end: number;
-    while ((end = this.buffer.indexOf("\n")) !== -1) {
-      const record = this.buffer.slice(0, end);
-      this.buffer = this.buffer.slice(end + 1);
-      this.readRecord(record);
-    }
-    if (this.buffer.length > 65536) throw new Error("辅助歌词记录过长");
+    this.records.push(delta);
   }
 
-  /** 校验尾记录与整批行数，已通过的完整行仍可用于失败续译 */
+  /**
+   * 校验尾记录与整批行数，已通过的完整行仍可用于失败续译
+   * @returns 本批所有已通过校验的生成结果
+   */
   finish(): Map<number, GeneratedLyric> {
-    this.readRecord(this.buffer);
-    this.buffer = "";
-    if (this.results.size !== this.expected.size) throw new Error("辅助歌词缺行");
+    this.records.finish();
+    if (this.results.size !== this.expected.size) {
+      this.failedLineId = [...this.expected.keys()].find((id) => !this.results.has(id)) ?? null;
+      throw new Error("辅助歌词缺行");
+    }
     return this.results;
   }
 
+  /**
+   * 校验一行所选内容，并保留失败行号供界面说明具体原因
+   * @param record - 已提取的完整 JSON 对象文本
+   */
   private readRecord(record: string): void {
     const text = record.trim();
     if (!text || /^```(?:jsonl?|ndjson)?$/i.test(text)) return;
@@ -220,6 +230,7 @@ export class GenerationDecoder {
     if (!value || typeof value !== "object" || !("id" in value) || typeof value.id !== "number")
       throw new Error("辅助歌词行号无效");
     const line = this.expected.get(value.id);
+    this.failedLineId = line ? value.id : null;
     if (!line || this.results.has(value.id)) throw new Error("辅助歌词行号重复或越界");
     const options = line.options ?? this.options;
     const output: GeneratedLyric = {};
@@ -265,5 +276,6 @@ export class GenerationDecoder {
     } else if (romanization !== undefined) throw new Error("返回了未选择的音译");
     if (!Object.keys(output).length) throw new Error("未选择生成项目");
     this.results.set(value.id, output);
+    this.failedLineId = null;
   }
 }
