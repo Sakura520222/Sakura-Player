@@ -1,6 +1,6 @@
-.timed-auxiliary [data-aux-word] {
-  display: inline-block;
-  max-width: 100%;
+.timed-auxiliary [data-aux-word],
+.timed-auxiliary [data-aux-glyph] {
+  display: inline;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   opacity: 0.266667;
@@ -8,7 +8,10 @@
 .timed-auxiliary [data-aux-state="played"] {
   opacity: 1;
 }
-.timed-auxiliary [data-aux-state="active"] {
+.timed-auxiliary [data-aux-word][data-aux-state="active"] {
+  opacity: 1;
+}
+.timed-auxiliary [data-aux-glyph][data-aux-state="active"] {
   opacity: 1;
   mask-image: linear-gradient(
     to right,

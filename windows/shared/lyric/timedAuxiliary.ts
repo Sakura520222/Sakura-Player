@@ -2,15 +2,22 @@ import type { LyricSpan } from "@shared/types/lyrics";
 import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
 import "./timedAuxiliary.css";
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
 export interface TimedAuxiliaryTarget {
   element: HTMLElement;
   words: LyricSpan[];
   kind?: "translation" | "romanization";
 }
-interface WordState {
+interface PaintState {
   element: HTMLElement;
   word: LyricSpan;
   progress: number;
+}
+interface WordState extends PaintState {
+  glyphs?: PaintState[];
+  glyphCursor: number;
+  glyphTime: number;
 }
 interface MountedRow {
   source: LyricSpan[];
@@ -32,7 +39,15 @@ export class TimedAuxiliaryRenderer {
     private readonly container: HTMLElement,
     private readonly targets: () => TimedAuxiliaryTarget[],
   ) {
-    this.observer = new MutationObserver(() => this.refresh());
+    this.observer = new MutationObserver((records) => {
+      // 活动片段内部的字符展开不重扫整曲，仍处理同批次的引擎虚拟化变更。
+      if (
+        records.some(
+          ({ target }) => !(target instanceof HTMLElement && target.hasAttribute("data-aux-word")),
+        )
+      )
+        this.refresh();
+    });
     this.refresh();
   }
 
@@ -71,7 +86,7 @@ export class TimedAuxiliaryRenderer {
         span.dataset.auxWord = "";
         span.textContent = word.word;
         fragment.appendChild(span);
-        return { element: span, word, progress: -1 };
+        return { element: span, word, progress: -1, glyphCursor: 0, glyphTime: -Infinity };
       });
       element.replaceChildren(fragment);
       element.classList.add("timed-auxiliary");
@@ -98,8 +113,8 @@ export class TimedAuxiliaryRenderer {
     this.observer.observe(this.container, { childList: true, subtree: true });
   }
 
-  /** 仅活动字词保留渐变遮罩，其余使用静态透明度避免持续样式计算与遮罩绘制 */
-  private updateWord(state: WordState, time: number): void {
+  /** 只有当前活动字符写入遮罩进度，字符状态变化之外不产生样式写入 */
+  private paint(state: PaintState, time: number, mask: boolean): number {
     const { startTime, endTime } = state.word;
     const progress =
       time >= endTime
@@ -107,12 +122,67 @@ export class TimedAuxiliaryRenderer {
         : time <= startTime
           ? 0
           : Math.round(((time - startTime) / (endTime - startTime)) * 10000) / 10000;
-    if (state.progress === progress) return;
+    if (state.progress === progress) return progress;
     const phase = progress === 1 ? "played" : progress === 0 ? "unplayed" : "active";
     if (state.element.dataset.auxState !== phase) state.element.dataset.auxState = phase;
-    if (phase === "active") state.element.style.setProperty("--aux-progress", String(progress));
-    else state.element.style.removeProperty("--aux-progress");
+    if (mask) {
+      if (phase === "active") state.element.style.setProperty("--aux-progress", String(progress));
+      else state.element.style.removeProperty("--aux-progress");
+    }
     state.progress = progress;
+    return progress;
+  }
+
+  /** 仅展开活动片段的字素，避免多行共用横向遮罩，也避免为整首歌创建字符节点 */
+  private updateWord(state: WordState, time: number): void {
+    const previous = state.progress;
+    const progress = this.paint(state, time, false);
+    if (progress === previous) return;
+    if (progress === 0 || progress === 1) {
+      if (state.glyphs) {
+        state.element.textContent = state.word.word;
+        state.glyphs = undefined;
+        state.glyphCursor = 0;
+        state.glyphTime = -Infinity;
+      }
+      return;
+    }
+    if (!state.glyphs) {
+      const segments = Array.from(graphemes.segment(state.word.word));
+      const fragment = document.createDocumentFragment();
+      const duration = state.word.endTime - state.word.startTime;
+      state.glyphs = [];
+      for (const [index, { segment }] of segments.entries()) {
+        if (!segment.trim()) {
+          fragment.appendChild(document.createTextNode(segment));
+          continue;
+        }
+        const element = document.createElement("span");
+        element.dataset.auxGlyph = "";
+        element.textContent = segment;
+        fragment.appendChild(element);
+        state.glyphs.push({
+          element,
+          word: {
+            word: segment,
+            startTime: state.word.startTime + (duration * index) / segments.length,
+            endTime: state.word.startTime + (duration * (index + 1)) / segments.length,
+          },
+          progress: -1,
+        });
+      }
+      state.element.replaceChildren(fragment);
+    }
+    const glyphs = state.glyphs;
+    if (state.glyphTime === -Infinity || time < state.glyphTime) {
+      for (const glyph of glyphs) this.paint(glyph, time, true);
+      state.glyphCursor = 0;
+    }
+    while (state.glyphCursor < glyphs.length && glyphs[state.glyphCursor].word.endTime <= time) {
+      this.paint(glyphs[state.glyphCursor++], time, true);
+    }
+    if (state.glyphCursor < glyphs.length) this.paint(glyphs[state.glyphCursor], time, true);
+    state.glyphTime = time;
   }
 
   /** 跳转与副行重建时校准一次全部状态，正常播放只推进时间事件游标 */

@@ -388,3 +388,10 @@ watch(
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+:deep(.lp-main > span.lp-word-roman:first-child) {
+  align-items: center;
+  text-align: center;
+}
+</style>
