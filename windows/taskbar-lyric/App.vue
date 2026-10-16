@@ -156,7 +156,14 @@ const items = computed<RenderItem[]>(() => {
     if (config.doubleLine) {
       const trans = config.showTranslation ? line.translatedLyric : "";
       if (trans) {
-        list.push({ key: `trans-${idx}`, role: "secondary", text: trans });
+        list.push({
+          key: `trans-${idx}`,
+          role: "secondary",
+          text: trans,
+          line: line.translationWords?.length
+            ? { ...line, words: line.translationWords }
+            : undefined,
+        });
       } else {
         const next = lyric.value[idx + 1];
         if (next) {

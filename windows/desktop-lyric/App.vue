@@ -117,12 +117,15 @@ const displayItems = computed<DisplayItem[]>(() => {
       index: primary,
       line: {
         ...makePlaceholderLine(current.translatedLyric),
+        words: current.translationWords?.length
+          ? current.translationWords
+          : makePlaceholderLine(current.translatedLyric).words,
         startTime: current.startTime,
         endTime: current.endTime,
       },
       align: resolveAlign(primary, config.align),
       scrollEnabled: true,
-      isPlaceholder: true,
+      isPlaceholder: !current.translationWords?.length,
       isNext: true,
     });
     return items;

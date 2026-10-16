@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { nextTick, reactive, toRaw } from "vue";
-import { parseLyric } from "lyric-kit";
+import { parseLyric, toTTML } from "lyric-kit";
+import { ALIGNMENT_LINES, ALIGNMENT_RESULT } from "@shared/testFixtures/lyricAlignment";
 import type { LyricLine } from "@shared/types/lyrics";
 import type { CjkTransformMode } from "@shared/types/opencc";
 
@@ -49,6 +50,81 @@ const translations = new Map([
 ]);
 
 describe("当前歌曲 AI 译文应用", () => {
+  it("逐字结果原子写入两条辅助轨道并同步窗口，重载和切换普通翻译时状态正确", () => {
+    const media = load();
+    const content = toTTML(ALIGNMENT_LINES);
+    media.setLyric({ source: "embedded", format: "ttml" }, { content });
+    const revision = media.lyricRevision;
+    expect(media.applyAlignedLyricTranslation(revision, new Map(), "en")).toBe(false);
+    expect(
+      media.applyAlignedLyricTranslation(revision - 1, new Map([[0, ALIGNMENT_RESULT]]), "en"),
+    ).toBe(false);
+    expect(
+      media.applyAlignedLyricTranslation(revision, new Map([[0, ALIGNMENT_RESULT]]), "en"),
+    ).toBe(true);
+    const line = structuredClone(media.parsedLyric[0]);
+    expect(mocks.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lyric: media.parsedLyric }),
+    );
+    expect(media.lyricContent?.content).toBe(content);
+    media.setLyric(media.activeLyric, media.lyricContent);
+    expect(media.parsedLyric[0].translationWords).toEqual(line.translationWords);
+    expect(media.parsedLyric[0].words.map((word) => word.romanWord)).toEqual([
+      "kimi",
+      "to",
+      "aruku",
+    ]);
+    media.applyLyricTranslation(media.lyricRevision, new Map([[0, "新的逐行译文"]]), "zh-CN");
+    expect(media.parsedLyric[0].translationWords).toBeUndefined();
+    media.setLyric(media.activeLyric, media.lyricContent);
+    expect(media.parsedLyric[0].translatedLyric).toBe("新的逐行译文");
+    expect(media.parsedLyric[0].translationWords).toBeUndefined();
+  });
+
+  it.each(["aligned", "line"])("%s 经过大时间差、声部配对和多次重载后不丢行", (mode) => {
+    const media = load();
+    const content = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata"><body><div><p begin="1s" end="5s"><span begin="3s" end="4s">A</span></p><p begin="3s" end="8s"><span begin="6s" end="7s">B</span><span ttm:role="x-bg" begin="6s" end="8s"><span begin="6s" end="8s">C</span></span></p></div></body></tt>`;
+    media.setLyric({ source: "embedded", format: "ttml" }, { content });
+    if (mode === "aligned") {
+      expect(
+        media.applyAlignedLyricTranslation(
+          media.lyricRevision,
+          new Map(
+            media.parsedLyric.map((line, index) => [
+              index,
+              {
+                translation: [{ text: `译文${index}`, from: 0, to: 0 }],
+                romanization: [{ index: 0, text: line.words[0].word }],
+              },
+            ]),
+          ),
+          "zh-CN",
+        ),
+      ).toBe(true);
+    } else {
+      expect(
+        media.applyLyricTranslation(
+          media.lyricRevision,
+          new Map(media.parsedLyric.map((_, index) => [index, `译文${index}`])),
+          "zh-CN",
+        ),
+      ).toBe(true);
+    }
+    const before = structuredClone(media.parsedLyric);
+    for (let reload = 0; reload < 2; reload++) {
+      media.setLyric(media.activeLyric, media.lyricContent);
+      expect(media.parsedLyric.map((line) => line.translatedLyric)).toEqual([
+        "译文0",
+        "译文1",
+        "译文2",
+      ]);
+      expect(media.parsedLyric.map((line) => line.translationWords)).toEqual(
+        before.map((line) => line.translationWords),
+      );
+      expect(media.parsedLyric.map((line) => line.words)).toEqual(before.map((line) => line.words));
+      expect(media.lyricContent?.content).toBe(content);
+    }
+  });
   it("完整结果一次性应用并同步歌词窗口，原文、时间和音译不变，重新解析仍保留译文", () => {
     const media = load();
     const input = structuredClone(toRaw(media.lyricContent));

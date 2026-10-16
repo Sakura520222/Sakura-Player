@@ -187,6 +187,7 @@ export const useSettingsStore = defineStore(
       fontFamilyKorean: "",
       fontFamilyChinese: "",
       showTranslation: true,
+      showWordTranslation: true,
       showRuby: true,
       showRomanization: true,
       showWordRomanization: true,

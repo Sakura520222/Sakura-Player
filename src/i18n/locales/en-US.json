@@ -464,6 +464,11 @@
   },
   "player": {
     "aiTranslation": {
+      "mode": "Generation mode",
+      "alignedMode": "Aligned translation and romanization",
+      "lineMode": "Line translation only",
+      "alignmentHint": "Align translation and pronunciation to the original words. Line-timed lyrics use the whole line interval.",
+      "applyAligned": "Apply and show aligned lyrics",
       "title": "AI Lyric Translation",
       "hint": "Send the current lyrics to the active model and preview translations line by line. Cancelling leaves your lyrics unchanged.",
       "target": "Translate to",
@@ -483,6 +488,9 @@
       "applyHint": "Applying replaces the current translation and syncs lyric windows. Audio files are not modified automatically.",
       "start": "Translate",
       "retry": "Translate again",
+      "resume": "Resume translation",
+      "resumeCancelled": "Resume translation",
+      "resumeHint": "Validated lines are kept so you can translate the remaining lyrics. Closing this dialog or changing the lyrics, language or generation mode clears progress.",
       "cancel": "Cancel translation",
       "apply": "Apply translation",
       "applyAndShow": "Apply and show translation",
@@ -1283,6 +1291,10 @@
     "autoImmersive": {
       "label": "Auto Immersive Mode",
       "description": "Hide top/bottom bars and the cursor when the mouse is idle or leaves the window"
+    },
+    "showWordTranslation": {
+      "label": "Word-timed translation",
+      "description": "Highlight aligned translation with the original words. Disable to display plain line translation."
     },
     "showTranslation": {
       "label": "Show Translation",

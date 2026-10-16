@@ -495,6 +495,15 @@ const fittedSubText = computed(() =>
     : displaySubText.value,
 );
 
+const alignedSubLine = computed<LyricLine | null>(() => {
+  const line = displayLine.value;
+  return config.showTranslation &&
+    line?.translationWords?.length &&
+    fittedSubText.value === line.translatedLyric
+    ? { ...line, words: line.translationWords }
+    : null;
+});
+
 const shapeWidth = computed(() =>
   Math.max(
     MIN_SHAPE_WIDTH,
@@ -712,7 +721,14 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
                 <div v-if="showSubLine" class="sub-line" :style="{ fontSize: `${subFontSize}px` }">
-                  {{ fittedSubText }}
+                  <IslandLyricLine
+                    v-if="alignedSubLine"
+                    :line="alignedSubLine"
+                    :font-size="subFontSize"
+                    :font-weight="config.fontWeight"
+                    :word-by-word="config.wordByWord && (playbackVisible || visibilityAnimating)"
+                  />
+                  <template v-else>{{ fittedSubText }}</template>
                 </div>
               </div>
             </Transition>

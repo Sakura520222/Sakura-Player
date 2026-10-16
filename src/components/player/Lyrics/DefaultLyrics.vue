@@ -3,6 +3,10 @@ import type { LyricLine } from "@shared/types/lyrics";
 import { DEFAULTS, type LyricAlignment, type SpringParams, LyricRenderer } from "lyric-dom";
 import "lyric-dom/renderer.css";
 import LyricCredit from "./LyricCredit.vue";
+import {
+  TimedAuxiliaryRenderer,
+  type TimedAuxiliaryTarget,
+} from "@windows/shared/lyric/timedAuxiliary";
 
 const props = withDefaults(
   defineProps<{
@@ -87,6 +91,8 @@ const props = withDefaults(
     enableScale?: boolean;
     /** 是否显示翻译歌词 @default true */
     showTranslation?: boolean;
+    /** 是否高亮逐字译文 */
+    showWordTranslation?: boolean;
     /** 是否显示逐行音译 @default true */
     showRomanization?: boolean;
     /** 是否显示逐词音译 @default true */
@@ -117,6 +123,7 @@ const props = withDefaults(
     emphasizeMinDuration: DEFAULTS.emphasizeMinDuration,
     enableScale: DEFAULTS.enableScale,
     showTranslation: true,
+    showWordTranslation: true,
     showRomanization: true,
     showWordRomanization: true,
     showRuby: DEFAULTS.showRuby,
@@ -136,6 +143,7 @@ const emit = defineEmits<Emits>();
 const containerRef = ref<HTMLElement>();
 const bottomLineEl = ref<HTMLElement>();
 let renderer: LyricRenderer | null = null;
+let auxiliary: TimedAuxiliaryRenderer | null = null;
 /** 冻结状态标志 */
 let isFrozen = false;
 /** 冻结期间收到的待应用歌词（父容器 display:none 时无法测量，需延迟） */
@@ -151,6 +159,7 @@ let pendingLyrics: LyricLine[] | null = null;
  */
 const setCurrentTime = (time: number, _isSeeking = false) => {
   renderer?.setCurrentTime(time);
+  if (!isFrozen && !document.hidden) auxiliary?.setCurrentTime(time);
 };
 
 const freeze = () => {
@@ -189,9 +198,48 @@ onMounted(() => {
     renderer.setLyrics(props.lyricLines);
   }
   bottomLineEl.value = renderer.getBottomLineElement();
+  auxiliary = new TimedAuxiliaryRenderer(containerRef.value, () => {
+    if (!props.enableWordHighlight) return [];
+    const targets: TimedAuxiliaryTarget[] = [];
+    const elements =
+      containerRef.value?.querySelectorAll<HTMLElement>(".lp-line, .lp-line-bg") ?? [];
+    for (const [index, element] of Array.from(elements).entries()) {
+      const line = props.lyricLines[index];
+      if (!line) continue;
+      const content = element.classList.contains("lp-line")
+        ? element.querySelector(":scope > .lp-content")
+        : element;
+      const subs = Array.from(content?.children ?? []).filter((child) =>
+        child.classList.contains("lp-sub"),
+      );
+      let sub = 0;
+      if (props.showTranslation && line.translatedLyric) {
+        const node = subs[sub++];
+        if (
+          props.showWordTranslation &&
+          node instanceof HTMLElement &&
+          line.translationWords?.length
+        )
+          targets.push({ element: node, words: line.translationWords });
+      }
+      if (
+        props.showRomanization &&
+        line.romanLyric &&
+        !(props.showWordRomanization && line.words.some((word) => word.romanWord?.trim()))
+      ) {
+        const node = subs[sub];
+        if (node instanceof HTMLElement && line.romanizationWords?.length)
+          targets.push({ element: node, words: line.romanizationWords });
+      }
+    }
+    return targets;
+  });
+  auxiliary.setCurrentTime(props.initialTime);
 });
 
 onUnmounted(() => {
+  auxiliary?.dispose();
+  auxiliary = null;
   renderer?.dispose();
   renderer = null;
 });
@@ -206,6 +254,16 @@ const updateLyrics = (): void => {
 };
 
 watch(() => props.lyricLines, updateLyrics);
+watch(
+  () => [
+    props.enableWordHighlight,
+    props.showTranslation,
+    props.showWordTranslation,
+    props.showRomanization,
+    props.showWordRomanization,
+  ],
+  () => nextTick(() => auxiliary?.refresh()),
+);
 
 watch(
   () => props.playing,

@@ -152,6 +152,8 @@ export interface LyricSettings {
   fontFamilyChinese: string;
   /** 是否显示翻译歌词 */
   showTranslation: boolean;
+  /** 是否随主歌词逐字高亮已有的对齐译文 */
+  showWordTranslation: boolean;
   /** 是否显示词内注音 */
   showRuby: boolean;
   /** 是否显示逐行音译 */

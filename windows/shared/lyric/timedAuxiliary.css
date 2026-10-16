@@ -1,0 +1,21 @@
+.timed-auxiliary [data-aux-word] {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  --aux-progress: clamp(
+    0,
+    calc((var(--lyric-aux-time, 0) - var(--aux-start)) / var(--aux-duration)),
+    1
+  );
+  white-space: pre-wrap;
+  mask-image: linear-gradient(
+    to right,
+    #000 calc(var(--aux-progress) * 104% - 4%),
+    #0004 calc(var(--aux-progress) * 104%)
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(var(--aux-progress) * 104% - 4%),
+    #0004 calc(var(--aux-progress) * 104%)
+  );
+}
