@@ -19,6 +19,7 @@ let media: {
   lyricLoading: boolean;
   applyLyricTranslation: ReturnType<typeof vi.fn>;
   applyAlignedLyricTranslation: ReturnType<typeof vi.fn>;
+  applyGeneratedLyric: ReturnType<typeof vi.fn>;
 };
 vi.mock("@/stores/media", () => ({ useMediaStore: () => media }));
 vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
@@ -43,7 +44,18 @@ const result = (text: string, finishReason = "stop"): AiRequestResult<AiCompleti
 });
 const output = '{"id":0,"translation":"雨后的光"}\n{"id":1,"translation":"与你同行"}';
 const wrappers: ReturnType<typeof mount>[] = [];
-const setup = async () => {
+const selectMode = (
+  state: { selected: { value: import("@/services/lyric/aiGeneration").GenerationOptions } },
+  mode: "line" | "aligned",
+) => {
+  state.selected.value = {
+    translation: true,
+    romanization: mode === "aligned",
+    wordRomanization: mode === "aligned",
+    wordTranslation: mode === "aligned",
+  };
+};
+const setup = async (preferLine = true) => {
   const open = ref(true);
   let translation!: ReturnType<typeof useAiLyricTranslation>;
   const wrapper = mount(
@@ -55,7 +67,7 @@ const setup = async () => {
     }),
   );
   wrappers.push(wrapper);
-  translation.mode.value = "line";
+  if (preferLine) selectMode(translation, "line");
   await flushPromises();
   return { ...translation, open, wrapper };
 };
@@ -74,6 +86,7 @@ beforeEach(() => {
     lyricLoading: false,
     applyLyricTranslation: vi.fn(() => true),
     applyAlignedLyricTranslation: vi.fn(() => true),
+    applyGeneratedLyric: vi.fn(() => true),
   });
   api.list.mockReset().mockResolvedValue({ models: [active], activeModelId: active.id });
   api.stream.mockReset();
@@ -85,10 +98,114 @@ afterEach(() => {
 });
 
 describe("AI 歌词翻译任务生命周期", () => {
+  it("自动检测已有逐行内容，默认只勾选缺失的逐字项目；全部已有时不自动覆盖", async () => {
+    media.parsedLyric = structuredClone(ALIGNMENT_LINES);
+    media.parsedLyric[0].translatedLyric = "Walk with you";
+    media.parsedLyric[0].romanLyric = "kimi to aruku";
+    const state = await setup(false);
+    expect(state.selected.value).toEqual({
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: true,
+    });
+    expect(state.translatedCount.value).toBe(0);
+    api.stream.mockResolvedValue(result(JSON.stringify({ id: 0, ...ALIGNMENT_RESULT })));
+    await state.start();
+    const payload = JSON.parse(api.stream.mock.calls[0][0].messages[1].content).lines[0];
+    expect(payload.existingTranslation).toBe("Walk with you");
+    expect(payload.existingRomanization).toBe("kimi to aruku");
+    expect(state.apply()).toBe(true);
+    expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
+      1,
+      new Map([[0, ALIGNMENT_RESULT]]),
+      state.selected.value,
+      "zh-CN",
+    );
+    media.parsedLyric[0].words = media.parsedLyric[0].words.map((word, index) => ({
+      ...word,
+      romanWord: ALIGNMENT_RESULT.romanization[index].text,
+    }));
+    media.parsedLyric[0].translationWords = [
+      { word: "Walk ", startTime: 2200, endTime: 4000 },
+      { word: "with ", startTime: 1700, endTime: 2000 },
+      { word: "you", startTime: 1100, endTime: 1600 },
+    ];
+    media.lyricRevision++;
+    await nextTick();
+    expect(Object.values(state.selected.value).some(Boolean)).toBe(false);
+    expect(state.canStart.value).toBe(false);
+    await state.start();
+    expect(api.stream).toHaveBeenCalledOnce();
+  });
+
+  it("音译单选按处理行数记录进度，已有译文不计为生成完成，失败后仅继续缺行", async () => {
+    media.parsedLyric.forEach((line, index) => {
+      line.translatedLyric = `已有译文${index}`;
+    });
+    const state = await setup(false);
+    state.selected.value = {
+      translation: false,
+      romanization: true,
+      wordTranslation: false,
+      wordRomanization: false,
+    };
+    expect(state.translatedCount.value).toBe(0);
+    api.stream.mockResolvedValueOnce(result('{"id":0,"romanization":"kimi"}'));
+    await state.start();
+    expect(state.phase.value).toBe("error");
+    expect(state.translatedCount.value).toBe(1);
+    expect(state.rows.value.map((row) => row.translation)).toEqual(["已有译文0", "已有译文1"]);
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.lines.map(({ id }) => id)).toEqual([1]);
+      expect(request.messages[1].content).not.toContain("已有译文");
+      return result('{"id":1,"romanization":"aruku"}');
+    });
+    await state.resume();
+    expect(state.translatedCount.value).toBe(2);
+    expect(state.apply()).toBe(true);
+    expect(media.applyLyricTranslation).not.toHaveBeenCalled();
+    expect(media.applyAlignedLyricTranslation).not.toHaveBeenCalled();
+    expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
+      1,
+      new Map([
+        [0, { romanization: "kimi" }],
+        [1, { romanization: "aruku" }],
+      ]),
+      state.selected.value,
+      "zh-CN",
+    );
+  });
+
+  it("勾选项目变化立即取消任务并作废旧预览和续译，迟到结果不能应用", async () => {
+    const state = await setup();
+    let resolve!: (value: AiRequestResult<AiCompletionResult>) => void;
+    let lateDelta!: (text: string) => void;
+    api.stream.mockImplementationOnce((_request, delta) => {
+      lateDelta = delta;
+      return new Promise((done) => {
+        resolve = done;
+      });
+    });
+    const running = state.start();
+    await flushPromises();
+    lateDelta('{"id":0,"translation":"旧进度"}\n');
+    state.selected.value.romanization = true;
+    expect(state.translatedCount.value).toBe(0);
+    expect(state.canResume.value).toBe(false);
+    expect(api.cancel).toHaveBeenCalledWith(api.stream.mock.calls[0][0].requestId);
+    lateDelta('{"id":1,"translation":"旧结果"}\n');
+    resolve(result(output));
+    await running;
+    expect(state.canApply.value).toBe(false);
+    expect(state.apply()).toBe(false);
+  });
+
   it("智能模式逐行预览音译与译文，完整校验后才一次应用两条逐字轨道", async () => {
     media.parsedLyric = structuredClone(ALIGNMENT_LINES);
     const state = await setup();
-    state.mode.value = "aligned";
+    selectMode(state, "aligned");
     await nextTick();
     const text = JSON.stringify({ id: 0, ...ALIGNMENT_RESULT });
     api.stream.mockImplementation(async (request, delta) => {
@@ -110,14 +227,14 @@ describe("AI 歌词翻译任务生命周期", () => {
       "zh-CN",
     );
     expect(media.applyLyricTranslation).not.toHaveBeenCalled();
-    state.mode.value = "line";
+    selectMode(state, "line");
     expect(state.apply()).toBe(false);
   });
 
   it("智能模式取消时保留原歌词，迟到的完整对齐结果也不可应用", async () => {
     media.parsedLyric = structuredClone(ALIGNMENT_LINES);
     const state = await setup();
-    state.mode.value = "aligned";
+    selectMode(state, "aligned");
     await nextTick();
     let resolve!: (value: AiRequestResult<AiCompletionResult>) => void;
     api.stream.mockImplementation(
@@ -151,7 +268,7 @@ describe("AI 歌词翻译任务生命周期", () => {
         })),
       }));
       const state = await setup();
-      state.mode.value = "aligned";
+      selectMode(state, "aligned");
       await nextTick();
       api.stream.mockImplementation(async (request) => {
         expect(request.maxTokens).toBe(4096);
@@ -384,7 +501,7 @@ describe("AI 歌词翻译任务生命周期", () => {
       words: id === 1 ? [] : structuredClone(ALIGNMENT_LINES[0].words),
     }));
     const state = await setup();
-    state.mode.value = mode;
+    selectMode(state, mode);
     await nextTick();
     const record = (id: number) =>
       JSON.stringify(
@@ -442,7 +559,7 @@ describe("AI 歌词翻译任务生命周期", () => {
   it("45 行逐字任务在 9 行处失败后，从第 10 行继续分批完成", async () => {
     media.parsedLyric = Array.from({ length: 45 }, () => structuredClone(ALIGNMENT_LINES[0]));
     const state = await setup();
-    state.mode.value = "aligned";
+    selectMode(state, "aligned");
     await nextTick();
     const requested: number[][] = [];
     api.stream.mockImplementation(async (request) => {
@@ -510,7 +627,7 @@ describe("AI 歌词翻译任务生命周期", () => {
       expect(state.canResume.value).toBe(true);
       if (change === "source") media.lyricRevision++;
       else if (change === "language") state.targetLanguage.value = "ja";
-      else if (change === "mode") state.mode.value = "aligned";
+      else if (change === "mode") selectMode(state, "aligned");
       else if (change === "close") state.open.value = false;
       else state.wrapper.unmount();
       await state.resume();
@@ -645,7 +762,7 @@ describe("AI 歌词翻译任务生命周期", () => {
       words: [structuredClone(ALIGNMENT_LINES[0].words[0])],
     }));
     const state = await setup();
-    state.mode.value = "aligned";
+    selectMode(state, "aligned");
     await nextTick();
     const value = {
       translation: [
