@@ -25,7 +25,32 @@ export const applyLyricCjkTransform = async (
   }
 
   try {
-    return await transformLyricText(lines, (texts) => window.api.opencc.convertBatch(texts, mode));
+    const auxiliary = lines.flatMap((line) =>
+      [line.translationWords, line.romanizationWords].flatMap((words) =>
+        words?.length ? [{ ...line, words, translatedLyric: "", romanLyric: "" }] : [],
+      ),
+    );
+    const transformed: LyricLine[] = await transformLyricText([...lines, ...auxiliary], (texts) =>
+      window.api.opencc.convertBatch(texts, mode),
+    );
+    let next = lines.length;
+    return transformed.slice(0, lines.length).map((line, index) => {
+      if (lines[index].translationWords?.length) {
+        line.translationWords = transformed[next++].words;
+        line.translatedLyric = line.translationWords
+          .map((word) => word.word)
+          .join("")
+          .trim();
+      }
+      if (lines[index].romanizationWords?.length) {
+        line.romanizationWords = transformed[next++].words;
+        line.romanLyric = line.romanizationWords
+          .map((word) => word.word)
+          .join("")
+          .trim();
+      }
+      return line;
+    });
   } catch (error) {
     console.error("[OpenCC] 歌词转换失败:", error);
     return lines;

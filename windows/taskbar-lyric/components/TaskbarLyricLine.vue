@@ -87,6 +87,10 @@ const resetRenderCache = (): void => {
 };
 
 const renderFrame = (): void => {
+  if (document.hidden) {
+    rafId = 0;
+    return;
+  }
   const currentMs = getNowPlayingCurrentMs();
 
   if (contentRef.value) {
@@ -112,6 +116,13 @@ const renderFrame = (): void => {
   rafId = requestAnimationFrame(renderFrame);
 };
 
+const onVisibilityChange = (): void => {
+  if (document.hidden) {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+  } else if (!rafId) rafId = requestAnimationFrame(renderFrame);
+};
+
 watch(
   () => props.line,
   () => {
@@ -125,14 +136,16 @@ watch(
 );
 
 onMounted(() => {
+  document.addEventListener("visibilitychange", onVisibilityChange);
   resizeObserver = new ResizeObserver(measure);
   if (wrapperRef.value) resizeObserver.observe(wrapperRef.value);
   if (contentRef.value) resizeObserver.observe(contentRef.value);
   measure();
-  rafId = requestAnimationFrame(renderFrame);
+  onVisibilityChange();
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener("visibilitychange", onVisibilityChange);
   if (rafId !== 0) {
     cancelAnimationFrame(rafId);
     rafId = 0;

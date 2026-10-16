@@ -12,6 +12,9 @@ import {
 import { applyLyricExclude } from "@/utils/lyric/lyricStripper";
 import { applyLyricCjkTransform } from "@/utils/lyric/cjkTransform";
 import { createTranslationTrack } from "@/utils/lyric/translation";
+import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
+import { alignGeneratedLyrics } from "@/utils/lyric/alignment";
+import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
 
 export const useMediaStore = defineStore("media", () => {
   watchLyricPreference();
@@ -178,6 +181,7 @@ export const useMediaStore = defineStore("media", () => {
           },
         );
         nextLines = applyLyricExclude(result.lines, track.value);
+        applyTimedAuxiliary(nextLines, { ...input, format: source.format }, settings.locale);
         normalizeLyricLines(nextLines);
         applyLyricLanguages(nextLines);
         authors = result.metadata.authors?.length
@@ -234,12 +238,13 @@ export const useMediaStore = defineStore("media", () => {
       expected.some((index) => !translations.get(index)?.trim())
     )
       return false;
-    const translation = createTranslationTrack(lines, translations, language);
+    const translation = createTranslationTrack(lines, translations, language, "normalized");
     transformToken++;
     lyricContent.value = { ...toRaw(lyricContent.value), translation, translationFormat: "ttml" };
     parsedLyric.value = lines.map((line, index) => ({
       ...line,
       translatedLyric: translations.get(index) ?? line.translatedLyric,
+      translationWords: undefined,
     }));
     lyricRevision.value++;
     syncToMain();
@@ -252,6 +257,47 @@ export const useMediaStore = defineStore("media", () => {
    */
   const updateLyricIndex = (time: number): void => {
     lyricIndex.value = findLyricIndex(parsedLyric.value, time, lyricIndex.value);
+  };
+
+  /**
+   * 原子应用逐字翻译及音译，辅助轨道沿用既有保存与内容校验流程
+   * @param revision - 生成任务的歌词版本
+   * @param results - 覆盖整首歌词的语义关联结果
+   * @param language - 译文语言
+   * @returns 当前歌曲是否仍匹配并成功应用
+   */
+  const applyAlignedLyricTranslation = (
+    revision: number,
+    results: ReadonlyMap<number, AlignedTranslation>,
+    language: string,
+  ): boolean => {
+    if (revision !== lyricRevision.value || !lyricContent.value || !activeLyric.value) return false;
+    const lines = alignGeneratedLyrics(parsedLyric.value, results);
+    if (!lines) return false;
+    const translation = createTranslationTrack(
+      lines,
+      new Map(lines.map((line, index) => [index, line.translationWords ?? []])),
+      language,
+      "normalized",
+    );
+    const romaji = createTranslationTrack(
+      lines,
+      new Map(lines.map((line, index) => [index, line.romanizationWords ?? []])),
+      "und-Latn",
+      "normalized",
+    );
+    transformToken++;
+    lyricContent.value = {
+      ...toRaw(lyricContent.value),
+      translation,
+      translationFormat: "ttml",
+      romaji,
+      romajiFormat: "ttml",
+    };
+    parsedLyric.value = lines;
+    lyricRevision.value++;
+    syncToMain();
+    return true;
   };
 
   /** 清空所有状态 */
@@ -289,6 +335,7 @@ export const useMediaStore = defineStore("media", () => {
     resetLyricState,
     setLyric,
     applyLyricTranslation,
+    applyAlignedLyricTranslation,
     updateLyricIndex,
     clear,
   };

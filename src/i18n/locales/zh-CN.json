@@ -452,6 +452,11 @@
   },
   "player": {
     "aiTranslation": {
+      "mode": "生成方式",
+      "alignedMode": "智能翻译与逐字音译",
+      "lineMode": "仅逐行翻译",
+      "alignmentHint": "按主歌词字词对齐译文和音译；只有行时间的歌词沿用整行范围。",
+      "applyAligned": "应用并显示逐字翻译与音译",
       "title": "AI 歌词翻译",
       "hint": "将当前歌词发送至已启用的模型，逐行预览译文。取消不会修改当前歌词。",
       "target": "目标语言",
@@ -471,6 +476,9 @@
       "applyHint": "应用后替换当前歌词的译文并同步外部歌词窗口，不会自动写入音频文件。",
       "start": "开始翻译",
       "retry": "重新翻译",
+      "resume": "从失败处继续",
+      "resumeCancelled": "继续翻译",
+      "resumeHint": "已保留校验通过的完整行，可继续翻译剩余部分。关闭弹窗或更改歌词、语言和生成方式会清除进度。",
       "cancel": "取消翻译",
       "apply": "应用译文",
       "applyAndShow": "应用并显示译文",
@@ -1266,6 +1274,10 @@
     "autoImmersive": {
       "label": "自动沉浸模式",
       "description": "鼠标静止或离开窗口时，自动隐藏全屏播放器顶/底栏与鼠标"
+    },
+    "showWordTranslation": {
+      "label": "逐字翻译高亮",
+      "description": "译文包含字词对齐时间时，随主歌词逐字高亮；关闭后整行显示"
     },
     "showTranslation": {
       "label": "显示翻译",

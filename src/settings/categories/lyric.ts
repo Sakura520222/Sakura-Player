@@ -215,6 +215,13 @@ const lyricCategory: SettingCategory = {
           defaultValue: true,
         },
         {
+          key: "showWordTranslation",
+          type: "switch",
+          binding: { store: "settings", path: "lyric.showWordTranslation" },
+          defaultValue: true,
+          disabled: () => !useSettingsStore().lyric.showTranslation,
+        },
+        {
           key: "showRuby",
           type: "switch",
           binding: { store: "settings", path: "lyric.showRuby" },

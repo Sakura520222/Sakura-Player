@@ -9,6 +9,10 @@ import { useStatusStore } from "@/stores/status";
 import { getCurrentTime } from "@/services/playback";
 import "@applemusic-like-lyrics/core/style.css";
 import LyricCredit from "./LyricCredit.vue";
+import {
+  TimedAuxiliaryRenderer,
+  type TimedAuxiliaryTarget,
+} from "@windows/shared/lyric/timedAuxiliary";
 
 const props = withDefaults(
   defineProps<{
@@ -26,6 +30,8 @@ const props = withDefaults(
     enableBlur?: boolean;
     /** 是否显示翻译歌词 */
     showTranslation?: boolean;
+    /** 是否高亮逐字译文 */
+    showWordTranslation?: boolean;
     /** 是否显示词内注音 */
     showRuby?: boolean;
     /** 是否显示逐行音译 */
@@ -44,6 +50,7 @@ const props = withDefaults(
     hidePassedLines: false,
     enableBlur: false,
     showTranslation: true,
+    showWordTranslation: true,
     showRuby: true,
     showRomanization: true,
     showWordRomanization: true,
@@ -65,6 +72,7 @@ const status = useStatusStore();
 const wrapperRef = ref<HTMLDivElement | null>(null);
 const playerRef = ref<CoreLyricPlayer>();
 const bottomLineEl = ref<HTMLElement>();
+let auxiliary: TimedAuxiliaryRenderer | null = null;
 
 // 播放器是否已初始化完成
 const initialized = ref(false);
@@ -186,6 +194,7 @@ const handleVisibility = () => {
     // 从隐藏恢复
     const currentTime = getCurrentTime() + status.lyricOffsetMs;
     playerRef.value.setCurrentTime(currentTime, true);
+    auxiliary?.setCurrentTime(currentTime);
     isPreviousHidden.value = false;
   }
 };
@@ -194,6 +203,33 @@ onMounted(async () => {
   if (!wrapperRef.value) return;
   const player = new CoreLyricPlayer();
   playerRef.value = player;
+  auxiliary = new TimedAuxiliaryRenderer(wrapperRef.value, () => {
+    const targets: TimedAuxiliaryTarget[] = [];
+    for (const group of player.currentLyricGroups) {
+      for (const row of [group.mainLine, group.bgLine]) {
+        if (!row) continue;
+        const line = row.getLine() as LyricLine;
+        const element = row.getElement();
+        const translation = element.children[1];
+        const romanization = element.children[2];
+        if (
+          props.showTranslation &&
+          props.showWordTranslation &&
+          translation instanceof HTMLElement &&
+          line.translationWords?.length
+        )
+          targets.push({ element: translation, words: line.translationWords });
+        if (
+          props.showRomanization &&
+          romanization instanceof HTMLElement &&
+          line.romanizationWords?.length &&
+          line.romanLyric
+        )
+          targets.push({ element: romanization, words: line.romanizationWords });
+      }
+    }
+    return targets;
+  });
 
   const el = player.getElement();
   el.style.width = "100%";
@@ -231,6 +267,7 @@ onMounted(async () => {
   pendingLyrics = null;
   player.setLyricLines(processedLyrics.value, currentTime);
   player.setCurrentTime(currentTime, true);
+  auxiliary?.setCurrentTime(currentTime);
   player.update(0);
   processLyricLanguage(player);
   initialized.value = true;
@@ -238,6 +275,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  auxiliary?.dispose();
+  auxiliary = null;
   document.removeEventListener("visibilitychange", handleVisibility);
   pauseRaf();
   initialized.value = false;
@@ -304,6 +343,10 @@ watch(processedLyrics, (newLyrics) => {
     processLyricLanguage();
   }
 });
+watch(
+  () => props.showWordTranslation,
+  () => auxiliary?.refresh(),
+);
 
 // 监听歌词优化配置变动并更新 Core
 watch(
@@ -327,6 +370,7 @@ watch(
 // 主播放器事件驱动的时间同步接口
 const setCurrentTime = (time: number, isSeek?: boolean) => {
   playerRef.value?.setCurrentTime(time, isSeek);
+  if (!isFrozen.value && !document.hidden) auxiliary?.setCurrentTime(time);
 };
 
 // 隐藏界面或休眠时调用

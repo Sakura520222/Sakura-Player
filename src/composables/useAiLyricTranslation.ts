@@ -2,6 +2,12 @@ import type { Ref } from "vue";
 import type { AiModelConfig } from "@shared/types/ai";
 import { useMediaStore } from "@/stores/media";
 import {
+  AlignmentDecoder,
+  collectAlignmentLines,
+  createAlignmentMessages,
+  type AlignedTranslation,
+} from "@/services/lyric/aiAlignment";
+import {
   collectTranslationLines,
   createTranslationMessages,
   TranslationDecoder,
@@ -16,18 +22,25 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
   const media = useMediaStore();
   const { t } = useI18n();
   const targetLanguage = ref<TranslationLanguage>("zh-CN");
+  const mode = ref<"aligned" | "line">("aligned");
   const model = shallowRef<AiModelConfig | null>(null);
   const loadingModel = ref(false);
-  const rows = shallowRef<TranslationLine[]>([]);
+  const rows = shallowRef<
+    (TranslationLine & { romanization?: string; alignment?: AlignedTranslation })[]
+  >([]);
   const busy = ref(false);
   const phase = ref<"idle" | "running" | "completed" | "cancelled" | "error">("idle");
   const error = ref("");
   let modelVersion = 0;
   let disposed = false;
-  let completed: {
+  let progress: {
     revision: number;
     language: TranslationLanguage;
+    mode: "aligned" | "line";
     translations: Map<number, string>;
+    alignment: Map<number, AlignedTranslation> | null;
+    responseSize: number;
+    responseSizes: Map<number, number>;
   } | null = null;
   let job: {
     revision: number;
@@ -39,9 +52,13 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
   const translatedCount = computed(() => rows.value.filter((row) => row.translation).length);
   const canApply = computed(
     () =>
+      !disposed &&
+      open.value &&
+      !media.lyricLoading &&
       phase.value === "completed" &&
-      completed?.revision === media.lyricRevision &&
-      completed.language === targetLanguage.value &&
+      progress?.revision === media.lyricRevision &&
+      progress.language === targetLanguage.value &&
+      progress.mode === mode.value &&
       !busy.value,
   );
   const canStart = computed(
@@ -53,6 +70,19 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       !loadingModel.value &&
       !busy.value,
   );
+  const canResume = computed(
+    () =>
+      !disposed &&
+      open.value &&
+      !!media.track &&
+      !media.lyricLoading &&
+      !busy.value &&
+      (phase.value === "error" || phase.value === "cancelled") &&
+      progress?.revision === media.lyricRevision &&
+      progress.language === targetLanguage.value &&
+      progress.mode === mode.value &&
+      translatedCount.value > 0,
+  );
 
   const cancel = (): void => {
     if (!job || job.cancelled) return;
@@ -63,7 +93,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
 
   const reset = (): void => {
     cancel();
-    completed = null;
+    progress = null;
     phase.value = "idle";
     error.value = "";
     rows.value = [];
@@ -92,17 +122,39 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     }
   };
 
-  const start = async (): Promise<void> => {
-    if (busy.value || !open.value || !media.track || media.lyricLoading) return;
-    reset();
+  const run = async (resuming: boolean): Promise<void> => {
+    if (disposed || busy.value || !open.value || !media.track || media.lyricLoading) return;
+    if (resuming && !canResume.value) return;
+    if (!resuming) {
+      reset();
+      progress = {
+        revision: media.lyricRevision,
+        language: targetLanguage.value,
+        mode: mode.value,
+        translations: new Map(),
+        alignment: mode.value === "aligned" ? new Map() : null,
+        responseSize: 0,
+        responseSizes: new Map(),
+      };
+    }
     if (!rows.value.length) return;
+    const saved = progress;
+    if (!saved) return;
     const source = rows.value;
+    const aligned = saved.mode === "aligned";
+    const remaining = source.filter((line) => !saved.translations.has(line.id));
+    // 全部行已预览但请求未成功结束时，重试末行后才允许应用。
+    if (!remaining.length) remaining.push(source.at(-1)!);
+    const pendingIds = new Set(remaining.map((line) => line.id));
+    const alignmentSource = aligned
+      ? collectAlignmentLines(media.parsedLyric).filter((line) => pendingIds.has(line.id))
+      : [];
     const song = {
       title: media.track.title,
       artists: media.track.artists.map((artist) => artist.name),
     };
     const current = {
-      revision: media.lyricRevision,
+      revision: saved.revision,
       cancelled: false,
       invalid: false,
       requestId: null as string | null,
@@ -110,16 +162,45 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     job = current;
     busy.value = true;
     phase.value = "running";
-    const received = new Map<number, string>();
+    error.value = "";
     const isCurrent = () =>
       !disposed &&
       open.value &&
       job === current &&
       !current.cancelled &&
+      progress === saved &&
+      saved.language === targetLanguage.value &&
+      saved.mode === mode.value &&
       current.revision === media.lyricRevision;
-    const publish = (translations: Map<number, string>) => {
-      for (const [id, text] of translations) received.set(id, text);
-      rows.value = source.map((line) => ({ ...line, translation: received.get(line.id) ?? "" }));
+    const publish = (translations: ReadonlyMap<number, string | AlignedTranslation>) => {
+      try {
+        for (const [id, value] of translations) {
+          const size =
+            JSON.stringify(
+              typeof value === "string" ? { id, translation: value } : { id, ...value },
+            ).length + 1;
+          const previousSize = saved.responseSizes.get(id) ?? 0;
+          const responseSize = saved.responseSize + size - previousSize;
+          if (responseSize > 1024 * 1024) throw new Error("整首辅助歌词超过大小限制");
+          saved.responseSize = responseSize;
+          saved.responseSizes.set(id, size);
+          if (typeof value === "string") saved.translations.set(id, value);
+          else {
+            saved.alignment!.set(id, value);
+            saved.translations.set(id, value.translation.map((part) => part.text).join(""));
+          }
+        }
+      } finally {
+        rows.value = source.map((line) => ({
+          ...line,
+          translation: saved.translations.get(line.id) ?? "",
+          alignment: saved.alignment?.get(line.id),
+          romanization: saved.alignment
+            ?.get(line.id)
+            ?.romanization.map((word) => word.text)
+            .join(" "),
+        }));
+      }
     };
     try {
       await refreshModel();
@@ -130,19 +211,30 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
         if (!error.value) error.value = t("player.aiTranslation.noModel");
         return;
       }
-      const language = targetLanguage.value;
-      for (let offset = 0; offset < source.length;) {
+      const language = saved.language;
+      for (let offset = 0; offset < remaining.length;) {
         if (!isCurrent()) return;
         let end = offset;
         let characters = 0;
-        while (end < source.length && end - offset < MAX_BATCH_LINES) {
-          const length = source[end].text.length;
-          if (end > offset && characters + length > MAX_BATCH_CHARACTERS) break;
+        let words = 0;
+        // 字词映射的 JSON 开销更大，用较小批次兼容模型输出上限。
+        while (end < remaining.length && end - offset < (aligned ? 6 : MAX_BATCH_LINES)) {
+          const length = remaining[end].text.length;
+          const wordCount = alignmentSource[end]?.words.length ?? 0;
+          if (
+            end > offset &&
+            (characters + length > MAX_BATCH_CHARACTERS || (aligned && words + wordCount > 60))
+          )
+            break;
           characters += length;
+          words += wordCount;
           end++;
         }
-        const batch = source.slice(offset, end);
-        const decoder = new TranslationDecoder(batch);
+        const batch = remaining.slice(offset, end);
+        const alignmentBatch = alignmentSource.slice(offset, end);
+        const decoder = aligned
+          ? new AlignmentDecoder(alignmentBatch)
+          : new TranslationDecoder(batch);
         const requestId = crypto.randomUUID();
         current.requestId = requestId;
         let previousCount = 0;
@@ -150,16 +242,22 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           {
             requestId,
             modelId: active.id,
-            messages: createTranslationMessages(batch, language, song),
+            messages: aligned
+              ? createAlignmentMessages(alignmentBatch, language, song)
+              : createTranslationMessages(batch, language, song),
             maxTokens: 4096,
           },
           (text) => {
-            if (!isCurrent() || current.invalid) return;
+            if (!isCurrent() || current.requestId !== requestId || current.invalid) return;
             try {
-              decoder.push(text);
-              if (decoder.translations.size !== previousCount) {
-                previousCount = decoder.translations.size;
-                publish(decoder.translations);
+              try {
+                decoder.push(text);
+              } finally {
+                // 同一分片后半段损坏时，前半段已校验的完整行仍可续译。
+                if (decoder.translations.size !== previousCount) {
+                  publish(decoder.translations);
+                  previousCount = decoder.translations.size;
+                }
               }
             } catch {
               current.invalid = true;
@@ -180,16 +278,27 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           phase.value = "error";
           return;
         }
-        if (["length", "max_tokens"].includes(result.data.finishReason ?? ""))
-          throw new Error("truncated");
         // 隐藏窗口不会收到增量；最终完整结果也是对流式预览的校验。
-        const finalDecoder = new TranslationDecoder(batch);
-        finalDecoder.push(result.data.text);
-        publish(finalDecoder.finish());
+        const finalDecoder = aligned
+          ? new AlignmentDecoder(alignmentBatch)
+          : new TranslationDecoder(batch);
+        for (const { id } of batch) {
+          saved.responseSize -= saved.responseSizes.get(id) ?? 0;
+          saved.responseSizes.delete(id);
+          saved.translations.delete(id);
+          saved.alignment?.delete(id);
+        }
+        try {
+          finalDecoder.push(result.data.text);
+          finalDecoder.finish();
+          if (["length", "max_tokens"].includes(result.data.finishReason ?? ""))
+            throw new Error("truncated");
+        } finally {
+          publish(finalDecoder.translations);
+        }
         offset = end;
       }
       if (!isCurrent()) return;
-      completed = { revision: current.revision, language, translations: received };
       phase.value = "completed";
     } catch {
       if (isCurrent()) {
@@ -205,13 +314,18 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     }
   };
 
+  const start = (): Promise<void> => run(false);
+  const resume = (): Promise<void> => run(true);
+
   const apply = (): boolean => {
-    if (!canApply.value || !completed) return false;
-    return media.applyLyricTranslation(
-      completed.revision,
-      completed.translations,
-      completed.language,
-    );
+    if (!canApply.value || !progress) return false;
+    if (progress.alignment)
+      return media.applyAlignedLyricTranslation(
+        progress.revision,
+        progress.alignment,
+        progress.language,
+      );
+    return media.applyLyricTranslation(progress.revision, progress.translations, progress.language);
   };
 
   watch(
@@ -230,22 +344,24 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
   watch(
     () => media.lyricRevision,
     () => {
-      const hadResult = busy.value || phase.value === "completed";
+      const hadResult = busy.value || translatedCount.value > 0;
       reset();
       if (hadResult && open.value) error.value = t("player.aiTranslation.sourceChanged");
     },
   );
   watch(targetLanguage, reset);
+  watch(mode, reset);
   onBeforeUnmount(() => {
     disposed = true;
     modelVersion++;
     cancel();
-    completed = null;
+    progress = null;
     rows.value = [];
   });
 
   return {
     targetLanguage,
+    mode,
     model,
     loadingModel,
     rows,
@@ -255,7 +371,9 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     translatedCount,
     canApply,
     canStart,
+    canResume,
     start,
+    resume,
     cancel,
     apply,
   };

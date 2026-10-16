@@ -3,22 +3,20 @@ import type { Track } from "./player";
 import type {
   LyricFormat,
   LyricInput,
-  LyricLine,
+  LyricLine as BaseLyricLine,
   LyricMetadata,
   LyricResult,
   LyricSpan,
   LyricWord,
 } from "lyric-kit";
 
-export type {
-  LyricFormat,
-  LyricInput,
-  LyricLine,
-  LyricMetadata,
-  LyricResult,
-  LyricSpan,
-  LyricWord,
-};
+export type { LyricFormat, LyricInput, LyricMetadata, LyricResult, LyricSpan, LyricWord };
+
+/** 保留与主歌词同一毫秒时间轴的辅助逐字轨道 */
+export interface LyricLine extends BaseLyricLine {
+  translationWords?: LyricSpan[];
+  romanizationWords?: LyricSpan[];
+}
 
 /** 默认格式优先级 */
 export const DEFAULT_LYRIC_FORMAT_ORDER: readonly LyricFormat[] = [

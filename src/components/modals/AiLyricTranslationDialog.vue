@@ -14,6 +14,7 @@ const settings = useSettingsStore();
 const settingsDialog = useSettingsDialog();
 const {
   targetLanguage,
+  mode,
   model,
   loadingModel,
   rows,
@@ -23,7 +24,9 @@ const {
   translatedCount,
   canApply,
   canStart,
+  canResume,
   start,
+  resume,
   cancel,
   apply,
 } = useAiLyricTranslation(toRef(props, "open"));
@@ -42,6 +45,10 @@ const configureModel = (): void => {
 const applyTranslation = (): void => {
   if (!apply()) return;
   settings.lyric.showTranslation = true;
+  if (mode.value === "aligned") {
+    settings.lyric.showWordRomanization = true;
+    settings.lyric.showWordTranslation = true;
+  }
   toast.success(t("player.aiTranslation.applied"));
   emit("update:open", false);
 };
@@ -59,6 +66,25 @@ const applyTranslation = (): void => {
         <div class="truncate text-sm font-medium text-on-surface">{{ media.track?.title }}</div>
         <p class="m-0 mt-1 text-xs leading-5 text-on-surface-variant">
           {{ t("player.aiTranslation.hint") }}
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="shrink-0 text-sm text-on-surface-variant">
+          {{ t("player.aiTranslation.mode") }}
+        </span>
+        <div class="w-64" role="group" :aria-label="t('player.aiTranslation.mode')">
+          <SSelect
+            :model-value="mode"
+            :disabled="busy"
+            :options="[
+              { value: 'aligned', label: t('player.aiTranslation.alignedMode') },
+              { value: 'line', label: t('player.aiTranslation.lineMode') },
+            ]"
+            @update:model-value="mode = $event as 'aligned' | 'line'"
+          />
+        </div>
+        <p v-if="mode === 'aligned'" class="m-0 text-xs leading-5 text-on-surface-variant">
+          {{ t("player.aiTranslation.alignmentHint") }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-3">
@@ -105,6 +131,9 @@ const applyTranslation = (): void => {
         </span>
       </div>
       <p v-if="error" class="m-0 text-sm text-error" role="alert">{{ error }}</p>
+      <p v-if="canResume" class="m-0 text-xs leading-5 text-on-surface-variant">
+        {{ t("player.aiTranslation.resumeHint") }}
+      </p>
       <SVirtualList
         v-if="rows.length"
         :items="rows"
@@ -127,6 +156,13 @@ const applyTranslation = (): void => {
             >
               {{ item.translation || t("player.aiTranslation.waiting") }}
             </div>
+            <div
+              v-if="item.romanization"
+              class="mt-1 whitespace-pre-wrap break-words text-xs leading-6 text-on-surface-variant"
+              data-ai-romanization
+            >
+              {{ item.romanization }}
+            </div>
           </div>
         </template>
       </SVirtualList>
@@ -138,22 +174,35 @@ const applyTranslation = (): void => {
       </p>
     </div>
     <template #footer="{ close }">
-      <SButton variant="secondary" @click="close">{{ t("common.close") }}</SButton>
-      <SButton v-if="busy" variant="secondary" :disabled="phase !== 'running'" @click="cancel">
-        {{ t("player.aiTranslation.cancel") }}
-      </SButton>
-      <SButton v-else variant="secondary" :disabled="!canStart" @click="start">
-        {{ t(phase === "idle" ? "player.aiTranslation.start" : "player.aiTranslation.retry") }}
-      </SButton>
-      <SButton type="primary" variant="secondary" :disabled="!canApply" @click="applyTranslation">
-        {{
-          t(
-            settings.lyric.showTranslation
-              ? "player.aiTranslation.apply"
-              : "player.aiTranslation.applyAndShow",
-          )
-        }}
-      </SButton>
+      <div class="flex w-full flex-wrap items-center justify-end gap-2">
+        <SButton variant="secondary" @click="close">{{ t("common.close") }}</SButton>
+        <SButton v-if="busy" variant="secondary" :disabled="phase !== 'running'" @click="cancel">
+          {{ t("player.aiTranslation.cancel") }}
+        </SButton>
+        <SButton v-else variant="secondary" :disabled="!canStart" @click="start">
+          {{ t(phase === "idle" ? "player.aiTranslation.start" : "player.aiTranslation.retry") }}
+        </SButton>
+        <SButton v-if="canResume" type="primary" variant="secondary" @click="resume">
+          {{
+            t(
+              phase === "error"
+                ? "player.aiTranslation.resume"
+                : "player.aiTranslation.resumeCancelled",
+            )
+          }}
+        </SButton>
+        <SButton type="primary" variant="secondary" :disabled="!canApply" @click="applyTranslation">
+          {{
+            t(
+              mode === "aligned"
+                ? "player.aiTranslation.applyAligned"
+                : settings.lyric.showTranslation
+                  ? "player.aiTranslation.apply"
+                  : "player.aiTranslation.applyAndShow",
+            )
+          }}
+        </SButton>
+      </div>
     </template>
   </SDialog>
 </template>

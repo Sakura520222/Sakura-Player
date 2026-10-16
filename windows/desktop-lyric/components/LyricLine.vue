@@ -111,7 +111,8 @@ const resetRenderCache = (): void => {
   lastWordProgress = [];
 };
 
-const needsRaf = (): boolean => props.wordByWord || (props.scrollEnabled && overflowPx.value > 0);
+const needsRaf = (): boolean =>
+  !document.hidden && (props.wordByWord || (props.scrollEnabled && overflowPx.value > 0));
 
 /** 将溢出内容恢复到文字开头 */
 const resetScrollPosition = (): void => {
@@ -173,6 +174,11 @@ const stopRenderLoop = (): void => {
   }
 };
 
+const onVisibilityChange = (): void => {
+  if (document.hidden) stopRenderLoop();
+  else startRenderLoop();
+};
+
 watch(
   () => [props.fontSize, props.fontWeight, props.align, props.backgroundMask],
   () => nextTick(measure),
@@ -226,6 +232,7 @@ const onTransitionEnd = (event: TransitionEvent): void => {
 };
 
 onMounted(() => {
+  document.addEventListener("visibilitychange", onVisibilityChange);
   measure();
   scrollActivatedAtMs = props.scrollEnabled
     ? Math.max(props.line.startTime, getNowPlayingCurrentMs())
@@ -241,6 +248,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener("visibilitychange", onVisibilityChange);
   stopRenderLoop();
   resizeObs?.disconnect();
   resizeObs = null;

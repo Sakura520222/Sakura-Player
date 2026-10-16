@@ -1,17 +1,21 @@
 import { toTTML } from "lyric-kit";
-import type { LyricLine } from "@shared/types/lyrics";
+import type { LyricLine, LyricSpan } from "@shared/types/lyrics";
+
+export const AUXILIARY_TIME_BASIS_KEY = "sakura-player:auxiliary-time-basis";
 
 /**
  * 构建独立翻译轨道，保留同时间的不同声部，避免普通 LRC 合并对唱译文
  * @param lines - 原歌词行，原文和逐字时间不会修改
- * @param translations - 已校验的行下标与译文
+ * @param translations - 已校验的行下标与辅助文本或逐字时间片段
  * @param language - 译文语言
+ * @param timeBasis - 原始行边界或显示歌词规范化后的行边界
  * @returns 可随现有歌词存储数据保存的 TTML 辅助轨道
  */
 export const createTranslationTrack = (
   lines: LyricLine[],
-  translations: ReadonlyMap<number, string>,
+  translations: ReadonlyMap<number, string | LyricSpan[]>,
   language: string,
+  timeBasis: "source" | "normalized" = "source",
 ): string => {
   const auxiliary: LyricLine[] = [];
   const agentIds = new Set(lines.map((line) => line.agentId));
@@ -34,7 +38,11 @@ export const createTranslationTrack = (
       ...line,
       isDuet: false,
       agentId: line.agentId ?? (line.isDuet ? "v2" : undefined),
-      words: text ? [{ word: text, startTime: line.startTime, endTime: line.endTime }] : [],
+      words: Array.isArray(text)
+        ? text
+        : text
+          ? [{ word: text, startTime: line.startTime, endTime: line.endTime }]
+          : [],
       translatedLyric: "",
       romanLyric: "",
     });
@@ -43,6 +51,8 @@ export const createTranslationTrack = (
     lines: auxiliary,
     metadata: {
       language,
+      timingMode: Array.from(translations.values()).some(Array.isArray) ? "Word" : "Line",
+      rawProperties: { [AUXILIARY_TIME_BASIS_KEY]: [timeBasis] },
       agents: {
         [anchorAgent]: { id: anchorAgent, type: "group" },
         ...(!agentIds.has("v2") ? { v2: { id: "v2", type: "other" } } : {}),
