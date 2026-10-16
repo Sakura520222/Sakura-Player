@@ -1,6 +1,92 @@
 use super::*;
 use crate::decoder::buffer::AudioChunk;
 
+#[test]
+fn output_fade_in_waits_for_real_audio_and_preserves_stereo_balance() {
+    let shared = Shared::new(1000, 2);
+    let mut source = TransitionSource::new(Arc::clone(&shared), Arc::new(FftAnalyzer::new()));
+    source.fade_in();
+    for _ in 0..4 {
+        source.begin_callback();
+        assert!((0..20).all(|_| source.next() == Some(0.0)));
+    }
+    shared.push_output(AudioChunk {
+        player_samples: [0.5, -0.25].repeat(30),
+        fft_samples: vec![],
+        source_sample_count: 60,
+    });
+    source.begin_callback();
+    for frame in 1..=5 {
+        let gain = frame as f32 / 5.0;
+        assert!((source.next().unwrap() - 0.5 * gain).abs() < 0.00001);
+        assert!((source.next().unwrap() + 0.25 * gain).abs() < 0.00001);
+    }
+    assert_eq!(source.next(), Some(0.5));
+    assert_eq!(source.next(), Some(-0.25));
+}
+
+#[test]
+fn retiring_output_never_replays_old_pcm_and_reaches_zero_before_release() {
+    let shared = stereo_buffered([0.6, -0.3, 0.2, -0.1, 0.9, -0.9].repeat(20));
+    let mut source = TransitionSource::new(Arc::clone(&shared), Arc::new(FftAnalyzer::new()));
+    let control = source.control();
+    source.begin_callback();
+    for expected in [0.6, -0.3, 0.2, -0.1] {
+        assert_eq!(source.next(), Some(expected));
+    }
+    control.fade_out();
+    shared.stop();
+    shared.drain_buffer();
+    source.begin_callback();
+    for frame in 1..=5 {
+        let gain = (5 - frame) as f32 / 5.0;
+        assert!((source.next().unwrap() - 0.2 * gain).abs() < 0.00001);
+        assert!((source.next().unwrap() + 0.1 * gain).abs() < 0.00001);
+    }
+    assert!(!control.is_silent());
+    for _ in 0..2 {
+        source.begin_callback();
+        assert!((0..20).all(|_| source.next() == Some(0.0)));
+    }
+    assert!(control.is_silent());
+}
+
+#[test]
+fn cancelling_output_during_prefill_does_not_wait_for_decoder() {
+    let shared = Shared::new(1000, 1);
+    let mut source = TransitionSource::new(shared, Arc::new(FftAnalyzer::new()));
+    source.fade_in();
+    let control = source.control();
+    control.fade_out();
+    for _ in 0..2 {
+        source.begin_callback();
+        assert!((0..20).all(|_| source.next() == Some(0.0)));
+    }
+    assert!(control.is_silent());
+}
+
+#[test]
+fn stopping_during_underrun_or_after_eof_does_not_resurrect_the_last_sound() {
+    for eof in [false, true] {
+        let shared = Shared::new(1000, 1);
+        shared.push_output(AudioChunk {
+            player_samples: vec![0.6; 20],
+            fft_samples: vec![],
+            source_sample_count: 20,
+        });
+        if eof {
+            shared.mark_output_eof();
+        }
+        let mut source = TransitionSource::new(shared, Arc::new(FftAnalyzer::new()));
+        source.begin_callback();
+        assert!((0..20).all(|_| source.next() == Some(0.6)));
+        assert_eq!(source.next(), if eof { None } else { Some(0.0) });
+        source.control().fade_out();
+        source.begin_callback();
+        assert!((0..20).all(|_| source.next() == Some(0.0)));
+    }
+}
+
 fn buffered(samples: Vec<f32>) -> Arc<Shared> {
     let shared = Shared::new(1_000, 1);
     let count = samples.len() as u64;

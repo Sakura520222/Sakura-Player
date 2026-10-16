@@ -1,6 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use crossbeam_queue::ArrayQueue;
@@ -78,9 +79,26 @@ pub struct TransitionControl {
     speed_ratio: Arc<AtomicU32>,
     commands: Arc<ArrayQueue<TransitionCommand>>,
     retired: Arc<ArrayQueue<RetiredSource>>,
+    stopping: Arc<AtomicBool>,
+    silent: Arc<AtomicBool>,
+    output_delay_micros: Arc<AtomicU64>,
 }
 
 impl TransitionControl {
+    /// 输出边界以短斜坡收尾，不能把任意幅值的末个样本直接截断为零。
+    pub fn fade_out(&self) {
+        self.stopping.store(true, Ordering::Release);
+    }
+
+    /// 两次静音回调确认已提交静音；回收方还需等待设备队列中的输出延迟。
+    pub fn is_silent(&self) -> bool {
+        self.silent.load(Ordering::Acquire)
+    }
+
+    pub fn output_delay(&self) -> Duration {
+        Duration::from_micros(self.output_delay_micros.load(Ordering::Relaxed))
+    }
+
     /// 调速后按同一比例推进搜索边界和淡化进度，保留当前增益
     pub fn set_speed_ratio(&self, ratio: f32) {
         self.speed_ratio.store(ratio.to_bits(), Ordering::Release);
@@ -137,6 +155,12 @@ pub struct TransitionSource {
     channels: u64,
     energy_window_samples: u64,
     max_intro_samples: u64,
+    fade_frames: u32,
+    fade_frame: u32,
+    fade_channel: usize,
+    fading_out: bool,
+    silent_callbacks: u8,
+    last_frame: Vec<f32>,
 }
 
 impl TransitionSource {
@@ -144,6 +168,7 @@ impl TransitionSource {
         let channels = u64::from(shared.channels());
         let energy_window_samples = (u64::from(shared.sample_rate()) / 20).max(1) * channels;
         let max_intro_samples = u64::from(shared.sample_rate()) * u64::from(shared.channels()) * 2;
+        let fade_frames = (shared.sample_rate() / 200).max(1);
         fft.set_sample_rate(shared.sample_rate());
         Self {
             speed_ratio: 1.0,
@@ -159,11 +184,32 @@ impl TransitionSource {
                 speed_ratio: Arc::new(AtomicU32::new(1.0_f32.to_bits())),
                 commands: Arc::new(ArrayQueue::new(1)),
                 retired: Arc::new(ArrayQueue::new(1)),
+                stopping: Arc::new(AtomicBool::new(false)),
+                silent: Arc::new(AtomicBool::new(false)),
+                output_delay_micros: Arc::new(AtomicU64::new(0)),
             },
             channels,
             energy_window_samples,
             max_intro_samples,
+            fade_frames,
+            fade_frame: fade_frames,
+            fade_channel: 0,
+            fading_out: false,
+            silent_callbacks: 0,
+            last_frame: vec![0.0; channels as usize],
         }
+    }
+
+    /// 开流后从首个真实音频帧淡入，预缓冲期间的静音不能提前消耗斜坡。
+    pub fn fade_in(&mut self) {
+        self.fade_frame = 0;
+    }
+
+    /// 回调只发布设备预计播放延迟，等待排空由非实时回收线程完成。
+    pub fn set_output_delay(&self, delay: Duration) {
+        self.control
+            .output_delay_micros
+            .store(delay.as_micros() as u64, Ordering::Relaxed);
     }
 
     pub fn control(&self) -> TransitionControl {
@@ -171,6 +217,13 @@ impl TransitionSource {
     }
 
     pub fn begin_callback(&mut self) {
+        self.fading_out |= self.control.stopping.load(Ordering::Acquire);
+        if self.fading_out && self.fade_frame == 0 {
+            self.silent_callbacks = self.silent_callbacks.saturating_add(1);
+            if self.silent_callbacks >= 2 {
+                self.control.silent.store(true, Ordering::Release);
+            }
+        }
         self.speed_ratio = f64::from(f32::from_bits(
             self.control.speed_ratio.load(Ordering::Acquire),
         ));
@@ -345,7 +398,24 @@ impl Iterator for TransitionSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
-        let sample = self.next_sample()?;
+        let sample = if self.fading_out {
+            if self.fade_channel == 0 {
+                self.fade_frame = self.fade_frame.saturating_sub(1);
+            }
+            // 解码器和队列可先取消；短尾仅使用已播放帧，不等待 IO 或读取旧缓冲。
+            self.last_frame[self.fade_channel]
+        } else {
+            let Some(sample) = self.next_sample() else {
+                self.last_frame.fill(0.0);
+                return None;
+            };
+            if !self.active.is_underrun() && self.fade_channel == 0 {
+                self.fade_frame = (self.fade_frame + 1).min(self.fade_frames);
+            }
+            self.last_frame[self.fade_channel] = sample;
+            sample
+        } * (self.fade_frame as f32 / self.fade_frames as f32);
+        self.fade_channel = (self.fade_channel + 1) % self.channels as usize;
         if self.fft_enabled {
             if self.output_channel < 2 {
                 self.output_frame[self.output_channel as usize] = sample;

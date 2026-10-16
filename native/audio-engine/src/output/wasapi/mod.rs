@@ -367,6 +367,16 @@ fn render_loop(
     let client = client.0;
     let render = render.0;
     let _priority = crate::priority::RenderThreadPriority::new();
+    let period = Duration::from_secs_f64(f64::from(buffer_frames) / f64::from(format.sample_rate));
+    let latency = match unsafe { client.GetStreamLatency() }.context("获取独占输出延迟失败")
+    {
+        Ok(latency) => latency,
+        Err(error) => {
+            let _ = startup_tx.send(Err(error));
+            return;
+        }
+    };
+    source.set_output_delay(Duration::from_nanos(latency.max(0) as u64 * 100) + period);
     // 输出必须在供数线程取得调度优先级后启动，避免创建线程期间耗尽首个缓冲。
     let startup = prefill_buffer(
         &render,
@@ -387,7 +397,6 @@ fn render_loop(
     }
     let wait_handles = [period_event.0, shutdown_event.0];
     let block_align = usize::from(format.channels * format.container_bits / 8);
-    let period = Duration::from_secs_f64(f64::from(buffer_frames) / f64::from(format.sample_rate));
     let mut last_wake = Instant::now();
     let mut late_wakes = 0u64;
     let mut longest_gap = Duration::ZERO;
