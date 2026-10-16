@@ -8,6 +8,7 @@ import {
 } from "lyric-kit";
 import type { LyricInput, LyricLine, LyricSpan } from "@shared/types/lyrics";
 import { AUXILIARY_TIME_BASIS_KEY } from "./translation";
+import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
 
 const metadataNamespace = "http://www.w3.org/ns/ttml#metadata";
 
@@ -81,7 +82,7 @@ const pairTimedLines = (
         .replace(/\s+/g, " ")
         .trim() === line.translatedLyric.replace(/\s+/g, " ").trim()
     )
-      line.translationWords = source.translationWords;
+      line.translationWords = sequenceTranslationWords(source.translationWords);
     if (
       source.romanizationWords?.length &&
       source.romanizationWords

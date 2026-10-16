@@ -218,14 +218,18 @@ onMounted(async () => {
           translation instanceof HTMLElement &&
           line.translationWords?.length
         )
-          targets.push({ element: translation, words: line.translationWords });
+          targets.push({ element: translation, words: line.translationWords, kind: "translation" });
         if (
           props.showRomanization &&
           romanization instanceof HTMLElement &&
           line.romanizationWords?.length &&
           line.romanLyric
         )
-          targets.push({ element: romanization, words: line.romanizationWords });
+          targets.push({
+            element: romanization,
+            words: line.romanizationWords,
+            kind: "romanization",
+          });
       }
     }
     return targets;

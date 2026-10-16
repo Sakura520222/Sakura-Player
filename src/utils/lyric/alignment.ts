@@ -1,4 +1,5 @@
 import type { LyricLine } from "@shared/types/lyrics";
+import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
 import { AlignmentDecoder, collectAlignmentLines } from "@/services/lyric/aiAlignment";
 import {
@@ -9,18 +10,20 @@ import {
   type GenerationOptions,
 } from "@/services/lyric/aiGeneration";
 
-/** 语义范围只引用已发送的有效原词，空白词的占位时间不参与辅助时间轴 */
+/** 排除空白词占位时间，在原词语义范围内顺排译文的语序冲突片段 */
 const createTranslationWords = (line: LyricLine, parts: AlignedTranslation["translation"]) =>
-  parts.map(({ text, from, to }) =>
-    line.words.slice(from, to + 1).reduce(
-      (span, word) => {
-        if (word.word.trim()) {
-          span.startTime = Math.min(span.startTime, word.startTime);
-          span.endTime = Math.max(span.endTime, word.endTime);
-        }
-        return span;
-      },
-      { word: text, startTime: line.words[from].startTime, endTime: line.words[to].endTime },
+  sequenceTranslationWords(
+    parts.map(({ text, from, to }) =>
+      line.words.slice(from, to + 1).reduce(
+        (span, word) => {
+          if (word.word.trim()) {
+            span.startTime = Math.min(span.startTime, word.startTime);
+            span.endTime = Math.max(span.endTime, word.endTime);
+          }
+          return span;
+        },
+        { word: text, startTime: line.words[from].startTime, endTime: line.words[to].endTime },
+      ),
     ),
   );
 
@@ -50,7 +53,7 @@ const createRomanizedWords = (line: LyricLine, parts: AlignedTranslation["romani
 };
 
 /**
- * 只复用主歌词字词时间，按语义范围生成辅助时间片段
+ * 沿用主歌词语义范围顺排译文，音译保留原词时间
  * @param lines - 不可修改的当前主歌词
  * @param results - 已生成的整首翻译和音译
  * @returns 保留原文、注音与声部的新歌词；不完整结果返回 null
