@@ -237,18 +237,16 @@ export const matchLocalTTML = async (track: Track): Promise<string | null> => {
 };
 
 /**
- * 保存当前 TTML 并使下一次匹配重新读取索引
+ * 解析保存与预览共用的 TTML 目标路径
  * @param track - 当前歌曲，用于选择已有文件及生成稳定文件名
- * @param content - 含歌曲匹配元信息的 TTML
- * @returns 写入的文件路径
+ * @returns 目标文件路径
  */
-export const saveLocalTTML = async (track: Track, content: string): Promise<string> => {
+export const getLocalTTMLSavePath = async (track: Track): Promise<string> => {
   const dir = store.get("localLyric.repoDir");
   if (!store.get("localLyric.enableLocalTTMLOverride") || !dir) {
     throw new Error("本地 TTML 歌词库未启用或未配置目录");
   }
   if (!(await stat(dir)).isDirectory()) throw new Error("TTML 歌词库目录无效");
-  if (!content.trim()) throw new Error("没有可保存的 TTML 歌词");
   const index = await getIndex();
   const artist = normalize(track.artists[0]?.name ?? "");
   const existing =
@@ -270,6 +268,18 @@ export const saveLocalTTML = async (track: Track, content: string): Promise<stri
       filePath = existing;
     }
   }
+  return filePath;
+};
+
+/**
+ * 保存当前 TTML 并使下一次匹配重新读取索引
+ * @param track - 当前歌曲
+ * @param content - 含歌曲匹配元信息的 TTML
+ * @returns 写入的文件路径
+ */
+export const saveLocalTTML = async (track: Track, content: string): Promise<string> => {
+  if (!content.trim()) throw new Error("没有可保存的 TTML 歌词");
+  const filePath = await getLocalTTMLSavePath(track);
   await writeFile(filePath, content, "utf8");
   // 等待旧扫描完成后再丢弃缓存，防止旧索引覆盖刚写入的歌词。
   await building;

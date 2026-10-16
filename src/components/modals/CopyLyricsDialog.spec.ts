@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { reactive, defineComponent } from "vue";
 import { createI18n } from "vue-i18n";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,9 +7,12 @@ import type { Track } from "@shared/types/player";
 import type { LyricLine, LyricInput, LyricFormat } from "@shared/types/lyrics";
 import { LYRIC_SAVE_FIXTURES } from "@shared/testFixtures/lyricSave";
 import { parseLyric } from "lyric-kit";
+import type { LyricSavePreviewTarget } from "@/types/lyric-preview";
 
 const mocks = vi.hoisted(() => ({
   saveFiles: vi.fn(),
+  previewFiles: vi.fn(),
+  readTags: vi.fn(),
   saveTrackTags: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
@@ -43,6 +46,11 @@ const mountDialog = () =>
     global: {
       plugins: [createI18n({ legacy: false, locale: "zh-CN", messages: { "zh-CN": zh } })],
       stubs: {
+        LyricSavePreviewDialog: {
+          name: "LyricSavePreviewDialog",
+          props: ["open", "targets"],
+          template: "<div data-testid='lyric-preview'/>",
+        },
         SDialog: { template: "<div><slot/><slot name='footer'/></div>" },
         SCheckbox: checkbox,
         SCheckboxGroup: { template: "<div><slot/></div>" },
@@ -82,13 +90,148 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ lrc: { status: "saved", path: "C:/Music/song.lrc" } });
   mocks.saveTrackTags.mockReset().mockResolvedValue([{ success: true }]);
+  mocks.previewFiles.mockReset().mockResolvedValue({
+    lrc: { status: "ready", content: "旧 LRC", path: "C:/Music/song.lrc", exists: true },
+    ttml: { status: "ready", content: "旧 TTML", path: "C:/Lyrics/song.ttml", exists: true },
+  });
+  mocks.readTags.mockReset().mockResolvedValue({
+    success: true,
+    data: {
+      lyrics: "旧歌词",
+      hasCover: false,
+      lyricData: { format: "lrc", translation: "旧翻译", romaji: "旧音译" },
+    },
+  });
   Object.defineProperty(window, "api", {
     configurable: true,
-    value: { lyrics: { saveFiles: mocks.saveFiles } },
+    value: {
+      lyrics: { saveFiles: mocks.saveFiles, previewFiles: mocks.previewFiles },
+      library: { readTags: mocks.readTags },
+    },
   });
 });
 
 describe("复制歌词弹窗保存功能", () => {
+  it.each(LYRIC_SAVE_FIXTURES)(
+    "$format 预览完整原文和辅助轨道，未勾选 LRC 时不读取文件且不写入",
+    async (input) => {
+      media.lyricFormat = input.format;
+      media.lyricContent = input;
+      media.parsedLyric = parseLyric(input).lines;
+      const wrapper = mountDialog();
+      await wrapper.setProps({ open: true });
+      const buttons = wrapper.findAll("button").map((button) => button.text());
+      expect(buttons[buttons.indexOf("保存歌词") - 1]).toBe("预览更改");
+      await wrapper
+        .findAll("button")
+        .find((button) => button.text() === "预览更改")!
+        .trigger("click");
+      await vi.waitFor(() =>
+        expect(wrapper.find("[data-testid='lyric-preview']").exists()).toBe(true),
+      );
+      const targets = wrapper.getComponent({ name: "LyricSavePreviewDialog" }).props("targets");
+      expect(targets).toHaveLength(1);
+      expect(targets[0].fields).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: "lyrics",
+            before: "旧歌词",
+            after: input.content,
+            afterFormat: input.format,
+          }),
+          expect.objectContaining({
+            key: "translation",
+            before: "旧翻译",
+            after: input.translation,
+          }),
+          expect.objectContaining({ key: "romaji", before: "旧音译", after: input.romaji }),
+        ]),
+      );
+      expect(mocks.previewFiles).not.toHaveBeenCalled();
+      expect(mocks.saveFiles).not.toHaveBeenCalled();
+      expect(mocks.saveTrackTags).not.toHaveBeenCalled();
+      expect(media.lyricContent).toEqual(input);
+      await wrapper.setProps({ open: false });
+      expect(wrapper.find("[data-testid='lyric-preview']").exists()).toBe(false);
+      wrapper.unmount();
+    },
+  );
+
+  it("文件预览与实际保存使用相同内容，包括外部 TTML 译文", async () => {
+    const input = LYRIC_SAVE_FIXTURES.find((item) => item.format === "ttml")!;
+    media.lyricFormat = "ttml";
+    media.lyricContent = input;
+    media.parsedLyric = parseLyric(input).lines;
+    settings.system.localLyric = { enableLocalTTMLOverride: true, repoDir: "C:/Lyrics" };
+    const wrapper = mountDialog();
+    await wrapper.setProps({ open: true });
+    await wrapper
+      .findAll("label")
+      .find((label) => label.text() === "音乐标签")!
+      .find("input")
+      .setValue(false);
+    await wrapper
+      .findAll("label")
+      .find((label) => label.text() === "LRC 文件")!
+      .find("input")
+      .setValue(true);
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "预览更改")!
+      .trigger("click");
+    await vi.waitFor(() =>
+      expect(wrapper.find("[data-testid='lyric-preview']").exists()).toBe(true),
+    );
+    const targets = wrapper.getComponent({ name: "LyricSavePreviewDialog" }).props("targets");
+    expect(targets.map((target: LyricSavePreviewTarget) => target.key)).toEqual(["lrc", "ttml"]);
+    expect(targets[0].fields[0].before).toBe("旧 LRC");
+    expect(targets[1].fields[0].before).toBe("旧 TTML");
+    expect(targets[1].fields[0].after).toContain("翻译原文");
+    const request = mocks.previewFiles.mock.calls[0][0];
+    wrapper.getComponent({ name: "LyricSavePreviewDialog" }).vm.$emit("update:open", false);
+    await flushPromises();
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "保存歌词")!
+      .trigger("click");
+    await vi.waitFor(() => expect(mocks.saveFiles).toHaveBeenCalledWith(request));
+    expect(mocks.readTags).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("切歌后丢弃晚到的预览结果，读取失败不显示为新增歌词", async () => {
+    let finish!: (value: unknown) => void;
+    mocks.readTags.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const wrapper = mountDialog();
+    await wrapper.setProps({ open: true });
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "预览更改")!
+      .trigger("click");
+    media.track = { ...media.track, id: "next", path: "C:/Music/next.flac" };
+    finish({ success: true, data: { lyrics: "上一首歌词" } });
+    await flushPromises();
+    expect(wrapper.find("[data-testid='lyric-preview']").exists()).toBe(false);
+    mocks.readTags.mockResolvedValueOnce({ success: false, error: "TAG_READ_FAILED" });
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "预览更改")!
+      .trigger("click");
+    await vi.waitFor(() =>
+      expect(wrapper.find("[data-testid='lyric-preview']").exists()).toBe(true),
+    );
+    const targets = wrapper.getComponent({ name: "LyricSavePreviewDialog" }).props("targets");
+    expect(targets[0].fields).toEqual([]);
+    expect(targets[0].error).toBeTruthy();
+    expect(mocks.saveTrackTags).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it.each(LYRIC_SAVE_FIXTURES)("$format 音乐标签保存原文，LRC 独立导出", async (input) => {
     media.lyricFormat = input.format;
     media.lyricContent = input;

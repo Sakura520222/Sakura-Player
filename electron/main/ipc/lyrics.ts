@@ -14,7 +14,7 @@ import * as qqmusic from "@main/apis/common/lyric/qqmusic";
 import * as kugou from "@main/apis/common/lyric/kugou";
 import { fetchTTML } from "@main/apis/common/lyric/ttml";
 import { matchLocalTTML } from "@main/services/localLyricRepo";
-import { saveLyricFiles } from "@main/services/lyricSave";
+import { previewLyricFiles, saveLyricFiles } from "@main/services/lyricSave";
 import { buildFingerprint, getMatchedId } from "@main/database/lyricMatchCache";
 import { coreLog } from "@main/utils/logger";
 import type {
@@ -117,6 +117,9 @@ const resolveTTMLOverlay = async (
 };
 
 export const registerLyricsIpc = (): void => {
+  ipcMain.handle("lyrics:previewFiles", (_evt, request: LyricSaveFilesRequest) =>
+    previewLyricFiles(request),
+  );
   ipcMain.handle("lyrics:saveFiles", (_evt, request: LyricSaveFilesRequest) =>
     saveLyricFiles(request),
   );

@@ -84,6 +84,16 @@ export interface LyricSaveFilesResult {
   ttml?: LyricFileSaveOutcome;
 }
 
+/** 文件预览只读取现有内容；另存为的目标在保存时选择 */
+export type LyricFilePreviewOutcome =
+  | { status: "ready"; content: string; exists: boolean; path?: string; needsDestination?: boolean }
+  | { status: "failed"; error: string };
+
+export interface LyricPreviewFilesResult {
+  lrc?: LyricFilePreviewOutcome;
+  ttml?: LyricFilePreviewOutcome;
+}
+
 /** 渲染端歌词匹配入口 */
 export interface LyricsApi {
   /** 按 id 直取某平台歌词 */
@@ -98,4 +108,6 @@ export interface LyricsApi {
   pickLyricRepoDir: () => Promise<string | null>;
   /** 保存同名 LRC 或另存为，并按配置保存 TTML 到本地库 */
   saveFiles: (request: LyricSaveFilesRequest) => Promise<LyricSaveFilesResult>;
+  /** 读取与实际保存相同目标的原有歌词，不选择路径或写入文件 */
+  previewFiles: (request: LyricSaveFilesRequest) => Promise<LyricPreviewFilesResult>;
 }
