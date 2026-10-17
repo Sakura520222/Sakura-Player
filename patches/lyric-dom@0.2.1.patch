@@ -1,0 +1,23 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index f5bf8dc5306a382564d87e43708b4f6aad6176b2..4943eba007b03df9917e8c40e9b9eb616f4352f1 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -315,7 +315,7 @@ const makeAtom = (word, romanWord, obscene, startTime, endTime, emptyBeat) => ({
+ 	...emptyBeat !== void 0 ? { emptyBeat } : {}
+ });
+ /**
+-* 将歌词单词重新分组：CJK 字符逐字拆分，并通过 Intl.Segmenter 按语言词边界合并
++* 将歌词单词重新分组，保留带注音或音译的原词边界
+ * @param words - 原始歌词单词数组
+ * @returns 分组后的单词或单词组数组
+ */
+@@ -326,7 +326,8 @@ const chunkAndSplitLyricWords = (words) => {
+ 		const romanWord = w.romanWord ?? "";
+ 		const obscene = w.obscene ?? false;
+ 		const emptyBeat = w.emptyBeat;
+-		if (content.length === 0 || (w.ruby?.length ?? 0) > 0) {
++		// 带音译的原词不能按空格复制，否则每个片段都会显示整段音译
++		if (content.length === 0 || (w.ruby?.length ?? 0) > 0 || (romanWord.trim().length > 0 && /\s/.test(content))) {
+ 			atoms.push({ ...w });
+ 			continue;
+ 		}
