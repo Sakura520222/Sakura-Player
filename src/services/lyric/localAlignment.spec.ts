@@ -72,6 +72,43 @@ describe("现有音译的读音动态规划", () => {
     ).toBeNull();
     expect(alignRomanization(tokens, "a".repeat(1025))).toBeNull();
   });
+  it("跨空白统一罗马字体系，原始单个长音字符不能拆给两个时间片段", () => {
+    const source = [
+      { text: "こ", reading: "ko", from: 0, to: 0 },
+      { text: "う", reading: "u", from: 1, to: 1 },
+      { text: "し", reading: "shi", from: 2, to: 2 },
+    ];
+    expect(alignRomanization(source, "kō s h i")?.parts).toEqual([
+      { text: "kō ", from: 0, to: 1 },
+      { text: "s h i", from: 2, to: 2 },
+    ]);
+    expect(
+      alignRomanization(
+        [
+          { text: "遠", reading: "too", from: 0, to: 0 },
+          { text: "く", reading: "ku", from: 1, to: 1 },
+        ],
+        "Tō ku",
+      )?.score,
+    ).toBe(1);
+  });
+  it("词典外读音只定位到两侧强锚点夹住的单个原词，缺少短音节仍拒绝", () => {
+    const source = [
+      { text: "大", reading: "tai", from: 0, to: 0 },
+      { text: "切", reading: "setsu", from: 1, to: 1 },
+      { text: "な", reading: "na", from: 2, to: 2 },
+      { text: "欠片", reading: "kakera", from: 3, to: 3 },
+      { text: "だ", reading: "da", from: 4, to: 4 },
+      { text: "と", reading: "to", from: 5, to: 5 },
+      { text: "わかった", reading: "wakatta", from: 6, to: 6 },
+    ];
+    expect(
+      alignRomanization(source, "ta i se tsu na ke ppe n da to wa ka 't ta")?.parts[3],
+    ).toEqual({ text: "ke ppe n ", from: 3, to: 3 });
+    expect(alignRomanization(source, "ta i se tsu na ke ppe n to wa ka 't ta")).toBeNull();
+    expect(alignRomanization(source.slice(2), "na ke ppe n da to wa ka 't ta")).toBeNull();
+    expect(alignRomanization(source, "ta i se tsu na hello world da to wa ka 't ta")).toBeNull();
+  });
 });
 
 describe("已有译文的语义范围映射", () => {

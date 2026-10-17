@@ -39,6 +39,9 @@ export const collectLocalAlignmentLines = (
     const source = {
       id,
       words: line.words.map((word) => word.word),
+      ...(line.words.some((word) => word.ruby?.length)
+        ? { readings: line.words.map((word) => word.ruby?.map((ruby) => ruby.word).join("") ?? "") }
+        : {}),
       translation: line.translatedLyric,
       romanization: getExistingRomanization(line),
     };
@@ -63,7 +66,10 @@ export const collectLocalAlignmentLines = (
     }
     if (!source.translation.trim() && !source.romanization.trim()) continue;
     characters +=
-      source.words.join("").length + source.translation.length + source.romanization.length;
+      source.words.join("").length +
+      (source.readings?.join("").length ?? 0) +
+      source.translation.length +
+      source.romanization.length;
     if (result.length >= 1000 || characters > 64_000) throw new Error("歌词过长，无法进行本地对齐");
     result.push(source);
   }

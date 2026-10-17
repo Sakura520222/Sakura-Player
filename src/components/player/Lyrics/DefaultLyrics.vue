@@ -148,6 +148,19 @@ let auxiliary: TimedAuxiliaryRenderer | null = null;
 let isFrozen = false;
 /** 冻结期间收到的待应用歌词（父容器 display:none 时无法测量，需延迟） */
 let pendingLyrics: LyricLine[] | null = null;
+const translationTimings = computed(() =>
+  props.lyricLines.map((line) =>
+    line.translationWords?.length
+      ? line.translationWords
+      : [
+          {
+            word: line.translatedLyric,
+            startTime: line.startTime,
+            endTime: line.endTime,
+          },
+        ],
+  ),
+);
 
 /**
  * 推送当前播放时间（毫秒）
@@ -162,17 +175,20 @@ const setCurrentTime = (time: number, _isSeeking = false) => {
   if (!isFrozen && !document.hidden) auxiliary?.setCurrentTime(time);
 };
 
+/** 暂停隐藏歌词的布局与动画 */
 const freeze = () => {
   isFrozen = true;
   renderer?.freeze();
 };
 
+/** 恢复可见歌词，并立即刷新冻结期间更新的辅助时间轴 */
 const resume = () => {
   isFrozen = false;
   // 应用冻结期间缓冲的歌词变更
   if (pendingLyrics) {
     renderer?.setLyrics(pendingLyrics);
     pendingLyrics = null;
+    auxiliary?.refresh();
   }
   renderer?.resume();
 };
@@ -215,12 +231,12 @@ onMounted(() => {
       let sub = 0;
       if (props.showTranslation && line.translatedLyric) {
         const node = subs[sub++];
-        if (
-          props.showWordTranslation &&
-          node instanceof HTMLElement &&
-          line.translationWords?.length
-        )
-          targets.push({ element: node, words: line.translationWords, kind: "translation" });
+        if (props.showWordTranslation && node instanceof HTMLElement)
+          targets.push({
+            element: node,
+            words: translationTimings.value[index],
+            kind: "translation",
+          });
       }
       if (
         props.showRomanization &&
@@ -244,12 +260,13 @@ onUnmounted(() => {
   renderer = null;
 });
 
-/** 更新歌词数据 */
+/** 更新歌词和辅助遮罩，暂停状态也立即反映当前时间 */
 const updateLyrics = (): void => {
   if (isFrozen) {
     pendingLyrics = props.lyricLines;
   } else {
     renderer?.setLyrics(props.lyricLines);
+    auxiliary?.refresh();
   }
 };
 

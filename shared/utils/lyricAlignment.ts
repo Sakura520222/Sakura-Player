@@ -3,6 +3,7 @@ import type { AlignmentPart, AlignmentTrackResult } from "../types/lyricAlignmen
 export interface ReadingToken {
   text: string;
   reading: string;
+  readings?: string[];
   from: number;
   to: number;
 }
@@ -17,7 +18,13 @@ const normalizeReading = (text: string): { text: string; offsets: number[] } => 
   const offsets: number[] = [];
   for (let offset = 0; offset < text.length;) {
     const character = String.fromCodePoint(text.codePointAt(offset)!);
-    const value = character
+    const value = (
+      /^[āīūēōâîûêô]$/i.test(character)
+        ? ({ a: "aa", i: "ii", u: "uu", e: "ee", o: "ou" } as Record<string, string>)[
+            character.normalize("NFKD")[0].toLowerCase()
+          ]
+        : character
+    )
       .normalize("NFKD")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
@@ -25,36 +32,32 @@ const normalizeReading = (text: string): { text: string; offsets: number[] } => 
     for (let index = 0; index < value.length; index++) offsets.push(offset);
     offset += character.length;
   }
-  const replacements = /shi|chi|tsu|ji|fu|ou|oo/gy;
+  const replacements = /shi|chi|tsu|ji|fu/gy;
   const rules: Record<string, string> = {
     shi: "si",
     chi: "ti",
     tsu: "tu",
     ji: "zi",
     fu: "hu",
-    ou: "o",
-    oo: "o",
   };
   let result = "";
   const positions: number[] = [];
   for (let index = 0; index < normalized.length;) {
     replacements.lastIndex = index;
-    const candidate = replacements.exec(normalized);
-    const match =
-      candidate &&
-      offsets[index + candidate[0].length - 1] - offsets[index] === candidate[0].length - 1
-        ? candidate
-        : null;
+    const match = replacements.exec(normalized);
     const value = match ? rules[match[0]] : normalized[index];
     result += value;
-    for (let part = 0; part < value.length; part++) positions.push(offsets[index + part]);
+    for (let part = 0; part < value.length; part++)
+      positions.push(
+        offsets[index + (match && part === value.length - 1 ? match[0].length - 1 : part)],
+      );
     index += match?.[0].length ?? 1;
   }
   return { text: result, offsets: positions };
 };
 
 /**
- * 全局编辑距离对齐读音；词内拆分与跨原词合并均沿用原文字词范围
+ * 在候选读音图上求全局编辑距离，保留主歌词字词边界及已有音译的原始切片
  * @param tokens - 按原文顺序排列、带候选读音的语言学词元
  * @param existing - 必须原样保留的现成音译
  * @returns 可靠时的完整切片；缺词、错读或超长输入返回 null
@@ -69,74 +72,161 @@ export const alignRomanization = (
     )
   )
     return null;
-  const groups: { reading: string; from: number; to: number }[] = [];
+  const groups: { text: string; readings: string[]; from: number; to: number }[] = [];
   for (const token of tokens) {
     if (
       /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(token.reading)
     )
       return null;
-    const reading = normalizeReading(token.reading).text;
-    if (!reading) {
+    const readings = [
+      ...new Set(
+        (token.readings ?? [token.reading])
+          .flatMap((reading) => {
+            const normalized = normalizeReading(reading).text;
+            return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(token.text)
+              ? [
+                  normalized,
+                  normalized.replace(/oo/g, "ou"),
+                  normalized.replace(/ou/g, "oo"),
+                  normalized.replace(/oo|ou/g, "o"),
+                ]
+              : [normalized];
+          })
+          .filter(Boolean),
+      ),
+    ];
+    if (!readings.length) {
       if (/[\p{L}\p{N}]/u.test(token.text)) return null;
       continue;
     }
-    const previous = groups.at(-1);
-    if (previous && token.from <= previous.to) {
-      previous.to = Math.max(previous.to, token.to);
-      previous.reading += reading;
-    } else groups.push({ reading, from: token.from, to: token.to });
+    groups.push({ text: token.text, readings, from: token.from, to: token.to });
   }
-  const source = groups.map((group) => group.reading).join("");
   const target = normalizeReading(existing);
-  if (!source || !target.text || source.length > 1024 || target.text.length > 1024) return null;
+  if (
+    !groups.length ||
+    !target.text ||
+    target.text.length > 1024 ||
+    groups.some((group) => group.readings.length > 32) ||
+    groups.reduce(
+      (size, group) => size + group.readings.reduce((n, reading) => n + reading.length, 0),
+      0,
+    ) > 4096
+  )
+    return null;
   const width = target.text.length + 1;
-  const steps = new Uint8Array((source.length + 1) * width);
-  let previous = Float32Array.from({ length: width }, (_, index) => index);
-  for (let row = 1; row <= source.length; row++) {
-    const current = new Float32Array(width);
-    current[0] = row;
-    for (let column = 1; column < width; column++) {
-      const match = previous[column - 1] + (source[row - 1] === target.text[column - 1] ? 0 : 1);
-      const deletion = previous[column] + 1;
-      const insertion = current[column - 1] + 1;
-      current[column] = Math.min(match, deletion, insertion);
-      steps[row * width + column] =
-        current[column] === match ? 0 : current[column] === deletion ? 1 : 2;
-    }
-    previous = current;
-  }
-  const score = 1 - previous[width - 1] / Math.max(source.length, target.text.length);
-  if (score < 0.8) return null;
-  const mapping = new Int32Array(source.length).fill(-1);
-  let row = source.length,
-    column = target.text.length;
-  while (row > 0 && column > 0) {
-    const step = steps[row * width + column];
-    if (step === 0) mapping[--row] = --column;
-    else if (step === 1) row--;
-    else column--;
-  }
-  const boundaries = [0];
-  let offset = 0;
+  const boundaryCosts = Float64Array.from({ length: width }, (_, column) =>
+    column > 0 &&
+    column < target.text.length &&
+    /\s/.test(existing) &&
+    !/\s/.test(existing.slice(target.offsets[column - 1] + 1, target.offsets[column]))
+      ? 1 / 4096
+      : 0,
+  );
+  const traces: { choices: Uint8Array; variants: Uint8Array[] }[] = [];
+  let costs = Float64Array.from({ length: width }, (_, index) => index);
   for (const [index, group] of groups.entries()) {
-    const matches = Array.from(mapping.slice(offset, offset + group.reading.length));
-    const exact = matches.filter(
-      (position, part) => position >= 0 && source[offset + part] === target.text[position],
-    ).length;
-    if (exact / group.reading.length < 0.7) return null;
-    if (index > 0) {
-      const start = matches.find((position) => position >= 0);
-      if (start === undefined) return null;
-      boundaries.push(target.offsets[start]);
+    const best = new Float64Array(width).fill(Infinity);
+    const choices = new Uint8Array(width);
+    const variants: Uint8Array[] = [];
+    for (const [variant, reading] of group.readings.entries()) {
+      const steps = new Uint8Array((reading.length + 1) * width);
+      // 同分时优先保留音节边界和主歌词注音，避免另一读音路径挤掉可靠锚点
+      let previous = costs.map(
+        (cost, column) => cost + (index > 0 ? boundaryCosts[column] : 0) + variant / 1048576,
+      );
+      for (let row = 1; row <= reading.length; row++) {
+        const current = new Float64Array(width);
+        current[0] = previous[0] + 1;
+        for (let column = 1; column < width; column++) {
+          const match =
+            previous[column - 1] + (reading[row - 1] === target.text[column - 1] ? 0 : 1);
+          const deletion = previous[column] + 1;
+          const insertion = current[column - 1] + 1;
+          current[column] = Math.min(match, deletion, insertion);
+          steps[row * width + column] =
+            current[column] === match ? 0 : current[column] === deletion ? 1 : 2;
+        }
+        previous = current;
+      }
+      for (let column = 0; column < width; column++) {
+        if (previous[column] < best[column]) {
+          best[column] = previous[column];
+          choices[column] = variant;
+        }
+      }
+      variants.push(steps);
     }
-    offset += group.reading.length;
+    costs = best;
+    traces.push({ choices, variants });
   }
-  boundaries.push(existing.length);
-  const parts = groups.map((group, index) => ({
-    text: existing.slice(boundaries[index], boundaries[index + 1]),
-    from: group.from,
-    to: group.to,
-  }));
+  const starts = new Int32Array(groups.length);
+  const coverage: number[] = [];
+  let column = target.text.length;
+  let edits = 0;
+  let length = 0;
+  for (let index = groups.length - 1; index >= 0; index--) {
+    const trace = traces[index];
+    const variant = trace.choices[column];
+    const reading = groups[index].readings[variant];
+    const steps = trace.variants[variant];
+    let row = reading.length;
+    let first = -1;
+    let exact = 0;
+    length += row;
+    while (row > 0) {
+      const step = column > 0 ? steps[row * width + column] : 1;
+      if (step === 0) {
+        first = --column;
+        if (reading[--row] === target.text[column]) exact++;
+        else edits++;
+      } else if (step === 1) {
+        row--;
+        edits++;
+      } else {
+        column--;
+        edits++;
+      }
+    }
+    if (first < 0) return null;
+    coverage[index] = exact / reading.length;
+    starts[index] = first;
+  }
+  const score = 1 - (edits + column) / Math.max(length, target.text.length);
+  if (score < 0.8) return null;
+  const uncertain = coverage.flatMap((ratio, index) => (ratio < 0.7 ? [index] : []));
+  for (const index of uncertain) {
+    // 现成音译可能采用词典没有的汉字读音，只允许强读音锚点夹住的单个原词沿用其时间
+    if (
+      uncertain.length > 1 ||
+      groups[index].from !== groups[index].to ||
+      !/\p{Script=Han}/u.test(groups[index].text) ||
+      index < 2 ||
+      index + 2 >= groups.length ||
+      coverage.slice(index - 2, index).some((ratio) => ratio !== 1) ||
+      coverage.slice(index + 1, index + 3).some((ratio) => ratio !== 1)
+    )
+      return null;
+  }
+  const boundaries = Array.from(starts, (position, index) => {
+    if (index === 0) return 0;
+    const offset = target.offsets[position];
+    return /['’]/.test(existing[offset - 1] ?? "") ? offset - 1 : offset;
+  });
+  const parts: AlignmentPart[] = [];
+  for (const [index, group] of groups.entries()) {
+    const start = boundaries[index];
+    const end = index + 1 === groups.length ? existing.length : boundaries[index + 1];
+    const previous = parts.at(-1);
+    if (
+      previous &&
+      (group.from <= previous.to ||
+        start === end ||
+        (starts[index] > 0 && target.offsets[starts[index]] === target.offsets[starts[index] - 1]))
+    ) {
+      previous.text += existing.slice(start, end);
+      previous.to = Math.max(previous.to, group.to);
+    } else parts.push({ text: existing.slice(start, end), from: group.from, to: group.to });
+  }
   return parts.every((part) => part.text.trim()) ? { parts, score } : null;
 };
 

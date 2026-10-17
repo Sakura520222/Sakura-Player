@@ -49,6 +49,77 @@ describe("默认歌词引擎显示与配置", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  it("仅应用部分语义候选后，所有译文立即沿用逐字开关且保存重读显示一致", async () => {
+    const lines = [0, 1, 2].map((index): LyricLine => ({
+      ...makeLine(""),
+      startTime: 1000 + index * 2000,
+      endTime: 2000 + index * 2000,
+      words: [
+        { word: "君", startTime: 1000 + index * 2000, endTime: 1400 + index * 2000 },
+        { word: "と", startTime: 1400 + index * 2000, endTime: 1600 + index * 2000 },
+        { word: "夢", startTime: 1600 + index * 2000, endTime: 2000 + index * 2000 },
+      ],
+      translatedLyric: "与你梦想",
+    }));
+    const wrapper = mount(DefaultLyrics, {
+      props: { lyricLines: lines, playing: false, showWordTranslation: false },
+    });
+    try {
+      wrapper.vm.setCurrentTime(1500);
+      expect(wrapper.find("[data-aux-word]").exists()).toBe(false);
+      const updated = applyLocalAlignment(lines, [
+        {
+          id: 1,
+          translation: {
+            score: 1,
+            parts: [
+              { text: "与你", from: 0, to: 1 },
+              { text: "梦想", from: 2, to: 2 },
+            ],
+          },
+        },
+      ])!;
+      await wrapper.setProps({ lyricLines: updated, showWordTranslation: true });
+      expect(wrapper.findAll(".timed-auxiliary")).toHaveLength(3);
+      expect(
+        wrapper.findAll("[data-aux-word]").map((word) => word.attributes("data-aux-state")),
+      ).toEqual(["active", "unplayed", "unplayed", "unplayed"]);
+      expect(updated[0].translationWords).toBeUndefined();
+      const before = wrapper.findAll(".timed-auxiliary").map((row) => row.element.innerHTML);
+      const content = lines
+        .map(
+          (line) =>
+            `[00:${(line.startTime / 1000).toFixed(3)}]` +
+            line.words
+              .map((word) => `<00:${(word.startTime / 1000).toFixed(3)}>${word.word}`)
+              .join("") +
+            `<00:${(line.endTime / 1000).toFixed(3)}>`,
+        )
+        .join("\n");
+      const input = {
+        content,
+        format: "lrc" as const,
+        translation: createTranslationTrack(
+          updated,
+          new Map(
+            updated.map((line, index) => [index, line.translationWords ?? line.translatedLyric]),
+          ),
+          "zh-CN",
+          "normalized",
+        ),
+        translationFormat: "ttml" as const,
+      };
+      const reloaded: LyricLine[] = parseLyric(input).lines;
+      applyTimedAuxiliary(reloaded, input);
+      await wrapper.setProps({ lyricLines: reloaded });
+      expect(wrapper.findAll(".timed-auxiliary").map((row) => row.element.innerHTML)).toEqual(
+        before,
+      );
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it("暂停时应用和重做对齐立即刷新副行及当前进度，无需保存或推进播放", async () => {
     const line: LyricLine = {
       ...makeLine(""),
@@ -60,7 +131,12 @@ describe("默认歌词引擎显示与配置", () => {
       romanLyric: "kimi to yume",
     };
     const wrapper = mount(DefaultLyrics, {
-      props: { lyricLines: [line], playing: false, showWordRomanization: false },
+      props: {
+        lyricLines: [line],
+        playing: false,
+        showWordRomanization: false,
+        showWordTranslation: false,
+      },
     });
     try {
       wrapper.vm.setCurrentTime(1500);

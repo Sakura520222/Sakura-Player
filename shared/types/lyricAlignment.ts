@@ -8,6 +8,8 @@ export interface AlignmentPart {
 export interface AlignmentSourceLine {
   id: number;
   words: string[];
+  /** 主歌词自带的逐词假名，空项交给词典补充 */
+  readings?: string[];
   translation: string;
   romanization: string;
 }

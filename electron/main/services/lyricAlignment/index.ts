@@ -15,12 +15,15 @@ export const alignmentRequestSchema = z
       .regex(/^[\w-]+$/),
     lines: z
       .array(
-        z.object({
-          id: z.number().int().nonnegative(),
-          words: z.array(z.string().max(1024)).min(1).max(256),
-          translation: z.string().max(2048),
-          romanization: z.string().max(2048),
-        }),
+        z
+          .object({
+            id: z.number().int().nonnegative(),
+            words: z.array(z.string().max(1024)).min(1).max(256),
+            readings: z.array(z.string().max(1024)).max(256).optional(),
+            translation: z.string().max(2048),
+            romanization: z.string().max(2048),
+          })
+          .refine((line) => !line.readings || line.readings.length === line.words.length),
       )
       .min(1)
       .max(1000),
@@ -33,7 +36,11 @@ export const alignmentRequestSchema = z
       new Set(request.lines.map((line) => line.id)).size === request.lines.length &&
       request.lines.reduce(
         (size, line) =>
-          size + line.words.join("").length + line.translation.length + line.romanization.length,
+          size +
+          line.words.join("").length +
+          (line.readings?.join("").length ?? 0) +
+          line.translation.length +
+          line.romanization.length,
         0,
       ) <= 64_000,
   );

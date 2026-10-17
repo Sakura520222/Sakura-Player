@@ -99,6 +99,15 @@ const processedLyrics = computed(() => {
     const newLine = {
       ...line,
       translatedLyric: props.showTranslation ? line.translatedLyric : "",
+      translationWords: line.translationWords?.length
+        ? line.translationWords
+        : [
+            {
+              word: line.translatedLyric,
+              startTime: line.startTime,
+              endTime: line.endTime,
+            },
+          ],
       romanLyric: showLineRomanForLine ? line.romanLyric : "",
     };
     if (line.words) {
@@ -345,6 +354,8 @@ watch(processedLyrics, (newLyrics) => {
     const currentTime = getCurrentTime() + status.lyricOffsetMs;
     playerRef.value.setLyricLines(newLyrics, currentTime);
     processLyricLanguage();
+    auxiliary?.refresh();
+    auxiliary?.setCurrentTime(currentTime);
   }
 });
 watch(
@@ -382,7 +393,7 @@ const freeze = () => {
   isFrozen.value = true;
 };
 
-// 恢复播放和滚动测量
+/** 恢复播放和滚动测量，并同步冻结期间更新的辅助歌词 */
 const resume = () => {
   if (!initialized.value) {
     isFrozen.value = false;
@@ -392,6 +403,8 @@ const resume = () => {
     const currentTime = getCurrentTime() + status.lyricOffsetMs;
     playerRef.value?.setLyricLines(pendingLyrics, currentTime);
     processLyricLanguage();
+    auxiliary?.refresh();
+    auxiliary?.setCurrentTime(currentTime);
     pendingLyrics = null;
   }
   isFrozen.value = false;
