@@ -178,7 +178,8 @@ export const useSettingsStore = defineStore(
       cjkTransform: "none",
       adaptiveFontSize: true,
       fontSize: 48,
-      translationFontSize: 22,
+      translationFontSizeFollowMain: true,
+      translationFontSize: 24,
       fontWeight: 700,
       lyricBlendMode: "normal",
       fontFamily: "",
@@ -367,6 +368,24 @@ export const useSettingsStore = defineStore(
     persist: {
       storage: localStorage,
       omit: ["system"],
+      serializer: {
+        serialize: JSON.stringify,
+        /**
+         * 迁移旧版独立副行字号，保留已有的显示效果
+         * @param value - 已保存的设置 JSON
+         * @returns 补齐字号跟随偏好的设置
+         */
+        deserialize: (value) => {
+          const saved = JSON.parse(value);
+          if (
+            typeof saved.lyric?.translationFontSize === "number" &&
+            saved.lyric.translationFontSizeFollowMain === undefined
+          ) {
+            saved.lyric.translationFontSizeFollowMain = false;
+          }
+          return saved;
+        },
+      },
       afterHydrate: ({ store }) => {
         const { lyric, appearance, preset, player } = store as unknown as {
           lyric: LyricSettings;

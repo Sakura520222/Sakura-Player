@@ -393,6 +393,8 @@
   },
   "search": {
     "title": "Search",
+    "plugins": "Plugins",
+    "pluginSource": "Select source",
     "titleSuffix": "search results",
     "emptyKeyword": "Type a keyword to start searching",
     "noResults": "No matching results",
@@ -1291,15 +1293,19 @@
     },
     "adaptiveFontSize": {
       "label": "Adaptive Font Size",
-      "description": "Auto-adjust lyric font size based on window size"
+      "description": "Adjust lyric size with window height"
     },
     "fontSize": {
       "label": "Font Size",
-      "description": "Effective when adaptive is off"
+      "description": "Main lyric text size"
+    },
+    "translationFontSizeFollowMain": {
+      "label": "Follow Main Lyric Font Size",
+      "description": "Use half the main lyric font size"
     },
     "translationFontSize": {
       "label": "Translation Font Size",
-      "description": "Font size of translated/romanized sub-lines; used as the base size (1080p) when adaptive is on"
+      "description": "Used when following main size is off"
     },
     "fontWeight": {
       "label": "Font Weight",
@@ -1827,6 +1833,9 @@
       "label": "Sync Loves",
       "description": "Mirror your likes as Last.fm Love / Unlove"
     },
+    "lastfmAccount": {
+      "label": "Last.fm Account"
+    },
     "lastfm": {
       "connect": "Connect account",
       "connecting": "Finish authorization in your browser…",
@@ -1842,6 +1851,12 @@
         "failed": "Connection failed, please retry",
         "disconnected": "Disconnected from Last.fm"
       }
+    },
+    "qmAccount": {
+      "label": "QQ Music Account"
+    },
+    "kgAccount": {
+      "label": "Kugou Music Account"
     },
     "platformLogin": {
       "title": "Log in to {name} Account",
@@ -1943,6 +1958,9 @@
     "orpheusProtocol": {
       "label": "Wake this app via the Orpheus protocol",
       "description": "Enabling redirects the shared orpheus protocol to this app and may replace upstream or NetEase; disabling does not guarantee restoring the previous default"
+    },
+    "streamingServerList": {
+      "label": "Media Source Management"
     },
     "streamingEnabled": {
       "label": "Enable streaming",
@@ -2097,6 +2115,12 @@
       "confirmDesc": "All playlists, sign-in state and caches will be wiped and settings reset. This cannot be undone.",
       "done": "All data has been cleared"
     },
+    "pluginImport": {
+      "label": "Import Plugins"
+    },
+    "pluginList": {
+      "label": "Installed Plugins"
+    },
     "plugins": {
       "securityWarningTitle": "Mind the security risks before installing",
       "securityWarning": "Plugins are third-party code. The app sandboxes them as much as possible, but the risk cannot be fully eliminated — a malicious plugin may access your data or perform dangerous actions. Only install plugins from sources you trust.",
@@ -2145,8 +2169,6 @@
         "disabled": "Disabled",
         "unloaded": "Unloaded"
       },
-      "sectionSource": "Source Plugins",
-      "sectionControl": "Control Plugins",
       "detail": {
         "title": "Plugin Details",
         "intro": "About",
@@ -2155,7 +2177,6 @@
         "info": "Info",
         "noDescription": "No description",
         "grantNone": "This plugin declares no permissions",
-        "autoGranted": "Auto-granted",
         "sources": "Sources",
         "events": "Events",
         "controls": "Playback control",
@@ -2170,9 +2191,26 @@
         "homepage": "Homepage"
       },
       "grant": {
-        "network": { "label": "Network", "desc": "Can make network requests" },
-        "control": { "label": "Control", "desc": "Can control the player" },
-        "ui": { "label": "Interface", "desc": "Can extend or modify the app interface" }
+        "network": {
+          "label": "Network",
+          "desc": "Can make network requests"
+        },
+        "control": {
+          "label": "Control",
+          "desc": "Can control the player"
+        },
+        "ui": {
+          "label": "Interface",
+          "desc": "Can add song menus and send system notifications"
+        },
+        "library": {
+          "label": "Library",
+          "desc": "Can search the local library and read track metadata"
+        },
+        "api": {
+          "label": "Platform APIs",
+          "desc": "Call music platform APIs using the current session"
+        }
       }
     },
     "pluginManager": {
@@ -2432,7 +2470,7 @@
     "NETWORK_ERROR": "Failed to reach audio source, check network or try another",
     "NETWORK_TIMEOUT": "Audio source timed out, check network or try another",
     "URL_RESOLVE_FAILED": "Failed to get playback URL",
-    "NO_PLUGIN_AVAILABLE": "No plugin available for this platform",
+    "NO_PLUGIN_AVAILABLE": "No music source plugin available",
     "NETEASE_LOGIN_EXPIRED": "Login expired; switched to guest mode",
     "NETEASE_VIP_REQUIRED": "This track requires a membership or separate purchase",
     "NETEASE_TRIAL_DISABLED": "Only a trial is available; enable trial playback in settings",

@@ -14,10 +14,6 @@ import { useProgressLyric } from "@/composables/useProgressLyric";
 import Lyrics from "@/components/player/Lyrics/index.vue";
 import { useWindowControls } from "@/composables/useWindowControls";
 import * as player from "@/core/player";
-import IconFavorite from "~icons/material-symbols/favorite-rounded";
-import IconFavoriteOutline from "~icons/material-symbols/favorite-outline-rounded";
-import IconLucideListPlus from "~icons/lucide/list-plus";
-import IconLucideDownload from "~icons/lucide/download";
 
 const status = useStatusStore();
 const media = useMediaStore();
@@ -140,11 +136,12 @@ const lyricFontSize = computed(() =>
     : `${settings.lyric.fontSize}px`,
 );
 
-const lyricSubFontSize = computed(() =>
-  settings.lyric.adaptiveFontSize
-    ? `calc(${settings.lyric.translationFontSize} / 1080 * 100vh)`
-    : `${settings.lyric.translationFontSize}px`,
-);
+const lyricSubFontSize = computed(() => {
+  if (settings.lyric.translationFontSizeFollowMain) return "max(0.5em, 12px)";
+  return settings.lyric.adaptiveFontSize
+    ? `max(12px, calc(${settings.lyric.translationFontSize} / 1080 * 100vh))`
+    : `${settings.lyric.translationFontSize}px`;
+});
 
 const { immersive, onPlayerMouseEnter, onPlayerMouseLeave, onMainMove, onBarEnter, onBarLeave } =
   useImmersiveMode(isPlayerExpanded);
@@ -155,6 +152,7 @@ const canDownload = computed(
   () =>
     !!displayTrack.value &&
     displayTrack.value.source !== "local" &&
+    displayTrack.value.source !== "plugin" &&
     settings.system.download.enabled,
 );
 
@@ -321,9 +319,6 @@ const showComments = (): void => {
                 '--lp-credit-opacity': '1',
                 fontSize: lyricFontSize,
                 '--lp-sub-font-size': lyricSubFontSize,
-                // 副行透明度恒定，激活/非激活的明暗由行级透明度负责（与旧版 SPlayer 一致）
-                '--lp-sub-active-opacity': '0.6',
-                '--lp-sub-inactive-opacity': '0.6',
                 fontWeight: String(settings.lyric.fontWeight),
                 fontFamily: settings.lyric.fontFamily || undefined,
                 '--lyric-font-zh': settings.lyric.fontFamilyChinese || undefined,
@@ -381,6 +376,7 @@ const showComments = (): void => {
               <template #icon><IconLucideChevronDown /></template>
             </SButton>
             <SButton
+              v-if="displayTrack?.source !== 'plugin'"
               type="cover"
               variant="ghost"
               size="large"
@@ -390,8 +386,8 @@ const showComments = (): void => {
             >
               <template #icon>
                 <SIconSwap :active="fav.isLiked(displayTrack)">
-                  <template #on><IconFavorite /></template>
-                  <template #off><IconFavoriteOutline /></template>
+                  <template #on><IconMaterialSymbolsFavoriteRounded /></template>
+                  <template #off><IconMaterialSymbolsFavoriteOutlineRounded /></template>
                 </SIconSwap>
               </template>
             </SButton>

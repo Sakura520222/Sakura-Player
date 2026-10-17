@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => ({
   trackCount: vi.fn(),
   albums: vi.fn(),
   artists: vi.fn(),
+  getQueue: vi.fn(),
 }));
 
 vi.mock("@main/utils/config", () => ({ appVersion: "1.2.0-beta.1" }));
-vi.mock("@main/services/engine", () => ({ getPlayer: vi.fn() }));
-vi.mock("@main/services/playerControl", () => ({ playerControl: {} }));
+vi.mock("@main/services/playerControl", () => ({
+  playerControl: { getQueue: mocks.getQueue },
+}));
 vi.mock("@main/services/nowPlaying", () => ({ lightSnapshot: mocks.lightSnapshot }));
 vi.mock("@main/database", () => ({
   getAlbumList: mocks.albums,
@@ -22,16 +24,10 @@ vi.mock("@main/database", () => ({
   getRandomTracks: vi.fn(),
   searchTracks: vi.fn(),
 }));
-vi.mock("@main/services/tray", () => ({ getTrayPlayMode: vi.fn() }));
 vi.mock("./endpoint", () => ({ createMcpEndpoint: mocks.createEndpoint }));
-vi.mock("./onlineSearch", () => ({ searchOnlineTracks: vi.fn() }));
-vi.mock("./cache", () => ({
-  cacheTracks: vi.fn(),
-  getTrackById: vi.fn(),
-  getTracksByIds: vi.fn(),
-}));
+vi.mock("@main/services/music/onlineSearch", () => ({ searchOnlineTracks: vi.fn() }));
 
-describe("MCP 资源 URI 兼容", () => {
+describe("MCP 资源与播放队列", () => {
   let client: Client;
   let server: McpServer;
 
@@ -89,5 +85,29 @@ describe("MCP 资源 URI 兼容", () => {
         text: JSON.stringify({ tracks: 12, albums: 1, artists: 2 }),
       },
     ]);
+  });
+
+  it("通过真实 MCP 会话读取指定队列分页与全局播放索引", async () => {
+    const snapshot = {
+      tracks: [{ id: "queue-track", source: "local", path: "C:/music/track.wav" }],
+      total: 120,
+      currentIndex: 80,
+      offset: 10,
+    };
+    mocks.getQueue.mockResolvedValue(snapshot);
+    const result = await client.callTool({
+      name: "get_queue",
+      arguments: { offset: 10, limit: 2 },
+    });
+    expect(mocks.getQueue).toHaveBeenCalledWith({ offset: 10, limit: 2 });
+    expect(result.content).toEqual([{ type: "text", text: JSON.stringify(snapshot) }]);
+  });
+
+  it("队列查询使用有界的默认分页并保留空队列索引", async () => {
+    const snapshot = { tracks: [], total: 0, currentIndex: -1, offset: 0 };
+    mocks.getQueue.mockResolvedValue(snapshot);
+    const result = await client.callTool({ name: "get_queue", arguments: {} });
+    expect(mocks.getQueue).toHaveBeenCalledWith({ offset: 0, limit: 50 });
+    expect(result.content).toEqual([{ type: "text", text: JSON.stringify(snapshot) }]);
   });
 });

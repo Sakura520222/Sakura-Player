@@ -130,11 +130,13 @@ export interface LyricSettings {
   detectBackgroundLyrics: boolean;
   /** 中文繁简转换模式（基于 OpenCC） */
   cjkTransform: CjkTransformMode;
-  /** 字号自适应窗口大小 */
+  /** 字号随窗口高度调整 */
   adaptiveFontSize: boolean;
-  /** 歌词字号（px，自适应关闭时生效） */
+  /** 歌词主行字号（px） */
   fontSize: number;
-  /** 歌词翻译/音译副行字号（px，自适应关闭时生效） */
+  /** 副行字号跟随主行 */
+  translationFontSizeFollowMain: boolean;
+  /** 翻译/音译独立字号（px） */
   translationFontSize: number;
   /** 歌词字重（100~900） */
   fontWeight: number;
