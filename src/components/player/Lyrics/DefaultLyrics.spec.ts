@@ -7,6 +7,13 @@ import { useSettingsStore } from "@/stores/settings";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyLocalAlignment } from "@/services/lyric/localAlignment";
+import { applyGeneratedLyrics } from "@/utils/lyric/alignment";
+import { createLyricSaveContent } from "@/utils/lyric/save";
+import {
+  ROMANIZATION_RANGE_LINE,
+  ROMANIZATION_RANGE_OPTIONS,
+  ROMANIZATION_RANGE_RESULT,
+} from "@shared/testFixtures/lyricRomanization";
 import DefaultLyrics from "./DefaultLyrics.vue";
 import Lyrics from "./index.vue";
 
@@ -48,6 +55,71 @@ describe("默认歌词引擎显示与配置", () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each([false, true])(
+    "范围音译跨对应主词显示，强调开关 %s 及保存重读保留独立高亮",
+    async (emphasize) => {
+      const lines = applyGeneratedLyrics(
+        [structuredClone(ROMANIZATION_RANGE_LINE)],
+        new Map([[0, ROMANIZATION_RANGE_RESULT]]),
+        ROMANIZATION_RANGE_OPTIONS,
+      )!;
+      const before = structuredClone(lines);
+      const wrapper = mount(DefaultLyrics, {
+        props: { lyricLines: lines, playing: false, enableEmphasizeEffect: emphasize },
+      });
+      try {
+        const groups = wrapper.findAll(".lp-roman-range");
+        expect(groups.map((group) => group.get(".lp-roman-range-main").text())).toEqual([
+          "愛し",
+          "感謝",
+          "持ち",
+        ]);
+        expect(groups.map((group) => group.get(".lp-roman-word").text())).toEqual([
+          "i to shi",
+          "ka n sha",
+          "mo chi",
+        ]);
+        expect(wrapper.findAll(".lp-roman-word").map((word) => word.text())).toEqual([
+          "i to shi",
+          "sa",
+          "to",
+          "ka n sha",
+          "no",
+          "ki",
+          "mo chi",
+          "wo",
+        ]);
+        const chars = groups[0].get(".lp-roman-range-main").findAll(":scope > span");
+        expect(chars.map((word) => word.text())).toEqual(["愛", "し"]);
+        wrapper.vm.setCurrentTime(1300);
+        const frames = vi.mocked(requestAnimationFrame).mock.calls.map(([callback]) => callback);
+        for (const frame of frames) frame(performance.now());
+        expect(chars[0].attributes("style")).toContain("940");
+        expect(chars[1].attributes("style")).toContain("1140");
+        const html = groups.map((group) => group.html());
+        const saved = createLyricSaveContent(
+          { id: "range", source: "local", title: "范围音译", artists: [], duration: 3200 },
+          lines,
+        );
+        const input = { content: saved.lrc, format: "lrc" as const };
+        const reloaded: LyricLine[] = parseLyric(input).lines;
+        applyTimedAuxiliary(reloaded, input);
+        await wrapper.setProps({ lyricLines: reloaded });
+        for (const [frame] of vi.mocked(requestAnimationFrame).mock.calls.slice(frames.length))
+          frame(performance.now());
+        expect(wrapper.findAll(".lp-roman-range").map((group) => group.html())).toEqual(html);
+        await wrapper.setProps({ showWordRomanization: false });
+        expect(wrapper.findAll(".lp-roman-range")).toHaveLength(0);
+        expect(wrapper.findAll(".lp-sub").at(-1)?.text()).toBe(lines[0].romanLyric);
+        await wrapper.setProps({ showWordRomanization: true });
+        expect(wrapper.findAll(".lp-roman-range")).toHaveLength(3);
+        expect(lines).toEqual(before);
+      } finally {
+        wrapper.unmount();
+      }
+    },
+  );
 
   it("仅应用部分语义候选后，所有译文立即沿用逐字开关且保存重读显示一致", async () => {
     const lines = [0, 1, 2].map((index): LyricLine => ({

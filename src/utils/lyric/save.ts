@@ -2,6 +2,8 @@ import { formatTtmlTime, parseLyric, toEnhancedLRC, toLRC } from "lyric-kit";
 import { applyTimedAuxiliary, getTtmlLyricOwners, getTtmlRole } from "./auxiliary";
 import type { LyricInput, LyricLine } from "@shared/types/lyrics";
 import type { Track } from "@shared/types/player";
+import { ROMANIZATION_LRC_KEY, writeRomanizationRange } from "./romanization";
+import { createTranslationTrack } from "./translation";
 
 /**
  * 导出当前完整歌词，给 TTML 补充本地库匹配所需的歌曲元信息
@@ -9,7 +11,7 @@ import type { Track } from "@shared/types/player";
  * @param lines - 当前显示的完整歌词，包含翻译、音译和背景人声
  * @param ttml - 当前 TTML 原文，其他格式不传
  * @param auxiliary - 当前外部翻译轨道，导出时合入 TTML 原文
- * @returns 保留逐字时间的 LRC 及可选的 TTML
+ * @returns 保留逐字时间和跨词音译范围的 LRC 及可选 TTML
  */
 export const createLyricSaveContent = (
   track: Track,
@@ -26,7 +28,7 @@ export const createLyricSaveContent = (
   // 普通 LRC 只保留行起点，逐字片段必须通过增强 LRC 保存起止时间。
   const serialize = exportLines.some((line) => line.words.length > 1) ? toEnhancedLRC : toLRC;
   // 增强 LRC 按首词时间归并副行，行边界与首词不同时也必须让译文、音译跟随正文。
-  const lrc = serialize(
+  let lrc = serialize(
     serialize === toEnhancedLRC
       ? exportLines.map((line) => ({
           ...line,
@@ -35,6 +37,16 @@ export const createLyricSaveContent = (
       : exportLines,
     { roundTrip: true },
   );
+  if (exportLines.some((line) => line.romanizationWords?.some((word) => word.from !== undefined))) {
+    const romaji = createTranslationTrack(
+      exportLines,
+      new Map(exportLines.map((line, index) => [index, line.romanizationWords ?? line.romanLyric])),
+      "und-Latn",
+      "normalized",
+    );
+    // 普通副行仍供其他播放器显示，扩展标签保留本播放器重载所需的完整范围
+    lrc = `[${ROMANIZATION_LRC_KEY}:${encodeURIComponent(romaji)}]\n${lrc}`;
+  }
   if (!ttml) return { lrc };
 
   const doc = new DOMParser().parseFromString(ttml, "application/xml");
@@ -90,6 +102,7 @@ export const createLyricSaveContent = (
             part.setAttribute("begin", formatTtmlTime(word.startTime));
             part.setAttribute("end", formatTtmlTime(word.endTime));
             part.textContent = word.word;
+            if (role === "x-roman") writeRomanizationRange(part, word);
             span.appendChild(part);
           }
         } else span.textContent = text;

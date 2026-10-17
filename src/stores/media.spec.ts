@@ -32,6 +32,11 @@ vi.mock("@/utils/lyric/lyricStripper", () => ({
 vi.mock("@/utils/lyric/cjkTransform", () => ({ applyLyricCjkTransform: mocks.transform }));
 import { useMediaStore } from "./media";
 import { alignRomanization, alignTranslation } from "@shared/utils/lyricAlignment";
+import {
+  ROMANIZATION_RANGE_LINE,
+  ROMANIZATION_RANGE_OPTIONS,
+  ROMANIZATION_RANGE_RESULT,
+} from "@shared/testFixtures/lyricRomanization";
 
 let pinia: ReturnType<typeof createPinia>;
 beforeEach(() => {
@@ -182,6 +187,31 @@ describe("当前歌曲本地算法对齐", () => {
 });
 
 describe("当前歌曲 AI 译文应用", () => {
+  it("范围音译经过实际应用、窗口同步和多次歌词重载后保持同一分组", () => {
+    const media = load();
+    const content = toTTML([ROMANIZATION_RANGE_LINE]);
+    media.setLyric({ source: "embedded", format: "ttml" }, { content });
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        new Map([[0, ROMANIZATION_RANGE_RESULT]]),
+        ROMANIZATION_RANGE_OPTIONS,
+        "zh-CN",
+      ),
+    ).toBe(true);
+    const expected = structuredClone(toRaw(media.parsedLyric));
+    const input = structuredClone(toRaw(media.lyricContent!));
+    expect(input.content).toBe(content);
+    expect(input.romaji).toContain('sakura:from="4" sakura:to="5"');
+    expect(mocks.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lyric: media.parsedLyric }),
+    );
+    for (let repeat = 0; repeat < 3; repeat++) {
+      media.setLyric(media.activeLyric, input);
+      expect(media.parsedLyric).toEqual(expected);
+    }
+  });
+
   it("已有译文的空关联规范化后可应用与重载，原词和逐字完整状态均保留", () => {
     const media = load();
     const content = toTTML(ALIGNMENT_LINES);

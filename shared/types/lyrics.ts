@@ -12,10 +12,16 @@ import type {
 
 export type { LyricFormat, LyricInput, LyricMetadata, LyricResult, LyricSpan, LyricWord };
 
+/** 跨词音译保留原词范围，端点均为主歌词 words 的包含下标 */
+export interface RomanizationSpan extends LyricSpan {
+  from?: number;
+  to?: number;
+}
+
 /** 保留与主歌词同一毫秒时间轴的辅助逐字轨道 */
 export interface LyricLine extends BaseLyricLine {
   translationWords?: LyricSpan[];
-  romanizationWords?: LyricSpan[];
+  romanizationWords?: RomanizationSpan[];
 }
 
 /** 默认格式优先级 */

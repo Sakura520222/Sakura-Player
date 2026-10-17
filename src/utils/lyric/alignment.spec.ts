@@ -51,8 +51,8 @@ describe("逐字辅助歌词对齐与重载", () => {
     const generated = applyGeneratedLyrics(source, decoder.finish(), options)!;
     expect(generated[0].romanLyric).toBe("kya tto!");
     expect(generated[0].romanizationWords).toEqual([
-      { word: "kya ", startTime: 1000, endTime: 1400 },
-      { word: "tto", startTime: 1400, endTime: 1800 },
+      { word: "kya ", startTime: 1000, endTime: 1400, from: 0, to: 1 },
+      { word: "tto", startTime: 1400, endTime: 1800, from: 2, to: 3 },
       { word: "!", startTime: 1800, endTime: 2000 },
     ]);
     expect(createGenerationPlan(generated, options, "missing")).toEqual([]);

@@ -1,10 +1,11 @@
 import { toTTML } from "lyric-kit";
 import type { LyricLine, LyricSpan } from "@shared/types/lyrics";
+import { writeRomanizationRange } from "./romanization";
 
 export const AUXILIARY_TIME_BASIS_KEY = "sakura-player:auxiliary-time-basis";
 
 /**
- * 构建独立翻译轨道，保留同时间的不同声部，避免普通 LRC 合并对唱译文
+ * 构建独立辅助轨道，保留声部、逐字时间和跨词音译范围
  * @param lines - 原歌词行，原文和逐字时间不会修改
  * @param translations - 已校验的行下标与辅助文本或逐字时间片段
  * @param language - 译文语言
@@ -47,7 +48,7 @@ export const createTranslationTrack = (
       romanLyric: "",
     });
   }
-  return toTTML({
+  const content = toTTML({
     lines: auxiliary,
     metadata: {
       language,
@@ -59,4 +60,12 @@ export const createTranslationTrack = (
       },
     },
   });
+  if (!auxiliary.some((line) => line.words.some((word) => "from" in word))) return content;
+  const doc = new DOMParser().parseFromString(content, "application/xml");
+  const elements = Array.from(doc.getElementsByTagName("span")).filter(
+    (element) => element.hasAttribute("begin") && !element.hasAttribute("ttm:role"),
+  );
+  const words = auxiliary.flatMap((line) => line.words);
+  for (const [index, element] of elements.entries()) writeRomanizationRange(element, words[index]);
+  return new XMLSerializer().serializeToString(doc);
 };

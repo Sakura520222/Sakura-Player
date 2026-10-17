@@ -1,5 +1,4 @@
 import {
-  alignRomanization,
   detectFormat,
   normalizeLyricLines,
   pairTranslation,
@@ -9,6 +8,12 @@ import {
 import type { LyricInput, LyricLine, LyricSpan } from "@shared/types/lyrics";
 import { AUXILIARY_TIME_BASIS_KEY } from "./translation";
 import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
+import {
+  alignRomanizationWords,
+  readRomanizationRange,
+  ROMANIZATION_LRC_KEY,
+  ROMANIZATION_NAMESPACE,
+} from "./romanization";
 
 const metadataNamespace = "http://www.w3.org/ns/ttml#metadata";
 
@@ -91,28 +96,13 @@ const pairTimedLines = (
         .replace(/\s+/g, " ")
         .trim() === line.romanLyric.replace(/\s+/g, " ").trim()
     ) {
-      line.romanizationWords = source.romanizationWords;
-      const words = line.words.filter((word) => word.word.trim());
-      const romanization = source.romanizationWords;
-      // AI 音译已按原词生成，重叠或零时长不能再次按时间交集贪心合并。
-      if (
-        words.length === romanization.length &&
-        words.every(
-          (word, index) =>
-            word.startTime === romanization[index].startTime &&
-            word.endTime === romanization[index].endTime,
-        )
-      )
-        words.forEach((word, index) => {
-          word.romanWord = romanization[index].word.trim();
-        });
-      else alignRomanization(line.words, romanization);
+      line.romanizationWords = alignRomanizationWords(line.words, source.romanizationWords);
     }
   }
 };
 
 /**
- * 从标准 TTML 内嵌与独立辅助轨道恢复逐字时间，不改变主歌词字词
+ * 从 TTML、增强 LRC 扩展和独立辅助轨道恢复逐字时间及原词范围
  * @param lines - 已解析的当前歌词，原始边界用于匹配普通外部轨道
  * @param input - 原始歌词及可选辅助轨道
  * @param preferredLang - 与主歌词解析一致的首选翻译语言
@@ -122,6 +112,23 @@ export const applyTimedAuxiliary = (
   input: LyricInput,
   preferredLang = "",
 ): void => {
+  if (input.format === "lrc" && !input.romaji) {
+    const prefix = `[${ROMANIZATION_LRC_KEY}:`;
+    const tag = input.content
+      .split(/\r?\n/)
+      .find((line) => line.startsWith(prefix) && line.endsWith("]"));
+    if (tag) {
+      try {
+        input = {
+          ...input,
+          romaji: decodeURIComponent(tag.slice(prefix.length, -1)),
+          romajiFormat: "ttml",
+        };
+      } catch {
+        // 损坏的扩展标签不影响标准主歌词和普通辅助行
+      }
+    }
+  }
   // 普通行级译文无需再次解析主文件，只有内嵌逐字副轨才读取其时间片段。
   if (
     input.format === "ttml" &&
@@ -156,7 +163,14 @@ export const applyTimedAuxiliary = (
             Number.isFinite(endTime) &&
             startTime >= 0 &&
             endTime >= startTime
-            ? [{ word: element.textContent, startTime, endTime }]
+            ? [
+                {
+                  word: element.textContent,
+                  startTime,
+                  endTime,
+                  ...(role === "x-roman" ? readRomanizationRange(element) : {}),
+                },
+              ]
             : [];
         });
         if (!words.length) continue;
@@ -174,6 +188,24 @@ export const applyTimedAuxiliary = (
     const actualFormat = format ?? detectFormat(content);
     if (actualFormat !== "ttml" && actualFormat !== "lrc") continue;
     const result = parseLyric({ content, format: actualFormat }, { extractMetadata: true });
+    if (
+      field === "romanizationWords" &&
+      actualFormat === "ttml" &&
+      content.includes(ROMANIZATION_NAMESPACE)
+    ) {
+      const doc = new DOMParser().parseFromString(content, "application/xml");
+      const owners = getTtmlLyricOwners(doc);
+      for (const [index, owner] of owners.entries()) {
+        const words = result.lines[index]?.words;
+        const elements = Array.from(owner.children).filter(
+          (element) => element.hasAttribute("begin") && !getTtmlRole(element),
+        );
+        if (words?.length !== elements.length) continue;
+        words.forEach((word, position) =>
+          Object.assign(word, readRomanizationRange(elements[position])),
+        );
+      }
+    }
     const timeBasis = result.metadata.rawProperties?.[AUXILIARY_TIME_BASIS_KEY]?.[0];
     // 旧版生成轨道仅带专用占位声部，仍须沿用其规范化时间基准与逐字数据。
     const legacyGenerated =
@@ -198,7 +230,18 @@ export const applyTimedAuxiliary = (
       [field]:
         (actualFormat === "ttml" && (result.metadata.timingMode === "Word" || legacyGenerated)) ||
         (actualFormat === "lrc" && line.words.length > 1)
-          ? line.words.map(({ word, startTime, endTime }) => ({ word, startTime, endTime }))
+          ? line.words.map((word) => ({
+              word: word.word,
+              startTime: word.startTime,
+              endTime: word.endTime,
+              ...(field === "romanizationWords" &&
+              "from" in word &&
+              typeof word.from === "number" &&
+              "to" in word &&
+              typeof word.to === "number"
+                ? { from: word.from, to: word.to }
+                : {}),
+            }))
           : undefined,
     }));
     pairTimedLines(lines, auxiliary, field, normalized);

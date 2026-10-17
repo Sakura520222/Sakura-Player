@@ -8,7 +8,7 @@ overrides:
   node-abi: ^4.33.0
 
 patchedDependencies:
-  lyric-dom@0.2.1: fb0fb52ddb8aa5b7085e3ede032b7eff3271b8e281ae175565ed319282012397
+  lyric-dom@0.2.1: 364b02f9ecba04d234f3bd21f5e73f78bd37493158764d5e1ab8e79c6c1f2e2d
 
 importers:
 
@@ -179,7 +179,7 @@ importers:
         version: 1.10.0
       lyric-dom:
         specifier: ^0.2.1
-        version: 0.2.1(patch_hash=fb0fb52ddb8aa5b7085e3ede032b7eff3271b8e281ae175565ed319282012397)
+        version: 0.2.1(patch_hash=364b02f9ecba04d234f3bd21f5e73f78bd37493158764d5e1ab8e79c6c1f2e2d)
       marked:
         specifier: ^18.0.9
         version: 18.0.9
@@ -9278,7 +9278,7 @@ snapshots:
     dependencies:
       yallist: 4.0.0
 
-  lyric-dom@0.2.1(patch_hash=fb0fb52ddb8aa5b7085e3ede032b7eff3271b8e281ae175565ed319282012397): {}
+  lyric-dom@0.2.1(patch_hash=364b02f9ecba04d234f3bd21f5e73f78bd37493158764d5e1ab8e79c6c1f2e2d): {}
 
   lyric-kit@0.6.1: {}
 

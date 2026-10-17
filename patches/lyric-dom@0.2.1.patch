@@ -1,5 +1,18 @@
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+index d2debfe5..f2e712fa 100644
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -41,6 +41,8 @@ interface LyricLine {
+   translatedLyric: string;
+   /** 该行的音译歌词内容 */
+   romanLyric: string;
++  /** 跨词音译的时间及包含原词下标 */
++  romanizationWords?: (LyricSpan & { from?: number; to?: number })[];
+   /** 句子的起始时间（毫秒） */
+   startTime: number;
+   /** 句子的结束时间（毫秒） */
 diff --git a/dist/index.mjs b/dist/index.mjs
-index f5bf8dc5306a382564d87e43708b4f6aad6176b2..4943eba007b03df9917e8c40e9b9eb616f4352f1 100644
+index f5bf8dc5..10dcd57b 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -315,7 +315,7 @@ const makeAtom = (word, romanWord, obscene, startTime, endTime, emptyBeat) => ({
@@ -21,3 +34,87 @@ index f5bf8dc5306a382564d87e43708b4f6aad6176b2..4943eba007b03df9917e8c40e9b9eb61
  			atoms.push({ ...w });
  			continue;
  		}
+@@ -987,7 +988,15 @@ const measureAndApplyWordMasks = (wordMeasurements, fadeRatio, lines) => {
+ };
+ //#endregion
+ //#region src/engine/line-builder.ts
+-/** 构建单个 `.lp-main` 单词层并回填测量/动画目标 */
++/**
++* 构建主歌词与跨词音译，保留每个原词独立的高亮和动画时间
++* @param line - 主歌词及带原词下标的音译片段
++* @param mainDiv - 挂载主歌词的容器
++* @param options - 显示及动画配置
++* @param isStatic - 是否使用静态正文
++* @param showWordRoman - 是否显示逐词音译
++* @returns 测量数据和原词动画目标
++*/
+ const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
+ 	if (isStatic) {
+ 		mainDiv.appendChild(document.createTextNode(line.words.map((w) => w.word).join("")));
+@@ -997,6 +1006,45 @@ const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
+ 			animTargets: []
+ 		};
+ 	}
++	const ranges = showWordRoman ? line.romanizationWords?.filter((part) => Number.isInteger(part.from) && Number.isInteger(part.to) && part.from >= 0 && part.to > part.from && part.to < line.words.length) : void 0;
++	if (ranges?.length) {
++		const byStart = new Map(ranges.map((part) => [part.from, part]));
++		const measurements = [];
++		const animTargets = [];
++		let index = 0;
++		while (index < line.words.length) {
++			const part = byStart.get(index);
++			let end = part ? part.to + 1 : index + 1;
++			if (!part) while (end < line.words.length && !byStart.has(end)) end++;
++			let target = mainDiv;
++			let roman;
++			if (part) {
++				const group = document.createElement("span");
++				group.className = "lp-word-roman lp-roman-range";
++				group.dataset.romanFrom = String(part.from);
++				group.dataset.romanTo = String(part.to);
++				target = document.createElement("span");
++				target.className = "lp-main lp-roman-range-main";
++				roman = document.createElement("span");
++				roman.className = "lp-roman-word";
++				roman.textContent = part.word.trim();
++				group.append(target, roman);
++				mainDiv.appendChild(group);
++			}
++			const built = buildWordSpans(line.words.slice(index, end), target, {
++				enableEmphasizeEffect: options.enableEmphasizeEffect,
++				emphasizeMinDuration: options.emphasizeMinDuration,
++				showRuby: options.showRuby,
++				showWordRoman: !part
++			});
++			measurements.push(...built.measurements);
++			animTargets.push(...built.animTargets);
++			if (part) measurements.push({ element: roman, word: part, width: 0, fadeWidth: 0 });
++			index = end;
++		}
++		for (const [index, target] of animTargets.entries()) target.isLastWord = index === animTargets.length - 1;
++		return { measurements, animTargets };
++	}
+ 	const result = buildWordSpans(line.words, mainDiv, {
+ 		enableEmphasizeEffect: options.enableEmphasizeEffect,
+ 		emphasizeMinDuration: options.emphasizeMinDuration,
+diff --git a/dist/style.css b/dist/style.css
+index 4352faae..5cd43010 100644
+--- a/dist/style.css
++++ b/dist/style.css
+@@ -174,6 +174,16 @@
+     display: inline-block;
+   }
+ 
++  & > span.lp-roman-range,
++  & > span.lp-roman-range:first-child {
++    text-align: center;
++    align-items: center;
++  }
++
++  & .lp-roman-range-main {
++    white-space: nowrap;
++  }
++
+   & > span.lp-emp-wrapper {
+     white-space: pre-wrap;
+     vertical-align: bottom;

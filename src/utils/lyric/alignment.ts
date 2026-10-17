@@ -1,5 +1,6 @@
 import type { LyricLine } from "@shared/types/lyrics";
 import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
+import { alignRomanizationWords } from "./romanization";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
 import { AlignmentDecoder, collectAlignmentLines } from "@/services/lyric/aiAlignment";
 import {
@@ -33,14 +34,14 @@ const createTranslationWords = (line: LyricLine, parts: AlignedTranslation["tran
  * @param line - 当前主歌词及其时间轴
  * @param parts - 已规范化且完整覆盖的音译范围
  * @param preserveSpacing - 是否沿用已校验的已有文本空白
- * @returns 原词注音和用于副行显示的音译时间片段
+ * @returns 保留原词范围的音译注音与副行时间片段
  */
 const createRomanizedWords = (
   line: LyricLine,
   parts: AlignedTranslation["romanization"],
   preserveSpacing = false,
 ) => {
-  const romanization = new Map(parts.map((word) => [word.index, word.text.trim()]));
+  const words = line.words.map((word) => ({ ...word }));
   const romanizationWords = parts.map((part, position) => {
     const words = line.words
       .slice(part.index, (part.to ?? part.index) + 1)
@@ -49,11 +50,12 @@ const createRomanizedWords = (
       word: part.text + (!preserveSpacing && position < parts.length - 1 ? " " : ""),
       startTime: Math.min(...words.map((word) => word.startTime)),
       endTime: Math.max(...words.map((word) => word.endTime)),
+      ...(part.to !== undefined && part.to !== part.index ? { from: part.index, to: part.to } : {}),
     };
   });
   return {
-    words: line.words.map((word, index) => ({ ...word, romanWord: romanization.get(index) })),
-    romanizationWords,
+    words,
+    romanizationWords: alignRomanizationWords(words, romanizationWords),
     romanLyric: romanizationWords
       .map((word) => word.word)
       .join("")
