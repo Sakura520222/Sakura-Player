@@ -15,6 +15,8 @@ import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { alignGeneratedLyrics, applyGeneratedLyrics } from "@/utils/lyric/alignment";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
+import { applyLocalAlignment } from "@/services/lyric/localAlignment";
+import type { AlignmentLineResult } from "@shared/types/lyricAlignment";
 import {
   getExistingRomanization,
   type GeneratedLyric,
@@ -280,30 +282,69 @@ export const useMediaStore = defineStore("media", () => {
     if (revision !== lyricRevision.value || !lyricContent.value || !activeLyric.value) return false;
     const lines = alignGeneratedLyrics(parsedLyric.value, results);
     if (!lines) return false;
-    const translation = createTranslationTrack(
+    commitAuxiliaryLyrics(
       lines,
-      new Map(lines.map((line, index) => [index, line.translationWords ?? []])),
+      {
+        translation: false,
+        romanization: false,
+        wordTranslation: true,
+        wordRomanization: true,
+      },
       language,
-      "normalized",
     );
-    const romaji = createTranslationTrack(
-      lines,
-      new Map(lines.map((line, index) => [index, line.romanizationWords ?? []])),
-      "und-Latn",
-      "normalized",
-    );
+    return true;
+  };
+
+  /**
+   * 统一提交 AI 与算法辅助歌词，同步显示开关、保存数据及歌词窗口
+   * @param lines - 已校验并应用辅助结果的新歌词
+   * @param options - 本次实际更新的辅助轨道
+   * @param language - 翻译轨道语言
+   */
+  const commitAuxiliaryLyrics = (
+    lines: LyricLine[],
+    options: GenerationOptions,
+    language: string,
+  ): void => {
+    const input = { ...toRaw(lyricContent.value!) };
+    if (options.translation || options.wordTranslation) {
+      input.translation = createTranslationTrack(
+        lines,
+        new Map(
+          lines.map((line, index) => [
+            index,
+            line.translationWords?.length ? line.translationWords : line.translatedLyric,
+          ]),
+        ),
+        language,
+        "normalized",
+      );
+      input.translationFormat = "ttml";
+    }
+    if (options.romanization || options.wordRomanization) {
+      input.romaji = createTranslationTrack(
+        lines,
+        new Map(
+          lines.map((line, index) => [
+            index,
+            line.romanizationWords?.length ? line.romanizationWords : getExistingRomanization(line),
+          ]),
+        ),
+        "und-Latn",
+        "normalized",
+      );
+      input.romajiFormat = "ttml";
+    }
+    const settings = useSettingsStore();
+    if (options.translation || options.wordTranslation) settings.lyric.showTranslation = true;
+    if (options.wordTranslation) settings.lyric.showWordTranslation = true;
+    if (options.romanization) settings.lyric.showRomanization = true;
+    if (options.wordRomanization) settings.lyric.showWordRomanization = true;
     transformToken++;
-    lyricContent.value = {
-      ...toRaw(lyricContent.value),
-      translation,
-      translationFormat: "ttml",
-      romaji,
-      romajiFormat: "ttml",
-    };
+    lyricContent.value = input;
     parsedLyric.value = lines;
     lyricRevision.value++;
     syncToMain();
-    return true;
   };
 
   /**
@@ -326,8 +367,8 @@ export const useMediaStore = defineStore("media", () => {
     const lines = applyGeneratedLyrics(parsedLyric.value, results, options, mode);
     if (!lines) return false;
     const input = { ...toRaw(lyricContent.value) };
+    let translationLanguage = language;
     if (options.translation || options.wordTranslation) {
-      let translationLanguage = language;
       if (mode === "missing" && parsedLyric.value.some((line) => line.translatedLyric.trim())) {
         const meaningful = parsedLyric.value.filter((line) =>
           line.words.some((word) => word.word.trim()),
@@ -340,38 +381,49 @@ export const useMediaStore = defineStore("media", () => {
               ).metadata.language ?? "und")
             : "und";
       }
-      input.translation = createTranslationTrack(
-        lines,
-        new Map(
-          lines.map((line, index) => [
-            index,
-            line.translationWords?.length ? line.translationWords : line.translatedLyric,
-          ]),
-        ),
-        translationLanguage,
-        "normalized",
-      );
-      input.translationFormat = "ttml";
     }
-    if (options.romanization || options.wordRomanization) {
-      input.romaji = createTranslationTrack(
-        lines,
-        new Map(
-          lines.map((line, index) => [
-            index,
-            line.romanizationWords?.length ? line.romanizationWords : getExistingRomanization(line),
-          ]),
-        ),
-        "und-Latn",
-        "normalized",
-      );
-      input.romajiFormat = "ttml";
-    }
-    transformToken++;
-    lyricContent.value = input;
-    parsedLyric.value = lines;
-    lyricRevision.value++;
-    syncToMain();
+    commitAuxiliaryLyrics(lines, options, translationLanguage);
+    return true;
+  };
+
+  /**
+   * 应用本地对齐的可靠行，并将完整辅助轨道交给现有保存与窗口同步流程
+   * @param revision - 开始对齐时的歌词版本
+   * @param results - 用户选择的已校验行
+   * @param realignExisting - 是否允许替换已有完整逐字对齐
+   * @returns 歌曲与歌词未变化且成功应用时返回 true
+   */
+  const applyLocalLyricAlignment = (
+    revision: number,
+    results: AlignmentLineResult[],
+    realignExisting = false,
+  ): boolean => {
+    if (
+      revision !== lyricRevision.value ||
+      lyricLoading.value ||
+      !lyricContent.value ||
+      !activeLyric.value
+    )
+      return false;
+    const lines = applyLocalAlignment(parsedLyric.value, results, realignExisting);
+    if (!lines) return false;
+    const input = { ...toRaw(lyricContent.value) };
+    const language = input.translation
+      ? (parseLyric(
+          { content: input.translation, format: input.translationFormat },
+          { extractMetadata: true },
+        ).metadata.language ?? "und")
+      : "und";
+    commitAuxiliaryLyrics(
+      lines,
+      {
+        translation: false,
+        romanization: false,
+        wordTranslation: results.some((line) => line.translation),
+        wordRomanization: results.some((line) => line.romanization),
+      },
+      language,
+    );
     return true;
   };
 
@@ -412,6 +464,7 @@ export const useMediaStore = defineStore("media", () => {
     applyLyricTranslation,
     applyAlignedLyricTranslation,
     applyGeneratedLyric,
+    applyLocalLyricAlignment,
     updateLyricIndex,
     clear,
   };

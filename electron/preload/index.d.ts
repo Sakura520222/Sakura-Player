@@ -30,6 +30,7 @@ import { UpdateApi } from "@shared/types/update";
 import { CloudUploadApi } from "@shared/types/cloudUpload";
 import { CommentsApi } from "@shared/types/comment";
 import { AiModelApi } from "@shared/types/ai";
+import { LyricAlignmentApi } from "@shared/types/lyricAlignment";
 import { PlaylistApi } from "@shared/types/playlist";
 import { OpenccApi } from "@shared/types/opencc";
 
@@ -134,6 +135,7 @@ declare global {
         onStatus: (callback: (status: McpStatus) => void) => () => void;
       };
       aiModel: AiModelApi;
+      lyricAlignment: LyricAlignmentApi;
       update: UpdateApi;
     };
   }

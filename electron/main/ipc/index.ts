@@ -23,6 +23,7 @@ import { registerAiModelIpc } from "./aiModel";
 import { registerPlaylistIpc } from "./playlist";
 import { registerRecognitionIpc } from "./recognition";
 import { registerOpenccIpc } from "./opencc";
+import { registerLyricAlignmentIpc } from "./lyricAlignment";
 
 /**
  * 注册所有 IPC 处理
@@ -52,6 +53,7 @@ export const registerIpcHandlers = (onStartupComplete: () => void): void => {
   registerExternalApiIpc();
   registerMcpIpc();
   registerAiModelIpc();
+  registerLyricAlignmentIpc();
   registerStatsIpc();
   registerUpdateIpc();
 };

@@ -28,6 +28,7 @@ const hasLyric = computed(() => media.parsedLyric.length > 0);
 /** 复制歌词弹窗是否打开 */
 const copyDialogOpen = ref(false);
 const translationDialogOpen = ref(false);
+const alignmentDialogOpen = ref(false);
 
 /** 当前曲目偏移（ms） */
 const songOffset = computed(() => status.lyricOffsetMs);
@@ -71,6 +72,17 @@ const resetLyricOffset = (): void => writeOffset(0);
       @click="translationDialogOpen = true"
     >
       <template #icon><IconLucideLanguages /></template>
+    </SButton>
+    <SButton
+      type="cover"
+      variant="ghost"
+      circle
+      :size="40"
+      :disabled="!hasTrack || !hasLyric || media.lyricLoading"
+      :aria-label="t('player.localAlignment.title')"
+      @click="alignmentDialogOpen = true"
+    >
+      <template #icon><IconLucideScanText /></template>
     </SButton>
     <SButton
       type="cover"
@@ -145,5 +157,6 @@ const resetLyricOffset = (): void => writeOffset(0);
     </SButton>
     <CopyLyricsDialog v-model:open="copyDialogOpen" />
     <AiLyricTranslationDialog v-if="translationDialogOpen" v-model:open="translationDialogOpen" />
+    <LocalLyricAlignmentDialog v-if="alignmentDialogOpen" v-model:open="alignmentDialogOpen" />
   </div>
 </template>

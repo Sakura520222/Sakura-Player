@@ -27,6 +27,7 @@ import type { UpdateEvent } from "@shared/types/update";
 import type { CloudUploadProgress } from "@shared/types/cloudUpload";
 import type { MusicCommentQuery } from "@shared/types/comment";
 import { aiModelApi } from "./aiModel";
+import { lyricAlignmentApi } from "./lyricAlignment";
 import type {
   DesktopLyricUnlockButtonBounds,
   DynamicIslandVisibilityChange,
@@ -828,6 +829,7 @@ const api = {
     },
   },
   aiModel: aiModelApi,
+  lyricAlignment: lyricAlignmentApi,
   update: {
     getState: () => ipcRenderer.invoke("update:getState"),
     // 检查更新

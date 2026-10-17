@@ -8,6 +8,7 @@ import { stopMcpServer } from "@main/services/mcp/http";
 import { stopStreamingPlayback } from "@main/services/streaming/playback";
 import { disposeUpdater } from "@main/services/updater";
 import { coreLog } from "@main/utils/logger";
+import { shutdownAlignmentEnvironment } from "@main/services/lyricAlignment/environment";
 
 const cleanupTasks: Array<[string, () => void | Promise<void>]> = [
   ["外部 API", stopServer],
@@ -24,6 +25,7 @@ const cleanupTasks: Array<[string, () => void | Promise<void>]> = [
   ],
   ["系统媒体", shutdownMedia],
   ["更新服务", disposeUpdater],
+  ["歌词对齐环境", shutdownAlignmentEnvironment],
   ["数据库", closeDatabase],
 ];
 

@@ -62,6 +62,39 @@ const createRomanizedWords = (
 };
 
 /**
+ * 应用已校验的辅助结果，统一更新副行时间和原词音译注音
+ * @param line - 保持正文、原词时间与声部的歌词行
+ * @param result - AI 或本地算法已校验的结果
+ * @param preserve - 需要保留既有完整文本的轨道
+ * @returns 应用所选辅助结果后的新歌词行
+ */
+export const applyLyricResult = (
+  line: LyricLine,
+  result: GeneratedLyric,
+  preserve: { translation: boolean; romanization: boolean },
+): LyricLine => {
+  const next = { ...line };
+  if (Array.isArray(result.translation)) {
+    next.translationWords = createTranslationWords(line, result.translation);
+    next.translatedLyric = preserve.translation
+      ? line.translatedLyric
+      : next.translationWords.map((word) => word.word).join("");
+  } else if (typeof result.translation === "string") {
+    next.translatedLyric = result.translation;
+    next.translationWords = undefined;
+  }
+  if (Array.isArray(result.romanization)) {
+    Object.assign(next, createRomanizedWords(line, result.romanization, preserve.romanization));
+    if (preserve.romanization) next.romanLyric = getExistingRomanization(line);
+  } else if (typeof result.romanization === "string") {
+    next.romanLyric = result.romanization;
+    next.romanizationWords = undefined;
+    next.words = line.words.map((word) => ({ ...word, romanWord: undefined }));
+  }
+  return next;
+};
+
+/**
  * 沿用主歌词语义范围顺排译文，音译保留原词时间
  * @param lines - 不可修改的当前主歌词
  * @param results - 已生成的整首翻译和音译
@@ -85,13 +118,7 @@ export const alignGeneratedLyrics = (
   return lines.map((line, id) => {
     const result = validated.get(id);
     if (!result) return line;
-    const translationWords = createTranslationWords(line, result.translation);
-    return {
-      ...line,
-      ...createRomanizedWords(line, result.romanization),
-      translatedLyric: translationWords.map((word) => word.word).join(""),
-      translationWords,
-    };
+    return applyLyricResult(line, result, { translation: false, romanization: false });
   });
 };
 
@@ -125,33 +152,9 @@ export const applyGeneratedLyrics = (
     const result = validated.get(id);
     if (!result) return line;
     const request = planned.get(id)!;
-    const next = { ...line };
-    if (Array.isArray(result.translation)) {
-      next.translationWords = createTranslationWords(line, result.translation);
-      next.translatedLyric =
-        !request.options!.translation && request.existingTranslation.trim()
-          ? line.translatedLyric
-          : next.translationWords.map((word) => word.word).join("");
-    } else if (typeof result.translation === "string") {
-      next.translatedLyric = result.translation;
-      next.translationWords = undefined;
-    }
-    if (Array.isArray(result.romanization)) {
-      Object.assign(
-        next,
-        createRomanizedWords(
-          line,
-          result.romanization,
-          !request.options!.romanization && !!request.existingRomanization,
-        ),
-      );
-      if (!request.options!.romanization && request.existingRomanization)
-        next.romanLyric = getExistingRomanization(line);
-    } else if (typeof result.romanization === "string") {
-      next.romanLyric = result.romanization;
-      next.romanizationWords = undefined;
-      next.words = line.words.map((word) => ({ ...word, romanWord: undefined }));
-    }
-    return next;
+    return applyLyricResult(line, result, {
+      translation: !request.options!.translation && !!request.existingTranslation.trim(),
+      romanization: !request.options!.romanization && !!request.existingRomanization,
+    });
   });
 };

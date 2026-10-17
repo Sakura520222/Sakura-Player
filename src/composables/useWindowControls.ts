@@ -18,8 +18,9 @@ export const useWindowControls = () => {
   const hide = (): void => window.api.window.hide();
   const quit = (): void => window.api.window.quit();
 
-  /** 点击关闭：已记忆走设置，未记忆弹窗询问 */
+  /** 点击关闭时保留后台环境维护任务，空闲时沿用已记忆的设置或询问 */
   const close = async (): Promise<void> => {
+    if (await window.api.lyricAlignment.continueInBackground()) return;
     const { appearance } = settings;
     if (appearance.rememberCloseChoice) {
       appearance.closeAction === "hide" ? hide() : quit();

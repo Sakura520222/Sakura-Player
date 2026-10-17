@@ -14,7 +14,14 @@ import {
 
 let settings: {
   locale: string;
-  lyric: { cjkTransform: CjkTransformMode; detectBackgroundLyrics: boolean };
+  lyric: {
+    cjkTransform: CjkTransformMode;
+    detectBackgroundLyrics: boolean;
+    showTranslation?: boolean;
+    showWordTranslation?: boolean;
+    showRomanization?: boolean;
+    showWordRomanization?: boolean;
+  };
 };
 const mocks = vi.hoisted(() => ({ transform: vi.fn(), update: vi.fn() }));
 vi.mock("@/stores/settings", () => ({ useSettingsStore: () => settings }));
@@ -24,6 +31,7 @@ vi.mock("@/utils/lyric/lyricStripper", () => ({
 }));
 vi.mock("@/utils/lyric/cjkTransform", () => ({ applyLyricCjkTransform: mocks.transform }));
 import { useMediaStore } from "./media";
+import { alignRomanization, alignTranslation } from "@shared/utils/lyricAlignment";
 
 let pinia: ReturnType<typeof createPinia>;
 beforeEach(() => {
@@ -54,6 +62,124 @@ const translations = new Map([
   [0, "灯光"],
   [1, "雨声"],
 ]);
+
+describe("当前歌曲本地算法对齐", () => {
+  it("保存完整辅助 TTML 并重读，主词时间与同刻背景声部不变", async () => {
+    const media = useMediaStore();
+    media.setTrack({
+      id: "local-alignment",
+      source: "local",
+      title: "Fixture",
+      artists: [],
+      duration: 5000,
+    });
+    const words = ["君", "と", "夢"].map((word, index) => ({
+      word,
+      startTime: 1000 + index * 400,
+      endTime: 1400 + index * 400,
+    }));
+    const lines: LyricLine[] = [
+      {
+        words,
+        startTime: 1000,
+        endTime: 2200,
+        translatedLyric: "与你的梦",
+        romanLyric: "kimi to yume",
+        isBG: false,
+        isDuet: false,
+      },
+      {
+        words: words.map((word) => ({ ...word })),
+        startTime: 1000,
+        endTime: 2200,
+        translatedLyric: "另一声部",
+        romanLyric: "other voice",
+        isBG: true,
+        isDuet: false,
+      },
+    ];
+    media.setLyric(
+      { source: "embedded", format: "ttml" },
+      { content: toTTML(lines), format: "ttml" },
+    );
+    await nextTick();
+    const original = structuredClone(toRaw(media.parsedLyric));
+    const tokens = [
+      { text: "君", reading: "kimi", from: 0, to: 0 },
+      { text: "と", reading: "to", from: 1, to: 1 },
+      { text: "夢", reading: "yume", from: 2, to: 2 },
+    ];
+    const results = [
+      {
+        id: 0,
+        romanization: alignRomanization(tokens, "kimi to yume")!,
+        translation: alignTranslation(
+          tokens,
+          ["与", "你", "的梦"],
+          [
+            [1, 0],
+            [0, 1],
+            [2, 2],
+          ],
+        )!,
+      },
+    ];
+    const revision = media.lyricRevision;
+    expect(media.applyLocalLyricAlignment(revision - 1, results)).toBe(false);
+    expect(media.applyLocalLyricAlignment(revision, results)).toBe(true);
+    const applied = structuredClone(toRaw(media.parsedLyric));
+    expect(applied[0].words.map(({ romanWord: _roman, ...word }) => word)).toEqual(
+      original[0].words,
+    );
+    expect(applied[0].words.map((word) => word.romanWord)).toEqual(["kimi", "to", "yume"]);
+    expect(settings.lyric.showWordRomanization).toBe(true);
+    expect(settings.lyric.showWordTranslation).toBe(true);
+    expect(applied[1]).toEqual(original[1]);
+    const saved = structuredClone(toRaw(media.lyricContent!));
+    expect(saved.format).toBe("ttml");
+    expect(saved.content).toBe(toTTML(lines));
+    expect(saved.translationFormat).toBe("ttml");
+    expect(saved.romajiFormat).toBe("ttml");
+    media.setLyric({ source: "embedded", format: "ttml" }, saved);
+    await nextTick();
+    expect(media.parsedLyric[0].translationWords).toEqual(applied[0].translationWords);
+    expect(media.parsedLyric[0].romanizationWords).toEqual(applied[0].romanizationWords);
+    expect(media.parsedLyric[1].translatedLyric).toBe("另一声部");
+    expect(media.parsedLyric[1].romanLyric).toBe("other voice");
+    expect(media.parsedLyric[1].isBG).toBe(true);
+    const beforeRealign = structuredClone(toRaw(media.parsedLyric));
+    const existingRomaji = media.lyricContent!.romaji;
+    const changed = [
+      {
+        id: 0,
+        translation: {
+          score: 1,
+          parts: [
+            { text: "与", from: 0, to: 0 },
+            { text: "你的", from: 1, to: 1 },
+            { text: "梦", from: 2, to: 2 },
+          ],
+        },
+      },
+    ];
+    expect(media.applyLocalLyricAlignment(media.lyricRevision, changed)).toBe(false);
+    expect(media.applyLocalLyricAlignment(media.lyricRevision, changed, true)).toBe(true);
+    expect(media.parsedLyric[0].translationWords).toHaveLength(3);
+    expect(media.parsedLyric[0].words).toEqual(beforeRealign[0].words);
+    expect(media.parsedLyric[0].romanizationWords).toEqual(beforeRealign[0].romanizationWords);
+    expect(media.lyricContent!.romaji).toBe(existingRomaji);
+    const realigned = structuredClone(toRaw(media.parsedLyric));
+    media.setLyric(
+      { source: "embedded", format: "ttml" },
+      structuredClone(toRaw(media.lyricContent!)),
+    );
+    await nextTick();
+    expect(media.parsedLyric[0].translationWords).toEqual(realigned[0].translationWords);
+    expect(media.parsedLyric[0].romanizationWords).toEqual(realigned[0].romanizationWords);
+    expect(media.parsedLyric[1].translatedLyric).toBe("另一声部");
+    expect(mocks.update).toHaveBeenCalled();
+  });
+});
 
 describe("当前歌曲 AI 译文应用", () => {
   it("已有译文的空关联规范化后可应用与重载，原词和逐字完整状态均保留", () => {

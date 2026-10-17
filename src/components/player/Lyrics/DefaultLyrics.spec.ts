@@ -6,6 +6,7 @@ import { normalizeLyricLines, parseLyric } from "lyric-kit";
 import { useSettingsStore } from "@/stores/settings";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { createTranslationTrack } from "@/utils/lyric/translation";
+import { applyLocalAlignment } from "@/services/lyric/localAlignment";
 import DefaultLyrics from "./DefaultLyrics.vue";
 import Lyrics from "./index.vue";
 
@@ -47,6 +48,82 @@ describe("默认歌词引擎显示与配置", () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it("暂停时应用和重做对齐立即刷新副行及当前进度，无需保存或推进播放", async () => {
+    const line: LyricLine = {
+      ...makeLine(""),
+      words: [
+        { word: "君", startTime: 1000, endTime: 1400 },
+        { word: "と", startTime: 1400, endTime: 1600 },
+        { word: "夢", startTime: 1600, endTime: 2000 },
+      ],
+      romanLyric: "kimi to yume",
+    };
+    const wrapper = mount(DefaultLyrics, {
+      props: { lyricLines: [line], playing: false, showWordRomanization: false },
+    });
+    try {
+      wrapper.vm.setCurrentTime(1500);
+      const aligned = applyLocalAlignment(
+        [line],
+        [
+          {
+            id: 0,
+            romanization: {
+              score: 1,
+              parts: [
+                { text: "kimi to ", from: 0, to: 1 },
+                { text: "yume", from: 2, to: 2 },
+              ],
+            },
+          },
+        ],
+      )!;
+      await wrapper.setProps({ lyricLines: aligned });
+      expect(wrapper.findAll("[data-aux-word]").map((word) => word.text())).toEqual([
+        "kimi to",
+        "yume",
+      ]);
+      expect(
+        wrapper.findAll("[data-aux-word]").map((word) => word.attributes("data-aux-state")),
+      ).toEqual(["active", "unplayed"]);
+      const realigned = applyLocalAlignment(
+        aligned,
+        [
+          {
+            id: 0,
+            romanization: {
+              score: 1,
+              parts: [
+                { text: "kimi ", from: 0, to: 0 },
+                { text: "to ", from: 1, to: 1 },
+                { text: "yume", from: 2, to: 2 },
+              ],
+            },
+          },
+        ],
+        true,
+      )!;
+      await wrapper.setProps({ lyricLines: realigned });
+      expect(wrapper.findAll("[data-aux-word]").map((word) => word.text())).toEqual([
+        "kimi",
+        "to",
+        "yume",
+      ]);
+      expect(
+        wrapper.findAll("[data-aux-word]").map((word) => word.attributes("data-aux-state")),
+      ).toEqual(["played", "active", "unplayed"]);
+      expect(realigned[0].words.map(({ romanWord: _roman, ...word }) => word)).toEqual(line.words);
+      await wrapper.setProps({ showWordRomanization: true });
+      expect(wrapper.findAll(".lp-roman-word").map((word) => word.text())).toEqual([
+        "kimi",
+        "to",
+        "yume",
+      ]);
+    } finally {
+      wrapper.unmount();
+    }
+  });
 
   it.each(["lrc", "ttml"] as const)(
     "%s 整句音译不重复，并保留主词高亮和副行顺序",

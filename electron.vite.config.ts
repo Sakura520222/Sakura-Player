@@ -36,6 +36,10 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, "electron/main/index.ts"),
+          "lyric-alignment.worker": resolve(
+            __dirname,
+            "electron/main/services/lyricAlignment/local.worker.ts",
+          ),
           // 插件 host worker
           "host.worker": resolve(__dirname, "electron/main/plugins/host.worker.ts"),
           // 听歌识曲指纹 worker

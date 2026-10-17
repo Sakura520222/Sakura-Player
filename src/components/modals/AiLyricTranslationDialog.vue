@@ -2,7 +2,6 @@
 import { useAiLyricTranslation } from "@/composables/useAiLyricTranslation";
 import { TRANSLATION_LANGUAGES, type TranslationLanguage } from "@/services/lyric/aiTranslation";
 import { useMediaStore } from "@/stores/media";
-import { useSettingsStore } from "@/stores/settings";
 import { useSettingsDialog } from "@/settings/useSettingsDialog";
 import { toast } from "@/composables/useToast";
 import { GENERATION_TASKS, type GenerationMode } from "@/services/lyric/aiGeneration";
@@ -11,7 +10,6 @@ const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ "update:open": [value: boolean] }>();
 const { t } = useI18n();
 const media = useMediaStore();
-const settings = useSettingsStore();
 const settingsDialog = useSettingsDialog();
 const {
   targetLanguage,
@@ -72,13 +70,9 @@ const configureModel = (): void => {
   settingsDialog.show("aiIntegration", "aiModelConfig");
 };
 
+/** 通过共用应用流程提交结果并关闭预览 */
 const applyTranslation = (): void => {
   if (!apply()) return;
-  if (selected.value.translation || selected.value.wordTranslation)
-    settings.lyric.showTranslation = true;
-  if (selected.value.wordTranslation) settings.lyric.showWordTranslation = true;
-  if (selected.value.romanization) settings.lyric.showRomanization = true;
-  if (selected.value.wordRomanization) settings.lyric.showWordRomanization = true;
   toast.success(t("player.aiTranslation.applied"));
   emit("update:open", false);
 };
