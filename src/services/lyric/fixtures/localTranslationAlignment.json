@@ -1,0 +1,516 @@
+[
+  {
+    "name": "日文：省略助词",
+    "words": ["あ", "な", "た", "が", "変", "え", "て", "く", "れ", "た"],
+    "source": [
+      {
+        "text": "あなた",
+        "from": 0,
+        "to": 2
+      },
+      {
+        "text": "が",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "text": "変え",
+        "from": 4,
+        "to": 5
+      },
+      {
+        "text": "て",
+        "from": 6,
+        "to": 6
+      },
+      {
+        "text": "くれ",
+        "from": 7,
+        "to": 8
+      },
+      {
+        "text": "た",
+        "from": 9,
+        "to": 9
+      }
+    ],
+    "target": ["你", "为我", "而", "改变"],
+    "pairs": [
+      [0, 0],
+      [0, 1],
+      [1, 2],
+      [2, 3]
+    ],
+    "expected": [
+      {
+        "text": "你为我",
+        "from": 0,
+        "to": 2
+      },
+      {
+        "text": "而",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "text": "改变",
+        "from": 4,
+        "to": 5
+      }
+    ],
+    "times": [
+      {
+        "startTime": 1000,
+        "endTime": 1840
+      },
+      {
+        "startTime": 1900,
+        "endTime": 1980
+      },
+      {
+        "startTime": 2200,
+        "endTime": 3780
+      }
+    ]
+  },
+  {
+    "name": "日文：保留译文补词",
+    "words": ["だ", "け", "ど", "と", "て", "も", "暖", "か", "く", "て"],
+    "source": [
+      {
+        "text": "だけど",
+        "from": 0,
+        "to": 2
+      },
+      {
+        "text": "とても",
+        "from": 3,
+        "to": 5
+      },
+      {
+        "text": "暖かく",
+        "from": 6,
+        "to": 8
+      },
+      {
+        "text": "て",
+        "from": 9,
+        "to": 9
+      }
+    ],
+    "target": ["而", "我", "却", "感觉", "非常", "温暖"],
+    "pairs": [
+      [0, 0],
+      [0, 1],
+      [1, 3],
+      [1, 4],
+      [2, 5]
+    ],
+    "expected": [
+      {
+        "text": "而我",
+        "from": 0,
+        "to": 2
+      },
+      {
+        "text": "却感觉非常",
+        "from": 3,
+        "to": 5
+      },
+      {
+        "text": "温暖",
+        "from": 6,
+        "to": 8
+      }
+    ],
+    "times": [
+      {
+        "startTime": 1000,
+        "endTime": 1840
+      },
+      {
+        "startTime": 1900,
+        "endTime": 2740
+      },
+      {
+        "startTime": 2800,
+        "endTime": 3780
+      }
+    ]
+  },
+  {
+    "name": "日文：省略后续助动词",
+    "words": ["一", "緒", "に", "刻", "ん", "で", "く"],
+    "source": [
+      {
+        "text": "一緒",
+        "from": 0,
+        "to": 1
+      },
+      {
+        "text": "に",
+        "from": 2,
+        "to": 2
+      },
+      {
+        "text": "刻ん",
+        "from": 3,
+        "to": 4
+      },
+      {
+        "text": "で",
+        "from": 5,
+        "to": 5
+      },
+      {
+        "text": "く",
+        "from": 6,
+        "to": 6
+      }
+    ],
+    "target": ["一起", "铭刻", "下"],
+    "pairs": [
+      [0, 0],
+      [2, 1],
+      [4, 2]
+    ],
+    "expected": [
+      {
+        "text": "一起",
+        "from": 0,
+        "to": 1
+      },
+      {
+        "text": "铭刻",
+        "from": 3,
+        "to": 4
+      },
+      {
+        "text": "下",
+        "from": 6,
+        "to": 6
+      }
+    ],
+    "times": [
+      {
+        "startTime": 1000,
+        "endTime": 1840
+      },
+      {
+        "startTime": 1900,
+        "endTime": 2740
+      },
+      {
+        "startTime": 2800,
+        "endTime": 2880
+      }
+    ]
+  },
+  {
+    "name": "bloom：标点不参与时间锚定",
+    "words": ["So ", "don't ", "need ", "to ", "be ", "afraid."],
+    "source": [
+      {
+        "text": "So",
+        "from": 0,
+        "to": 0
+      },
+      {
+        "text": "don't",
+        "from": 1,
+        "to": 1
+      },
+      {
+        "text": "need",
+        "from": 2,
+        "to": 2
+      },
+      {
+        "text": "to",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "text": "be",
+        "from": 4,
+        "to": 4
+      },
+      {
+        "text": "afraid",
+        "from": 5,
+        "to": 5
+      },
+      {
+        "text": ".",
+        "from": 5,
+        "to": 5
+      }
+    ],
+    "target": ["所以", "啊", "不必", "恐惧"],
+    "pairs": [
+      [0, 0],
+      [1, 2],
+      [4, 2],
+      [5, 3],
+      [6, 1]
+    ],
+    "expected": [
+      {
+        "text": "所以",
+        "from": 0,
+        "to": 0
+      },
+      {
+        "text": "啊不必",
+        "from": 1,
+        "to": 4
+      },
+      {
+        "text": "恐惧",
+        "from": 5,
+        "to": 5
+      }
+    ],
+    "times": [
+      {
+        "startTime": 1000,
+        "endTime": 1080
+      },
+      {
+        "startTime": 1300,
+        "endTime": 2360
+      },
+      {
+        "startTime": 2500,
+        "endTime": 2740
+      }
+    ]
+  },
+  {
+    "name": "bloom：保留句尾语气词",
+    "words": ["Tell ", "me ", "how ", "the ", "fact"],
+    "source": [
+      {
+        "text": "Tell",
+        "from": 0,
+        "to": 0
+      },
+      {
+        "text": "me",
+        "from": 1,
+        "to": 1
+      },
+      {
+        "text": "how",
+        "from": 2,
+        "to": 2
+      },
+      {
+        "text": "the",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "text": "fact",
+        "from": 4,
+        "to": 4
+      }
+    ],
+    "target": ["告诉", "我", "何", "为", "事实", "吧"],
+    "pairs": [
+      [0, 0],
+      [1, 1],
+      [2, 2],
+      [3, 3],
+      [4, 4]
+    ],
+    "expected": [
+      {
+        "text": "告诉",
+        "from": 0,
+        "to": 0
+      },
+      {
+        "text": "我",
+        "from": 1,
+        "to": 1
+      },
+      {
+        "text": "何",
+        "from": 2,
+        "to": 2
+      },
+      {
+        "text": "为",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "text": "事实吧",
+        "from": 4,
+        "to": 4
+      }
+    ],
+    "times": [
+      {
+        "startTime": 1000,
+        "endTime": 1080
+      },
+      {
+        "startTime": 1300,
+        "endTime": 1460
+      },
+      {
+        "startTime": 1600,
+        "endTime": 1840
+      },
+      {
+        "startTime": 1900,
+        "endTime": 1980
+      },
+      {
+        "startTime": 2200,
+        "endTime": 2360
+      }
+    ]
+  },
+  {
+    "name": "bloom：合并连续漏配词",
+    "words": ["I ", "don't ", "want ", "your ", "kindness ", "to ", "end ", "up ", "meaningless"],
+    "source": [
+      {
+        "text": "I",
+        "from": 0,
+        "to": 0
+      },
+      {
+        "text": "don't",
+        "from": 1,
+        "to": 1
+      },
+      {
+        "text": "want",
+        "from": 2,
+        "to": 2
+      },
+      {
+        "text": "your",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "text": "kindness",
+        "from": 4,
+        "to": 4
+      },
+      {
+        "text": "to",
+        "from": 5,
+        "to": 5
+      },
+      {
+        "text": "end",
+        "from": 6,
+        "to": 6
+      },
+      {
+        "text": "up",
+        "from": 7,
+        "to": 7
+      },
+      {
+        "text": "meaningless",
+        "from": 8,
+        "to": 8
+      }
+    ],
+    "target": ["我", "不愿", "让", "你的", "善意", "终", "化作", "一", "场", "空"],
+    "pairs": [
+      [0, 0],
+      [1, 1],
+      [2, 2],
+      [3, 3],
+      [4, 4],
+      [5, 5],
+      [6, 6],
+      [7, 6],
+      [8, 9]
+    ],
+    "expected": [
+      {
+        "text": "我",
+        "from": 0,
+        "to": 0
+      },
+      {
+        "text": "不愿",
+        "from": 1,
+        "to": 1
+      },
+      {
+        "text": "让",
+        "from": 2,
+        "to": 2
+      },
+      {
+        "text": "你的",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "text": "善意",
+        "from": 4,
+        "to": 4
+      },
+      {
+        "text": "终",
+        "from": 5,
+        "to": 5
+      },
+      {
+        "text": "化作",
+        "from": 6,
+        "to": 7
+      },
+      {
+        "text": "一场空",
+        "from": 8,
+        "to": 8
+      }
+    ],
+    "times": [
+      {
+        "startTime": 1000,
+        "endTime": 1080
+      },
+      {
+        "startTime": 1300,
+        "endTime": 1460
+      },
+      {
+        "startTime": 1600,
+        "endTime": 1840
+      },
+      {
+        "startTime": 1900,
+        "endTime": 1980
+      },
+      {
+        "startTime": 2200,
+        "endTime": 2360
+      },
+      {
+        "startTime": 2500,
+        "endTime": 2740
+      },
+      {
+        "startTime": 2800,
+        "endTime": 3260
+      },
+      {
+        "startTime": 3400,
+        "endTime": 3640
+      }
+    ]
+  }
+]

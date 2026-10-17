@@ -19,6 +19,164 @@ beforeAll(async () => {
 });
 
 describe("按主歌词时间粒度匹配日语音译", () => {
+  it.each([
+    ["こんな穏やかな君が来ることを", "konna odayaka na kimi ga kuru koto o"],
+    ["自分の未来を描いてくこと", "jibun no mirai o egaiteku koto"],
+    ["あきらめて出したを", "akiramete dashita o"],
+    ["今を心に強くかみしめてる", "ima o kokoro ni tsuyoku kamishimeteru"],
+    ["一緒で一度のめぐり合いを", "issho de ichido no meguriai o"],
+    ["全てを悲してる", "subete o kanashiteru"],
+    ["甘い日常を", "amai nichijou o"],
+    ["愛しさと感謝の気持ちを", "itoshisa to kansha no kimochi o"],
+    ["頑なだったねあの頃の私", "katakuna datta ne ano koro no watashi"],
+    ["紙をかけるように", "kami o kakeru you ni"],
+    ["もっと甘い甘い日常を", "motto amai amai nichijou o"],
+    ["本当甘い甘い日常を", "hontou amai amai nichijou o"],
+    ["手と手をつないで", "te to te o tsunaide"],
+  ])("AI 音译的助词与连写词仍逐词对齐：%s", (text, romanization) => {
+    for (const existing of [
+      romanization,
+      romanization.toUpperCase(),
+      romanization.replace(/\s+/g, ""),
+    ]) {
+      const line = { id: 0, words: Array.from(text), translation: "", romanization: existing };
+      const result = alignRomanization(
+        tokenizeAlignmentSource(line, tokenizer).phonetic,
+        existing,
+      )!;
+      expect(result).not.toBeNull();
+      expect(result.score).toBeGreaterThanOrEqual(0.8);
+      expect(result.parts.map((part) => part.text).join("")).toBe(existing);
+      expect(
+        result.parts.flatMap((part) =>
+          Array.from({ length: part.to - part.from + 1 }, (_, index) => part.from + index),
+        ),
+      ).toEqual(line.words.map((_, index) => index));
+      for (const [index, word] of line.words.entries()) {
+        if (word !== "を") continue;
+        const particle = result.parts.find((part) => part.from === index && part.to === index);
+        expect(particle?.text.trim().toLowerCase()).toBe("o");
+      }
+    }
+  });
+
+  it("同一行的 wo 与 o 各自保留，不能把拉丁字母 wo 当成日语助词省略 w", () => {
+    const line = {
+      id: 0,
+      words: ["君", "を", "信", "じ", "て", "僕", "を", "信", "じ", "て"],
+      translation: "",
+      romanization: "kimi o shinjite boku wo shinjite",
+    };
+    const result = alignRomanization(
+      tokenizeAlignmentSource(line, tokenizer).phonetic,
+      line.romanization,
+    )!;
+    expect(result).not.toBeNull();
+    expect(
+      result.parts.filter((part) => [1, 6].includes(part.from)).map((part) => part.text.trim()),
+    ).toEqual(["o", "wo"]);
+    const latin = { id: 0, words: ["wo"], translation: "", romanization: "o" };
+    expect(
+      alignRomanization(tokenizeAlignmentSource(latin, tokenizer).phonetic, latin.romanization),
+    ).toBeNull();
+  });
+  it.each([
+    {
+      words: ["全", "て", "を", "悲", "し", "て", "る"],
+      romanization: "su be te wo hi shi te ru",
+      expected: ["su be ", "te ", "wo ", "hi ", "shi ", "te ", "ru"],
+    },
+    {
+      words: ["幸", "せ", "悲", "し", "て", "る"],
+      romanization: "shi a wa se hi shi te ru",
+      expected: ["shi a wa ", "se ", "hi ", "shi ", "te ", "ru"],
+    },
+    {
+      words: ["頑", "な", "だ", "っ", "た", "ね", "あ", "の", "頃", "の", "私"],
+      romanization: "ga n na da tsu ta ne a no ko ro no wa ta ku shi",
+      expected: [
+        "ga n ",
+        "na ",
+        "da ",
+        "tsu ",
+        "ta ",
+        "ne ",
+        "a ",
+        "no ",
+        "ko ro ",
+        "no ",
+        "wa ta ku shi",
+      ],
+    },
+    {
+      words: ["心", "地", "良", "い"],
+      romanization: "ko ko chi e i",
+      expected: ["ko ko chi ", "e ", "i"],
+    },
+    {
+      words: ["合", "わ", "せ", "た", "唇", "体", "中", "で"],
+      romanization: "a wa se ta shi n ta i chu u de",
+      expected: ["a ", "wa ", "se ", "ta ", "shi n ", "ta i ", "chu u ", "de"],
+    },
+    {
+      words: ["喜", "び", "悲", "し", "て", "る"],
+      romanization: "yo ro ko bi hi shi te ru",
+      expected: ["yo ro ko ", "bi ", "hi ", "shi ", "te ", "ru"],
+    },
+  ])("已有音译采用不同汉字读法时仍沿用唯一的原词锚点：$romanization", (fixture) => {
+    const line = { id: 0, translation: "", ...fixture };
+    const snapshot = structuredClone(line);
+    const result = alignRomanization(
+      tokenizeAlignmentSource(line, tokenizer).phonetic,
+      line.romanization,
+    )!;
+    expect(result).not.toBeNull();
+    expect(result.score).toBeGreaterThanOrEqual(0.8);
+    expect(result.parts.map((part) => part.text)).toEqual(fixture.expected);
+    expect(result.parts.map((part) => part.text).join("")).toBe(line.romanization);
+    expect(
+      result.parts.flatMap((part) =>
+        Array.from({ length: part.to - part.from + 1 }, (_, index) => part.from + index),
+      ),
+    ).toEqual(line.words.map((_, index) => index));
+    expect(line).toEqual(snapshot);
+  });
+
+  it("读音锚点不能掩盖缺少假名、多个错词、跨词未知读音或分组歧义", () => {
+    const original = [
+      { text: "全", reading: "sube", from: 0, to: 0 },
+      { text: "て", reading: "te", from: 1, to: 1 },
+      { text: "を", reading: "wo", from: 2, to: 2 },
+      { text: "悲", reading: "kana", from: 3, to: 3 },
+      { text: "し", reading: "shi", from: 4, to: 4 },
+      { text: "て", reading: "te", from: 5, to: 5 },
+      { text: "る", reading: "ru", from: 6, to: 6 },
+    ];
+    expect(alignRomanization(original, "su be te hi shi te ru")).toBeNull();
+    expect(
+      alignRomanization(
+        [{ ...original[0], reading: "zen" }, ...original.slice(1)],
+        "su be te wo hi shi te ru",
+      ),
+    ).toBeNull();
+    expect(
+      alignRomanization(
+        original.map((word) => (word.text === "悲" ? { ...word, to: 4 } : word)),
+        "su be te wo hi shi te ru",
+      ),
+    ).toBeNull();
+    expect(
+      alignRomanization(
+        [
+          { text: "君", reading: "kimi", from: 0, to: 0 },
+          { text: "校", reading: "kou", readings: ["kou", "ko"], from: 1, to: 1 },
+          { text: "字", reading: "ji", from: 2, to: 2 },
+          { text: "歌", reading: "uta", readings: ["uta", "ta"], from: 3, to: 3 },
+        ],
+        "kimi ko u u ta",
+      ),
+    ).toBeNull();
+  });
   it("混合英文标题与人名的读音偏差局限于强锚点之间，不被长音候选挤走", () => {
     const line: AlignmentSourceLine = {
       id: 0,

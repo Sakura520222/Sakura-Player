@@ -14,6 +14,12 @@ export interface AlignmentSourceLine {
   romanization: string;
 }
 
+/** 短语关联语义分词的下标，时间仍通过分词对应的主歌词范围获取 */
+export interface AlignmentSourcePhrase {
+  text: string;
+  indices: number[];
+}
+
 export interface AlignmentTrackResult {
   parts: AlignmentPart[];
   /** 匹配评分，不表示校准后的正确率 */

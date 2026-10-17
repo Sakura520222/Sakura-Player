@@ -154,7 +154,10 @@ export const tokenizeAlignmentSource = (
         if (reading.length > 1) readings.add(toRomaji(reading));
       }
       if (romaji) readings.add(romaji);
+      if (/^[っッ]$/u.test(reading)) readings.add("tsu");
     }
+    // 助词转写同时接受 wo 和 o，只调整读音候选，保留现成音译文本
+    if (/^[をヲ]$/u.test(token.text)) readings.add("o");
     // 连写的促音可以归在后词，如「一／歩」对应「i／ppo」
     if (/[っッ]$/u.test(kana[index - 1]?.readings[0] ?? "")) {
       for (const reading of [...readings]) {

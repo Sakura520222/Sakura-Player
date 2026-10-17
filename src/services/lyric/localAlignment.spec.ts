@@ -143,7 +143,7 @@ describe("已有译文的语义范围映射", () => {
       { text: "放晴", from: 3, to: 4 },
     ]);
   });
-  it("没有完整实词覆盖或重排坍缩为整行时不伪造逐字结果", () => {
+  it("覆盖不足或索引越界时不生成候选，完整倒序保留独立语义锚点", () => {
     expect(
       alignTranslation(
         tokens,
@@ -163,7 +163,12 @@ describe("已有译文的语义范围映射", () => {
           [0, 1],
         ],
       ),
-    ).toBeNull();
+    ).toMatchObject({
+      parts: [
+        { text: "晴天", from: 3, to: 4 },
+        { text: "今天", from: 0, to: 1 },
+      ],
+    });
     expect(alignTranslation(tokens, ["今天", "晴天"], [[99, 0]])).toBeNull();
   });
 });

@@ -1,4 +1,5 @@
 import type { AlignmentPart, AlignmentTrackResult } from "../types/lyricAlignment";
+import { alignRomanizationByAnchors } from "./romanizationAnchors";
 
 export interface ReadingToken {
   text: string;
@@ -60,7 +61,7 @@ const normalizeReading = (text: string): { text: string; offsets: number[] } => 
  * 在候选读音图上求全局编辑距离，保留主歌词字词边界及已有音译的原始切片
  * @param tokens - 按原文顺序排列、带候选读音的语言学词元
  * @param existing - 必须原样保留的现成音译
- * @returns 可靠时的完整切片；缺词、错读或超长输入返回 null
+ * @returns 读音匹配或唯一锚定的完整切片；缺词、歧义或超长输入返回 null
  */
 export const alignRomanization = (
   tokens: ReadingToken[],
@@ -74,30 +75,35 @@ export const alignRomanization = (
     return null;
   const groups: { text: string; readings: string[]; from: number; to: number }[] = [];
   for (const token of tokens) {
-    if (
-      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(token.reading)
-    )
-      return null;
-    const readings = [
-      ...new Set(
-        (token.readings ?? [token.reading])
-          .flatMap((reading) => {
-            const normalized = normalizeReading(reading).text;
-            return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(token.text)
-              ? [
-                  normalized,
-                  normalized.replace(/oo/g, "ou"),
-                  normalized.replace(/ou/g, "oo"),
-                  normalized.replace(/oo|ou/g, "o"),
-                ]
-              : [normalized];
-          })
-          .filter(Boolean),
-      ),
-    ];
+    const unresolved =
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
+        token.reading,
+      );
+    if (unresolved && !/^\p{Script=Han}+$/u.test(token.text)) return null;
+    const readings = unresolved
+      ? []
+      : [
+          ...new Set(
+            (token.readings ?? [token.reading])
+              .flatMap((reading) => {
+                const normalized = normalizeReading(reading).text;
+                return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(token.text)
+                  ? [
+                      normalized,
+                      normalized.replace(/oo/g, "ou"),
+                      normalized.replace(/ou/g, "oo"),
+                      normalized.replace(/oo|ou/g, "o"),
+                    ]
+                  : [normalized];
+              })
+              .filter(Boolean),
+          ),
+        ];
     if (!readings.length) {
-      if (/[\p{L}\p{N}]/u.test(token.text)) return null;
-      continue;
+      if (!/^\p{Script=Han}+$/u.test(token.text)) {
+        if (/[\p{L}\p{N}]/u.test(token.text)) return null;
+        continue;
+      }
     }
     groups.push({ text: token.text, readings, from: token.from, to: token.to });
   }
@@ -113,6 +119,8 @@ export const alignRomanization = (
     ) > 4096
   )
     return null;
+  if (groups.some((group) => !group.readings.length))
+    return alignRomanizationByAnchors(groups, target, existing);
   const width = target.text.length + 1;
   const boundaryCosts = Float64Array.from({ length: width }, (_, column) =>
     column > 0 &&
@@ -187,12 +195,12 @@ export const alignRomanization = (
         edits++;
       }
     }
-    if (first < 0) return null;
+    if (first < 0) return alignRomanizationByAnchors(groups, target, existing);
     coverage[index] = exact / reading.length;
     starts[index] = first;
   }
   const score = 1 - (edits + column) / Math.max(length, target.text.length);
-  if (score < 0.8) return null;
+  if (score < 0.8) return alignRomanizationByAnchors(groups, target, existing);
   const uncertain = coverage.flatMap((ratio, index) => (ratio < 0.7 ? [index] : []));
   for (const index of uncertain) {
     // 现成音译可能采用词典没有的汉字读音，只允许强读音锚点夹住的单个原词沿用其时间
@@ -205,7 +213,7 @@ export const alignRomanization = (
       coverage.slice(index - 2, index).some((ratio) => ratio !== 1) ||
       coverage.slice(index + 1, index + 3).some((ratio) => ratio !== 1)
     )
-      return null;
+      return alignRomanizationByAnchors(groups, target, existing);
   }
   const boundaries = Array.from(starts, (position, index) => {
     if (index === 0) return 0;
@@ -227,15 +235,17 @@ export const alignRomanization = (
       previous.to = Math.max(previous.to, group.to);
     } else parts.push({ text: existing.slice(start, end), from: group.from, to: group.to });
   }
-  return parts.every((part) => part.text.trim()) ? { parts, score } : null;
+  return parts.every((part) => part.text.trim())
+    ? { parts, score }
+    : alignRomanizationByAnchors(groups, target, existing);
 };
 
 /**
- * 将跨语言词配对归并为顺序语义短语，冲突只合并、不凭字数伪造时间
+ * 保留译文语序与独立语义锚点，整句倒序交给已有的区间顺排流程
  * @param source - 带原文字词范围的分词
  * @param target - 保留空白和标点的译文切片
  * @param pairs - SimAlign 返回的词索引配对
- * @returns 完整且具有至少两个时间锚点的译文映射，否则返回 null
+ * @returns 双向覆盖充分且具有至少两个时间锚点的完整译文，否则返回 null
  */
 export const alignTranslation = (
   source: Pick<ReadingToken, "text" | "from" | "to">[],
@@ -245,38 +255,54 @@ export const alignTranslation = (
   if (!source.length || !target.length) return null;
   const anchors = target.map(() => new Set<number>());
   const covered = new Set<number>();
+  const sourceWords = source.map((token) => /[\p{L}\p{N}]/u.test(token.text));
+  // 字数只用于覆盖评分，时间范围始终来自原文锚点
+  const targetLengths = target.map((text) => text.match(/[\p{L}\p{N}]/gu)?.length ?? 0);
   for (const pair of pairs) {
     if (pair.length !== 2) return null;
     const [from, to] = pair;
     if (!Number.isInteger(from) || !Number.isInteger(to) || !source[from] || !anchors[to])
       return null;
+    if (!sourceWords[from] || !targetLengths[to]) continue;
     anchors[to].add(from);
     covered.add(from);
   }
-  const meaningful = target.map((text) => /[\p{L}\p{N}]/u.test(text));
-  // 未匹配的实词保留逐行显示，不能把增译部分任意塞进相邻时间片
-  if (anchors.some((indices, index) => meaningful[index] && indices.size === 0)) return null;
-  const sourceWords = source.filter((token) => /[\p{L}\p{N}]/u.test(token.text));
-  const score = sourceWords.length
-    ? source.filter((token, index) => covered.has(index) && /[\p{L}\p{N}]/u.test(token.text))
-        .length / sourceWords.length
-    : 0;
+  const sourceCount = sourceWords.filter(Boolean).length;
+  const targetLength = targetLengths.reduce((sum, length) => sum + length, 0);
+  if (!sourceCount || !targetLength) return null;
+  const sourceCoverage = covered.size / sourceCount;
+  const targetCoverage =
+    targetLengths.reduce((sum, length, index) => sum + (anchors[index].size ? length : 0), 0) /
+    targetLength;
+  if (targetCoverage < 0.5) return null;
+  // 日中、英中翻译会省略助词或补充主语，用双向覆盖衡量整行，避免要求每个分词都有配对
+  const score = (2 * sourceCoverage * targetCoverage) / (sourceCoverage + targetCoverage);
   if (score < 0.65) return null;
-  const parts: AlignmentPart[] = [];
-  let leading = "";
+  const aligned: AlignmentPart[] = [];
+  let pending = "";
   for (const [index, text] of target.entries()) {
     const indices = [...anchors[index]];
     if (!indices.length) {
-      if (parts.length) parts[parts.length - 1].text += text;
-      else leading += text;
+      if (!targetLengths[index] && !pending && aligned.length)
+        aligned[aligned.length - 1].text += text;
+      else pending += text;
       continue;
     }
     const part = {
-      text: leading + text,
+      text: pending + text,
       from: Math.min(...indices.map((id) => source[id].from)),
       to: Math.max(...indices.map((id) => source[id].to)),
     };
-    leading = "";
+    pending = "";
+    const previous = aligned.at(-1);
+    if (previous && previous.from === part.from && previous.to === part.to)
+      previous.text += part.text;
+    else aligned.push(part);
+  }
+  if (pending && aligned.length) aligned[aligned.length - 1].text += pending;
+  const parts: AlignmentPart[] = [];
+  for (const original of aligned) {
+    const part = { ...original };
     while (parts.length && parts[parts.length - 1].to >= part.from) {
       const previous = parts.pop()!;
       part.text = previous.text + part.text;
@@ -285,5 +311,10 @@ export const alignTranslation = (
     }
     parts.push(part);
   }
-  return parts.length > 1 ? { parts, score } : null;
+  if (parts.length > 1) return { parts, score };
+  // 语义倒序不等于缺少锚点，至少两个不相交的原词范围才能交给顺排流程
+  return aligned.length > 1 &&
+    Math.min(...aligned.map((part) => part.to)) < Math.max(...aligned.map((part) => part.from))
+    ? { parts: aligned, score }
+    : null;
 };

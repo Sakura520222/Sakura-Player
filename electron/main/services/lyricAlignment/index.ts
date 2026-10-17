@@ -1,7 +1,11 @@
 import { Worker } from "node:worker_threads";
 import path from "node:path";
 import { z } from "zod";
-import type { AlignmentLineResult, LocalAlignmentRequest } from "@shared/types/lyricAlignment";
+import type {
+  AlignmentLineResult,
+  AlignmentSourcePhrase,
+  LocalAlignmentRequest,
+} from "@shared/types/lyricAlignment";
 import { alignTranslation, type ReadingToken } from "@shared/utils/lyricAlignment";
 import { acquireAlignmentEnvironment, alignmentScript } from "./environment";
 import { runAlignmentPython } from "./process";
@@ -47,6 +51,7 @@ export const alignmentRequestSchema = z
 
 interface PreparedLine extends AlignmentLineResult {
   source: ReadingToken[];
+  sourcePhrases?: AlignmentSourcePhrase[];
   target: string[];
 }
 
@@ -89,7 +94,7 @@ const prepareLines = async (
  * @param lines - 需要语义匹配的词元
  * @param signal - 取消后立即终止模型进程
  * @param environment - 已持有使用权的专用运行环境
- * @returns 按稳定行号返回的词索引配对
+ * @returns 按稳定行号返回的词索引配对及语言学短语候选
  */
 const runSimAlign = async (
   lines: PreparedLine[],
@@ -100,6 +105,7 @@ const runSimAlign = async (
   const payload = lines.map((line) => ({
     id: line.id,
     source: line.source.map((token) => token.text),
+    phrases: line.sourcePhrases,
     target: line.target,
   }));
   const output = await runAlignmentPython(
@@ -109,13 +115,15 @@ const runSimAlign = async (
     signal,
     JSON.stringify(payload),
   );
+  const pairs = z
+    .array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]))
+    .max(65536);
   const results = z
     .array(
       z.object({
         id: z.number().int(),
-        pairs: z
-          .array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]))
-          .max(65536),
+        pairs,
+        alternatives: z.array(pairs).max(3).default([]),
       }),
     )
     .max(1000)
@@ -126,7 +134,7 @@ const runSimAlign = async (
     results.some((line) => !lines.some((input) => input.id === line.id))
   )
     throw new Error("SimAlign 返回的歌词行不完整");
-  return new Map(results.map((line) => [line.id, line.pairs]));
+  return new Map(results.map((line) => [line.id, line]));
 };
 
 /**
@@ -156,9 +164,15 @@ export const runLocalAlignment = async (request: LocalAlignmentRequest, signal: 
     if (environment && translated.length) {
       try {
         const pairs = await runSimAlign(translated, signal, environment);
-        for (const line of translated)
-          line.translation =
-            alignTranslation(line.source, line.target, pairs.get(line.id)!) ?? undefined;
+        for (const line of translated) {
+          const result = pairs.get(line.id)!;
+          for (const candidate of [result.pairs, ...result.alternatives]) {
+            const translation = alignTranslation(line.source, line.target, candidate);
+            if (!translation) continue;
+            line.translation = translation;
+            break;
+          }
+        }
       } catch (error) {
         signal.throwIfAborted();
         translationError = error instanceof Error ? error.message : String(error);

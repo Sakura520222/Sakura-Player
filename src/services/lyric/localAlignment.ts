@@ -77,16 +77,18 @@ export const collectLocalAlignmentLines = (
 };
 
 /**
- * 校验原样文本和索引范围，重叠时间合并后交给已有歌词应用流程
+ * 校验文本和索引，省略的原词并入最近译文短语，语序冲突复用共享顺排流程
  * @param line - 不可修改的逐字主歌词
  * @param result - 本地算法返回的完整轨道
  * @param text - 本轨道必须保留的现成文本
+ * @param field - 需要校验的辅助轨道类型
  * @returns 完整辅助索引片段；任何改写、越界或低分结果返回 null
  */
 const validateAlignmentParts = (
   line: LyricLine,
   result: AlignmentTrackResult,
   text: string,
+  field: "translation" | "romanization",
 ): AlignmentPart[] | null => {
   if (
     !text.trim() ||
@@ -108,7 +110,7 @@ const validateAlignmentParts = (
       !Number.isInteger(part.from) ||
       !Number.isInteger(part.to) ||
       part.from < 0 ||
-      part.from <= previousTo ||
+      (field === "romanization" && part.from <= previousTo) ||
       part.to < part.from ||
       part.to >= line.words.length
     )
@@ -123,7 +125,11 @@ const validateAlignmentParts = (
       startTime: Math.min(...source.map((word) => word.startTime)),
       endTime: Math.max(...source.map((word) => word.endTime)),
     };
-    while (words.length && words[words.length - 1].endTime > span.startTime) {
+    while (
+      field === "romanization" &&
+      words.length &&
+      words[words.length - 1].endTime > span.startTime
+    ) {
       const previous = words.pop()!;
       span.from = previous.from;
       span.word = previous.word + span.word;
@@ -132,7 +138,31 @@ const validateAlignmentParts = (
     }
     words.push(span);
   }
-  return words.length > 1 ? words.map(({ word: text, from, to }) => ({ text, from, to })) : null;
+  if (field === "translation" && words.length > 1) {
+    const anchors = words.map((word) => ({ word, from: word.from, to: word.to }));
+    for (const [index, source] of line.words.entries()) {
+      if (
+        !source.word.trim() ||
+        anchors.some((anchor) => anchor.from <= index && anchor.to >= index)
+      )
+        continue;
+      // 省略的助词等原词沿用最近语义短语，不能留下保存后再次被判为未完成的时间缺口
+      const nearest = anchors.reduce((previous, current) =>
+        Math.max(current.from - index, index - current.to, 0) <
+        Math.max(previous.from - index, index - previous.to, 0)
+          ? current
+          : previous,
+      ).word;
+      nearest.from = Math.min(nearest.from, index);
+      nearest.to = Math.max(nearest.to, index);
+      nearest.startTime = Math.min(nearest.startTime, source.startTime);
+      nearest.endTime = Math.max(nearest.endTime, source.endTime);
+    }
+  }
+  return words.length > 1 &&
+    new Set(words.map((word) => `${word.startTime}:${word.endTime}`)).size > 1
+    ? words.map(({ word: text, from, to }) => ({ text, from, to }))
+    : null;
 };
 
 /**
@@ -159,13 +189,23 @@ export const applyLocalAlignment = (
     const line = lines[result.id];
     const update: GeneratedLyric = {};
     if (result.translation) {
-      const parts = validateAlignmentParts(line, result.translation, source.translation);
+      const parts = validateAlignmentParts(
+        line,
+        result.translation,
+        source.translation,
+        "translation",
+      );
       if (!parts) return null;
       update.translation = parts;
     }
     if (result.romanization) {
       if (result.romanization.score < 0.8) return null;
-      const parts = validateAlignmentParts(line, result.romanization, source.romanization);
+      const parts = validateAlignmentParts(
+        line,
+        result.romanization,
+        source.romanization,
+        "romanization",
+      );
       if (!parts) return null;
       update.romanization = parts.map(({ text, from: index, to }) => ({ text, index, to }));
     }

@@ -47,6 +47,90 @@ beforeEach(() => {
 });
 
 describe("环境使用权覆盖整个对齐任务", () => {
+  it("主配对有效时保留已有候选，同时向模型传递完整的短语词元范围", async () => {
+    const pending = runLocalAlignment(request, new AbortController().signal);
+    await vi.waitFor(() => expect(mocks.worker).toHaveBeenCalled());
+    const sourcePhrases = [
+      { text: "君", indices: [0] },
+      { text: "と", indices: [1] },
+    ];
+    (mocks.worker.mock.calls[0][0] as EventEmitter).emit("message", {
+      lines: [
+        {
+          id: 0,
+          source: [
+            { text: "君", from: 0, to: 0 },
+            { text: "と", from: 1, to: 1 },
+          ],
+          sourcePhrases,
+          target: ["与", "你"],
+        },
+      ],
+    });
+    mocks.python.mockResolvedValueOnce(
+      JSON.stringify([
+        {
+          id: 0,
+          pairs: [
+            [0, 0],
+            [1, 1],
+          ],
+          alternatives: [
+            [
+              [0, 1],
+              [1, 0],
+            ],
+          ],
+        },
+      ]),
+    );
+    const result = await pending;
+    expect(result.lines[0].translation?.parts).toEqual([
+      { text: "与", from: 0, to: 0 },
+      { text: "你", from: 1, to: 1 },
+    ]);
+    expect(JSON.parse(mocks.python.mock.calls[0][4])[0].phrases).toEqual(sourcePhrases);
+  });
+
+  it("主配对覆盖不足时依次检查短语候选，跳过越界配对后完整保留补词", async () => {
+    mocks.python.mockResolvedValueOnce(
+      JSON.stringify([
+        {
+          id: 0,
+          pairs: [[0, 0]],
+          alternatives: [
+            [[99, 0]],
+            [
+              [0, 0],
+              [1, 2],
+            ],
+          ],
+        },
+      ]),
+    );
+    const pending = runLocalAlignment(request, new AbortController().signal);
+    await vi.waitFor(() => expect(mocks.worker).toHaveBeenCalled());
+    (mocks.worker.mock.calls[0][0] as EventEmitter).emit("message", {
+      lines: [
+        {
+          id: 0,
+          source: [
+            { text: "hello", from: 0, to: 0 },
+            { text: "world", from: 1, to: 1 },
+          ],
+          target: ["你好", " ", "世界", "吧"],
+        },
+      ],
+    });
+    const result = await pending;
+    expect(result.lines[0].translation?.parts).toEqual([
+      { text: "你好 ", from: 0, to: 0 },
+      { text: "世界吧", from: 1, to: 1 },
+    ]);
+    expect(result.translationError).toBeUndefined();
+    expect(mocks.release).toHaveBeenCalledTimes(1);
+  });
+
   it("分词开始前持有环境，分词失败仍释放使用权", async () => {
     const pending = runLocalAlignment(request, new AbortController().signal);
     const rejected = expect(pending).rejects.toThrow("分词失败");
