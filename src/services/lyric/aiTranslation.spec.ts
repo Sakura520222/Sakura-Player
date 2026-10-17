@@ -51,12 +51,23 @@ describe("AI 歌词翻译数据协议", () => {
     ]);
   });
 
+  it("数字字符串行号与额外字段不影响完整译文，稳定下标仍精确匹配", () => {
+    const decoder = new TranslationDecoder(rows);
+    decoder.push(
+      '[{"id":"2","translation":"雨后的光","romanization":"extra"},{"id":"0","translation":"远方的光"}]',
+    );
+    expect([...decoder.finish()]).toEqual([
+      [2, "雨后的光"],
+      [0, "远方的光"],
+    ]);
+  });
+
   it.each([
     '{"id":1,"translation":"错行"}',
     '{"id":0,"translation":"第一行"}\n{"id":0,"translation":"重复行"}',
     '{"id":0,"translation":""}',
     '{"id":0,"translation":"两行\\n文字"}',
-    '{"id":"0","translation":"类型错误"}',
+    '{"id":"0.5","translation":"类型错误"}',
     "这里是你的翻译：",
     '{"id":0,"translation":"' + "x".repeat(16384) + '"}',
   ])("拒绝无效或越界记录，不按返回顺序错配：%#", (output) => {

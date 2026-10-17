@@ -3,6 +3,8 @@ import type { AiModelConfig } from "@shared/types/ai";
 import { useMediaStore } from "@/stores/media";
 import {
   GENERATION_TASKS,
+  MAX_GENERATION_FEEDBACK_CHARACTERS,
+  MAX_GENERATION_FEEDBACK_ERRORS,
   collectGenerationLines,
   createGenerationMessages,
   createGenerationPlan,
@@ -12,6 +14,7 @@ import {
   type GenerationOptions,
   type GenerationMode,
   type GenerationLine,
+  type GenerationRetryFeedback,
 } from "@/services/lyric/aiGeneration";
 import {
   MAX_BATCH_LINES,
@@ -19,7 +22,11 @@ import {
   type TranslationLanguage,
 } from "@/services/lyric/aiTranslation";
 
-/** 当前弹窗独占任务，仅为当前歌词和选择保留有界续译结果 */
+/**
+ * 当前弹窗独占任务，仅为当前歌词和选择保留有界续译结果
+ * @param open - 弹窗是否打开
+ * @returns 当前生成状态与开始、续译和应用操作
+ */
 export const useAiLyricTranslation = (open: Ref<boolean>) => {
   const media = useMediaStore();
   const { t } = useI18n();
@@ -66,6 +73,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     results: Map<number, GeneratedLyric>;
     responseSize: number;
     responseSizes: Map<number, number>;
+    retryFeedback: GenerationRetryFeedback | null;
   } | null = null;
   let job: {
     revision: number;
@@ -110,8 +118,43 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       progress?.revision === media.lyricRevision &&
       progress.language === targetLanguage.value &&
       progress.key === selectionKey.value &&
-      translatedCount.value > 0,
+      generationCount.value > 0,
   );
+
+  /**
+   * 汇总所有失败路径的诊断，重复原因合并，历史有界保留并标明压缩数量
+   * @param failure - 校验、模型配置、服务端或请求异常
+   * @param lineId - 已知的原歌词行下标
+   */
+  const rememberFailure = (failure: unknown, lineId: number | null = null): void => {
+    if (!progress) return;
+    const message = (failure instanceof Error ? failure.message : String(failure)).slice(
+      0,
+      MAX_GENERATION_FEEDBACK_CHARACTERS,
+    );
+    const previous = progress.retryFeedback;
+    const history = previous
+      ? [...(previous.previousErrors ?? []), { lineId: previous.lineId, message: previous.message }]
+      : [];
+    const duplicate = history.find(
+      (item) => item.message === message && (lineId == null || item.lineId === lineId),
+    );
+    const resolvedLineId = lineId ?? duplicate?.lineId ?? null;
+    const distinct = history.filter(
+      (item) => item.message !== message || item.lineId !== resolvedLineId,
+    );
+    const omittedErrors =
+      (previous?.omittedErrors ?? 0) +
+      Math.max(0, distinct.length - (MAX_GENERATION_FEEDBACK_ERRORS - 1));
+    progress.retryFeedback = {
+      lineId: resolvedLineId,
+      message,
+      ...(distinct.length
+        ? { previousErrors: distinct.slice(-(MAX_GENERATION_FEEDBACK_ERRORS - 1)) }
+        : {}),
+      ...(omittedErrors ? { omittedErrors } : {}),
+    };
+  };
 
   /**
    * 展示校验原因及稳定行号，避免只有笼统重试提示
@@ -126,11 +169,16 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       : t("player.aiTranslation.invalidOutputLine", { line: lineId + 1, reason: failure.message });
   };
 
+  /** 取消当前生成，请求取消失败时保留诊断供续译反馈 */
   const cancel = (): void => {
     if (!job || job.cancelled) return;
     job.cancelled = true;
     phase.value = "cancelled";
-    if (job.requestId) void window.api.aiModel.cancel(job.requestId).catch(() => {});
+    const saved = progress;
+    if (job.requestId)
+      void window.api.aiModel.cancel(job.requestId).catch((failure) => {
+        if (saved && progress === saved && open.value && !disposed) rememberFailure(failure);
+      });
   };
 
   const reset = (): void => {
@@ -160,6 +208,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     }
   };
 
+  /** 刷新启用模型并记录加载异常，过期或已取消的任务不保留诊断 */
   const refreshModel = async (): Promise<void> => {
     const version = ++modelVersion;
     model.value = null;
@@ -168,16 +217,18 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       const state = await window.api.aiModel.list();
       if (disposed || !open.value || version !== modelVersion) return;
       model.value = state.models.find((item) => item.id === state.activeModelId) ?? null;
-    } catch {
-      if (!disposed && open.value && version === modelVersion)
+    } catch (failure) {
+      if (!disposed && open.value && version === modelVersion) {
         error.value = t("player.aiTranslation.modelLoadFailed");
+        if (job && !job.cancelled) rememberFailure(failure);
+      }
     } finally {
       if (version === modelVersion) loadingModel.value = false;
     }
   };
 
   /**
-   * 按当前模型配置分批生成，显式启用思考时为推理和最终文本留出预算
+   * 按当前模型配置分批生成，续译时将此前所有未处理的错误交给模型
    * @param resuming - 是否沿用当前歌词与选项的已校验进度
    */
   const run = async (resuming: boolean): Promise<void> => {
@@ -203,6 +254,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
         results: new Map(),
         responseSize: 0,
         responseSizes: new Map(),
+        retryFeedback: null,
       };
     }
     if (!rows.value.length || !progress || !progress.lines.length) return;
@@ -235,6 +287,10 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       saved.language === targetLanguage.value &&
       saved.key === selectionKey.value &&
       current.revision === media.lyricRevision;
+    /**
+     * 发布完整行，保留已有音译的空格并限制整首结果大小
+     * @param results - 本批已经规范化和校验的生成内容
+     */
     const publish = (results: ReadonlyMap<number, GeneratedLyric>) => {
       try {
         for (const [id, value] of results) {
@@ -259,8 +315,11 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
             romanization:
               typeof result?.romanization === "string"
                 ? result.romanization
-                : (result?.romanization?.map((part) => part.text).join(" ") ??
-                  line.existingRomanization),
+                : (result?.romanization
+                    ?.map((part) => part.text)
+                    .join(
+                      saved.mode === "missing" && line.existingRomanization.trim() ? "" : " ",
+                    ) ?? line.existingRomanization),
             done: !plannedIds.value.has(line.id) || !!result,
           };
         });
@@ -273,6 +332,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       if (!active) {
         phase.value = "error";
         if (!error.value) error.value = t("player.aiTranslation.noModel");
+        rememberFailure(error.value);
         return;
       }
       for (let offset = 0; offset < remaining.length;) {
@@ -305,6 +365,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           end++;
         }
         const batch = remaining.slice(offset, end);
+        const retryFeedback = resuming ? saved.retryFeedback : null;
         const decoder = new GenerationDecoder(batch, options);
         const requestId = crypto.randomUUID();
         current.requestId = requestId;
@@ -313,7 +374,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           {
             requestId,
             modelId: active.id,
-            messages: createGenerationMessages(batch, options, saved.language, song),
+            messages: createGenerationMessages(batch, options, saved.language, song, retryFeedback),
             maxTokens:
               active.reasoningEffort && !["default", "none"].includes(active.reasoningEffort)
                 ? 16384
@@ -333,21 +394,26 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
               }
             } catch (failure) {
               current.invalid = true;
+              rememberFailure(failure, decoder.failedLineId);
               error.value = describeOutputError(failure, decoder.failedLineId);
               phase.value = "error";
-              void window.api.aiModel.cancel(requestId).catch(() => {});
+              void window.api.aiModel.cancel(requestId).catch((failure) => {
+                if (progress === saved && open.value && !disposed) rememberFailure(failure);
+              });
             }
           },
         );
         current.requestId = null;
-        if (!isCurrent() || current.invalid) return;
-        if (result.status === "cancelled") {
-          phase.value = "cancelled";
+        if (!isCurrent()) return;
+        if (result.status === "error") {
+          rememberFailure(result.error);
+          if (!current.invalid) error.value = result.error;
+          phase.value = "error";
           return;
         }
-        if (result.status === "error") {
-          error.value = result.error;
-          phase.value = "error";
+        if (current.invalid) return;
+        if (result.status === "cancelled") {
+          phase.value = "cancelled";
           return;
         }
         // 隐藏窗口无增量时仍以最终结果恢复预览；失败尾记录不进入续译进度。
@@ -363,16 +429,19 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           if (["length", "max_tokens"].includes(result.data.finishReason ?? ""))
             throw new Error(t("player.aiTranslation.outputTruncated"));
         } catch (failure) {
+          rememberFailure(failure, finalDecoder.failedLineId);
           error.value = describeOutputError(failure, finalDecoder.failedLineId);
           throw failure;
         } finally {
           publish(finalDecoder.results);
         }
+        if (saved.retryFeedback === retryFeedback) saved.retryFeedback = null;
         offset = end;
       }
       if (isCurrent()) phase.value = "completed";
     } catch (failure) {
       if (isCurrent()) {
+        rememberFailure(failure);
         phase.value = "error";
         if (!error.value) error.value = describeOutputError(failure);
       }

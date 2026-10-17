@@ -2,12 +2,82 @@ import { describe, expect, it } from "vitest";
 import { normalizeLyricLines, parseLyric, toTTML } from "lyric-kit";
 import type { LyricLine } from "@shared/types/lyrics";
 import { ALIGNMENT_LINES, ALIGNMENT_RESULT } from "@shared/testFixtures/lyricAlignment";
-import { alignGeneratedLyrics } from "./alignment";
+import { alignGeneratedLyrics, applyGeneratedLyrics } from "./alignment";
+import {
+  GenerationDecoder,
+  createGenerationPlan,
+  getGenerationCoverage,
+} from "@/services/lyric/aiGeneration";
 import { AUXILIARY_TIME_BASIS_KEY, createTranslationTrack } from "./translation";
 import { applyTimedAuxiliary } from "./auxiliary";
 import { createLyricSaveContent } from "./save";
 
 describe("逐字辅助歌词对齐与重载", () => {
+  it("促音拗音合并范围应用及重载后保留原文、已有标点和完整逐字覆盖", () => {
+    const source: LyricLine[] = [
+      {
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        words: ["き", "ゃ", "っ", "と", "!"].map((word, index) => ({
+          word,
+          startTime: 1000 + index * 200,
+          endTime: 1200 + index * 200,
+        })),
+        startTime: 1000,
+        endTime: 2000,
+        romanLyric: "kya tto!",
+      },
+    ];
+    const before = structuredClone(source);
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: false,
+      wordRomanization: true,
+    };
+    const decoder = new GenerationDecoder(
+      createGenerationPlan(source, options, "missing"),
+      options,
+    );
+    decoder.push(
+      JSON.stringify({
+        id: "0",
+        romanization: [
+          { from: "0", to: "1", text: "kya" },
+          { from: "2", to: "3", text: "tto" },
+          { index: "4", text: "!" },
+        ],
+      }),
+    );
+    const generated = applyGeneratedLyrics(source, decoder.finish(), options)!;
+    expect(generated[0].romanLyric).toBe("kya tto!");
+    expect(generated[0].romanizationWords).toEqual([
+      { word: "kya ", startTime: 1000, endTime: 1400 },
+      { word: "tto", startTime: 1400, endTime: 1800 },
+      { word: "!", startTime: 1800, endTime: 2000 },
+    ]);
+    expect(createGenerationPlan(generated, options, "missing")).toEqual([]);
+    const input = {
+      content: toTTML(source),
+      format: "ttml" as const,
+      romaji: createTranslationTrack(
+        generated,
+        new Map([[0, generated[0].romanizationWords!]]),
+        "und-Latn",
+      ),
+      romajiFormat: "ttml" as const,
+    };
+    const loaded: LyricLine[] = parseLyric(input).lines;
+    applyTimedAuxiliary(loaded, input);
+    expect(loaded[0].romanLyric).toBe("kya tto!");
+    expect(loaded[0].romanizationWords).toEqual(generated[0].romanizationWords);
+    expect(getGenerationCoverage(loaded).existing.wordRomanization).toBe(1);
+    expect(createGenerationPlan(loaded, options, "missing")).toEqual([]);
+    expect(source).toEqual(before);
+    expect(
+      loaded[0].words.map(({ word, startTime, endTime }) => ({ word, startTime, endTime })),
+    ).toEqual(source[0].words);
+  });
+
   it("已保存的逆序逐字译文重载后修正顺序，保留文本且不修改原数据", () => {
     const source = structuredClone(ALIGNMENT_LINES);
     const input = {

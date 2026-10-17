@@ -98,6 +98,278 @@ afterEach(() => {
 });
 
 describe("AI 歌词翻译任务生命周期", () => {
+  it.each([
+    { kind: "service", message: "AI 请求失败（HTTP 401）" },
+    { kind: "timeout", message: "AI 请求超时，请稍后重试" },
+    { kind: "network", message: "fetch failed" },
+    { kind: "ipc", message: "IPC 调用失败" },
+  ])("$kind 首批失败也可续译，实际错误会传给模型", async ({ kind, message }) => {
+    const state = await setup();
+    api.stream.mockImplementationOnce(async () => {
+      if (kind === "network") throw new Error(message);
+      if (kind === "ipc") throw message;
+      return { status: "error", error: message };
+    });
+    await state.start();
+    expect(state.translatedCount.value).toBe(0);
+    expect(state.canResume.value).toBe(true);
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.retryFeedback).toEqual({ lineId: null, lineNumber: null, message });
+      expect(payload.lines.map(({ id }) => id)).toEqual([0, 1]);
+      return result(output);
+    });
+    await state.resume();
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it.each(["load-failed", "no-active"])("%s 模型配置错误在恢复后反馈给模型", async (kind) => {
+    const state = await setup();
+    if (kind === "load-failed") api.list.mockRejectedValueOnce(new Error("读取模型配置失败"));
+    else api.list.mockResolvedValueOnce({ models: [active], activeModelId: null });
+    await state.start();
+    expect(api.stream).not.toHaveBeenCalled();
+    expect(state.canResume.value).toBe(true);
+    api.stream.mockImplementationOnce(async (request) => {
+      const feedback = JSON.parse(request.messages[1].content).retryFeedback;
+      expect(feedback.message).toBe(
+        kind === "load-failed"
+          ? "player.aiTranslation.modelLoadFailed"
+          : "player.aiTranslation.noModel",
+      );
+      if (kind === "load-failed")
+        expect(feedback.previousErrors).toEqual([
+          { lineId: null, lineNumber: null, message: "读取模型配置失败" },
+        ]);
+      return result(output);
+    });
+    await state.resume();
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it("同次流式生成中的校验、取消请求和服务错误都会进入下一次反馈", async () => {
+    const state = await setup();
+    api.cancel.mockRejectedValueOnce(new Error("取消请求失败"));
+    api.stream.mockImplementationOnce(async (_request, delta) => {
+      delta('{"id":0,"translation":"保留结果"}\n{"id":1,"translation":false}\n');
+      return { status: "error", error: "服务端流式响应失败" };
+    });
+    await state.start();
+    await flushPromises();
+    api.stream.mockImplementationOnce(async (request) => {
+      const feedback = JSON.parse(request.messages[1].content).retryFeedback;
+      const failures = [feedback, ...(feedback.previousErrors ?? [])];
+      expect(failures.map(({ message }) => message)).toEqual(
+        expect.arrayContaining(["译文内容无效", "取消请求失败", "服务端流式响应失败"]),
+      );
+      expect(failures.find(({ message }) => message === "译文内容无效")).toMatchObject({
+        lineId: 1,
+        lineNumber: 2,
+      });
+      return result('{"id":1,"translation":"纠正结果"}');
+    });
+    await state.resume();
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it("错误历史合并重复原因并限制大小，压缩的较早错误明确计数", async () => {
+    const state = await setup();
+    api.stream.mockResolvedValueOnce({ status: "error", error: "错误0" });
+    await state.start();
+    for (let index = 1; index < 40; index++) {
+      api.stream.mockResolvedValueOnce({ status: "error", error: `错误${index}` });
+      await state.resume();
+    }
+    api.stream.mockResolvedValueOnce({ status: "error", error: "错误39" });
+    await state.resume();
+    api.stream.mockImplementationOnce(async (request) => {
+      const feedback = JSON.parse(request.messages[1].content).retryFeedback;
+      expect(feedback.message).toBe("错误39");
+      expect(feedback.previousErrors).toHaveLength(31);
+      expect(feedback.previousErrors[0].message).toBe("错误8");
+      expect(feedback.omittedErrors).toBe(8);
+      return result(output);
+    });
+    await state.resume();
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it("无法定位具体行的截断错误也会传回模型", async () => {
+    const state = await setup();
+    api.stream.mockResolvedValueOnce(result('{"id":0,"translation":"已完成"}\n{"id":1'));
+    await state.start();
+    expect(state.translatedCount.value).toBe(1);
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.retryFeedback).toEqual({
+        lineId: null,
+        lineNumber: null,
+        message: "歌词 JSON 不完整",
+      });
+      expect(payload.lines.map(({ id }) => id)).toEqual([1]);
+      return result('{"id":1,"translation":"纠正结果"}');
+    });
+    await state.resume();
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it("续译取消后保留反馈，服务错误与此前校验原因一并传给模型", async () => {
+    const state = await setup();
+    api.stream.mockResolvedValueOnce(
+      result('{"id":0,"translation":"保留结果"}\n{"id":1,"translation":false}'),
+    );
+    await state.start();
+    for (const status of ["cancelled", "error"] as const) {
+      api.stream.mockImplementationOnce(async (request) => {
+        expect(JSON.parse(request.messages[1].content).retryFeedback).toEqual({
+          lineId: 1,
+          lineNumber: 2,
+          message: "译文内容无效",
+        });
+        return status === "error"
+          ? { status: "error", error: "服务端错误信息" }
+          : { status: "cancelled" };
+      });
+      await state.resume();
+      expect(state.canResume.value).toBe(true);
+    }
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.retryFeedback).toEqual({
+        lineId: null,
+        lineNumber: null,
+        message: "服务端错误信息",
+        previousErrors: [{ lineId: 1, lineNumber: 2, message: "译文内容无效" }],
+      });
+      return result('{"id":1,"translation":"纠正结果"}');
+    });
+    await state.resume();
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it.each(["restart", "source", "language", "generation-mode", "close"])(
+    "%s 重置任务时清除旧校验反馈",
+    async (change) => {
+      const state = await setup();
+      api.stream.mockResolvedValueOnce(
+        result('{"id":0,"translation":"已完成"}\n{"id":1,"translation":false}'),
+      );
+      await state.start();
+      expect(state.canResume.value).toBe(true);
+      if (change === "source") media.lyricRevision++;
+      else if (change === "language") state.targetLanguage.value = "ja";
+      else if (change === "generation-mode") state.generationMode.value = "full";
+      else if (change === "close") {
+        state.open.value = false;
+        await nextTick();
+        state.open.value = true;
+      }
+      await flushPromises();
+      api.stream.mockImplementationOnce(async (request) => {
+        expect(JSON.parse(request.messages[1].content)).not.toHaveProperty("retryFeedback");
+        return { status: "cancelled" };
+      });
+      await state.start();
+      expect(api.stream).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each(["stream", "final"])(
+    "%s 第 26 行改写已有音译时，续译传回校验原因且只请求剩余六行",
+    async (delivery) => {
+      media.parsedLyric = Array.from({ length: 31 }, () => ({
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        translatedLyric: "Walk with you",
+        romanLyric: "kimi to aruku",
+      }));
+      const state = await setup(false);
+      api.stream.mockImplementation(async (request, delta) => {
+        const payload = JSON.parse(request.messages[1].content);
+        expect(payload).not.toHaveProperty("retryFeedback");
+        const records: string[] = [];
+        for (const { id } of payload.lines) {
+          if (id === 25) {
+            const invalid = structuredClone(ALIGNMENT_RESULT);
+            invalid.romanization[0].text = "rewritten";
+            const output = records.concat(JSON.stringify({ id, ...invalid })).join("\n");
+            if (delivery === "stream") {
+              delta(output + "\n");
+              return { status: "cancelled" };
+            }
+            return result(output);
+          }
+          records.push(JSON.stringify({ id, ...ALIGNMENT_RESULT }));
+        }
+        return result(records.join("\n"));
+      });
+      await state.start();
+      expect(state.translatedCount.value).toBe(25);
+      expect(state.canResume.value).toBe(true);
+      const completed = state.rows.value.slice(0, 25);
+      api.stream.mockImplementationOnce(async (request) => {
+        const payload = JSON.parse(request.messages[1].content);
+        expect(payload.retryFeedback).toEqual({
+          lineId: 25,
+          lineNumber: 26,
+          message: "逐字对齐不得改写已有音译",
+        });
+        expect(payload.lines.map(({ id }) => id)).toEqual([25, 26, 27, 28, 29, 30]);
+        expect(payload.lines[0].existingRomanization).toBe("kimi to aruku");
+        return result(
+          payload.lines.map(({ id }) => JSON.stringify({ id, ...ALIGNMENT_RESULT })).join("\n"),
+        );
+      });
+      await state.resume();
+      expect(state.translatedCount.value).toBe(31);
+      expect(state.rows.value.slice(0, 25)).toEqual(completed);
+      expect(state.canApply.value).toBe(true);
+    },
+  );
+
+  it("对应批次纠正成功后不再携带旧错误，新错误会替换上轮反馈", async () => {
+    media.parsedLyric = Array.from({ length: 15 }, () => structuredClone(ALIGNMENT_LINES[0]));
+    const state = await setup();
+    selectMode(state, "aligned");
+    api.stream.mockResolvedValueOnce(result(JSON.stringify({ id: 0, ...ALIGNMENT_RESULT })));
+    await state.start();
+    expect(state.translatedCount.value).toBe(1);
+    let requests = 0;
+    api.stream.mockImplementation(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      if (++requests === 1) {
+        expect(payload.retryFeedback).toEqual({
+          lineId: 1,
+          lineNumber: 2,
+          message: "辅助歌词缺行",
+        });
+        return result(
+          payload.lines.map(({ id }) => JSON.stringify({ id, ...ALIGNMENT_RESULT })).join("\n"),
+        );
+      }
+      expect(payload).not.toHaveProperty("retryFeedback");
+      const invalid = { ...ALIGNMENT_RESULT, romanization: [] };
+      return result(JSON.stringify({ id: payload.lines[0].id, ...invalid }));
+    });
+    await state.resume();
+    expect(state.translatedCount.value).toBe(7);
+    api.stream.mockImplementation(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      if (payload.lines[0].id === 7)
+        expect(payload.retryFeedback).toEqual({
+          lineId: 7,
+          lineNumber: 8,
+          message: "音译字词数量无效",
+        });
+      else expect(payload).not.toHaveProperty("retryFeedback");
+      return result(
+        payload.lines.map(({ id }) => JSON.stringify({ id, ...ALIGNMENT_RESULT })).join("\n"),
+      );
+    });
+    await state.resume();
+    expect(state.translatedCount.value).toBe(15);
+    expect(state.canApply.value).toBe(true);
+  });
+
   it("启用思考等级后预留推理预算，仍保持逐行校验和原子应用", async () => {
     api.list.mockResolvedValue({
       models: [{ ...active, reasoningEffort: "high" }],
@@ -281,10 +553,23 @@ describe("AI 歌词翻译任务生命周期", () => {
     const payload = JSON.parse(api.stream.mock.calls[0][0].messages[1].content).lines[0];
     expect(payload.existingTranslation).toBe("Walk with you");
     expect(payload.existingRomanization).toBe("kimi to aruku");
+    expect(state.rows.value[0].romanization).toBe("kimi to aruku");
     expect(state.apply()).toBe(true);
     expect(media.applyGeneratedLyric).toHaveBeenCalledWith(
       1,
-      new Map([[0, ALIGNMENT_RESULT]]),
+      new Map([
+        [
+          0,
+          {
+            ...ALIGNMENT_RESULT,
+            romanization: [
+              { index: 0, text: "kimi " },
+              { index: 1, text: "to " },
+              { index: 2, text: "aruku" },
+            ],
+          },
+        ],
+      ]),
       state.selected.value,
       "zh-CN",
       "missing",

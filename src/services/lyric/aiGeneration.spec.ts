@@ -20,6 +20,72 @@ const combinations = Array.from({ length: 15 }, (_, index) => ({
 }));
 
 describe("按选择生成辅助歌词", () => {
+  it("反馈包含所有保留的历史错误及行号，仅发送诊断字段", () => {
+    const source = collectGenerationLines(ALIGNMENT_LINES);
+    const feedback = {
+      lineId: null,
+      message: "服务端错误",
+      previousErrors: [
+        { lineId: 25, message: "不得改写已有音译", rawResponse: "不得发送的原始响应" },
+      ],
+    };
+    const messages = createGenerationMessages(
+      source,
+      combinations.at(-1)!.options,
+      "zh-CN",
+      { title: "原创", artists: [] },
+      feedback,
+    );
+    expect(JSON.parse(messages[1].content).retryFeedback).toEqual({
+      lineId: null,
+      lineNumber: null,
+      message: "服务端错误",
+      previousErrors: [{ lineId: 25, lineNumber: 26, message: "不得改写已有音译" }],
+    });
+    expect(messages[1].content).not.toContain("不得发送的原始响应");
+  });
+
+  it("续译提示携带校验原因与稳定行号，错误内容仅作为有界数据传递", () => {
+    const source = collectGenerationLines(ALIGNMENT_LINES);
+    const options = combinations.at(-1)!.options;
+    const feedback = {
+      lineId: 25,
+      message: "逐字对齐不得改写已有音译",
+      rawResponse: "不得发送的完整响应",
+    };
+    const messages = createGenerationMessages(
+      source,
+      options,
+      "zh-CN",
+      { title: "原创", artists: [] },
+      feedback,
+    );
+    expect(JSON.parse(messages[1].content).retryFeedback).toEqual({
+      lineId: 25,
+      lineNumber: 26,
+      message: "逐字对齐不得改写已有音译",
+    });
+    expect(messages[0].content).toContain("retryFeedback");
+    expect(messages[1].content).not.toContain(feedback.rawResponse);
+    const unknownLine = createGenerationMessages(
+      source,
+      options,
+      "en",
+      { title: "原创", artists: [] },
+      { lineId: null, message: "错误".repeat(1000) },
+    );
+    expect(JSON.parse(unknownLine[1].content).retryFeedback).toEqual({
+      lineId: null,
+      lineNumber: null,
+      message: "错误".repeat(250),
+    });
+    expect(
+      JSON.parse(
+        createGenerationMessages(source, options, "en", { title: "原创", artists: [] })[1].content,
+      ),
+    ).not.toHaveProperty("retryFeedback");
+  });
+
   it("兼容缩进数组且继续拒绝已有译文被改写、行号重复和逐字缺失", () => {
     const lines = structuredClone(ALIGNMENT_LINES);
     lines[0].translatedLyric = "Walk with you";
@@ -111,7 +177,7 @@ describe("按选择生成辅助歌词", () => {
     expect(decoder.finish().size).toBe(1);
   });
 
-  it("补齐混合轨道时拒绝模型顺带改写已有轨道，进度只接收本行缺失项目", () => {
+  it("补齐混合轨道时忽略模型顺带生成的已有轨道，进度只接收本行缺失项目", () => {
     const source = structuredClone(ALIGNMENT_LINES);
     source[0].translatedLyric = "保留已有翻译";
     const options = {
@@ -122,10 +188,8 @@ describe("按选择生成辅助歌词", () => {
     };
     const plan = createGenerationPlan(source, options, "missing");
     const decoder = new GenerationDecoder(plan, options);
-    expect(() => decoder.push('{"id":0,"translation":"不得替换","romanization":"kimi"}\n')).toThrow(
-      /未选择/,
-    );
-    expect(decoder.results.size).toBe(0);
+    decoder.push('{"id":0,"translation":"不得替换","romanization":"kimi"}\n');
+    expect(decoder.finish().get(0)).toEqual({ romanization: "kimi" });
     const valid = new GenerationDecoder(plan, options);
     valid.push('{"id":0,"romanization":"kimi"}');
     expect(valid.finish().get(0)).toEqual({ romanization: "kimi" });
@@ -151,6 +215,14 @@ describe("按选择生成辅助歌词", () => {
       options.wordTranslation || options.wordRomanization ? ["id", "words"] : ["id", "text"],
     );
     expect(messages[1].content).not.toMatch(/startTime|endTime|ruby|path/);
+    expect(messages[0].content.includes("Translation: return")).toBe(options.wordTranslation);
+    expect(messages[0].content.includes("Romanization: return")).toBe(options.wordRomanization);
+    expect(messages[0].content.includes("translation must be a nonempty single-line string")).toBe(
+      options.translation && !options.wordTranslation,
+    );
+    expect(messages[0].content.includes("romanization must be a nonempty single-line string")).toBe(
+      options.romanization && !options.wordRomanization,
+    );
   });
 
   it("检测已有逐行、逐字和部分数据，不计入空主行且不修改歌词", () => {
@@ -173,6 +245,7 @@ describe("按选择生成辅助歌词", () => {
     source[1].romanLyric = "";
     expect(collectGenerationLines(source)[1].existingRomanization).toBe("kimi to aruku");
     source[1].words[1].romanWord = undefined;
+    source[1].romanizationWords = source[1].romanizationWords!.slice(0, 1);
     source[1].translationWords = source[1].translationWords!.slice(0, 1);
     expect(getGenerationCoverage(source)).toEqual({
       total: 2,
@@ -213,7 +286,7 @@ describe("按选择生成辅助歌词", () => {
     }
   });
 
-  it("未勾选轨道不发送给模型，也不接受模型额外生成该轨道", () => {
+  it("未勾选轨道不发送给模型，模型额外返回该轨道也不会写入或使所选项目失败", () => {
     const lines = structuredClone(ALIGNMENT_LINES);
     lines[0].translatedLyric = "不会发送的已有译文";
     lines[0].romanLyric = "will not send existing roman";
@@ -231,10 +304,56 @@ describe("按选择生成辅助歌词", () => {
     expect(messages[1].content).not.toContain(lines[0].translatedLyric);
     expect(messages[1].content).not.toContain(lines[0].romanLyric);
     const decoder = new GenerationDecoder(source, options);
-    expect(() => {
-      decoder.push(JSON.stringify({ id: 0, translation: "extra", romanization: "kimi" }));
-      decoder.finish();
-    }).toThrow(/未选择/);
+    decoder.push(JSON.stringify({ id: "0", translation: "extra", romanization: "kimi" }));
+    expect(decoder.finish().get(0)).toEqual({ romanization: "kimi" });
+  });
+
+  it("逐字译文仅空格切分不同时恢复已有文本，音译范围保留原有读音", () => {
+    const lines = structuredClone(ALIGNMENT_LINES);
+    lines[0].translatedLyric = " Walk  with you ";
+    lines[0].romanLyric = "kimi to aruku";
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: true,
+    };
+    const decoder = new GenerationDecoder(collectGenerationLines(lines), options);
+    decoder.push(
+      JSON.stringify({
+        id: "0",
+        translation: [
+          { from: "2", to: "2", text: "Walk" },
+          { from: "1", to: "1", text: " with " },
+          { from: "0", to: "0", text: "you" },
+        ],
+        romanization: [{ from: "0", to: "2", text: "kimi to aruku" }],
+      }),
+    );
+    expect(decoder.finish().get(0)).toEqual({
+      translation: [
+        { from: 2, to: 2, text: " Walk  " },
+        { from: 1, to: 1, text: "with " },
+        { from: 0, to: 0, text: "you " },
+      ],
+      romanization: [{ index: 0, to: 2, text: "kimi to aruku" }],
+    });
+  });
+
+  it.each(combinations)("组合 $mask 兼容字符串行号并隔离未选择字段", ({ options }) => {
+    const value = {
+      id: "0",
+      translation: options.wordTranslation ? ALIGNMENT_RESULT.translation : "Walk with you",
+      romanization: options.wordRomanization ? ["kimi", "to", "aruku"] : "kimi to aruku",
+      explanation: "额外说明不写入歌词",
+    };
+    const decoder = new GenerationDecoder(collectGenerationLines(ALIGNMENT_LINES), options);
+    decoder.push(JSON.stringify([value], null, 2));
+    const result = decoder.finish().get(0)!;
+    expect(Object.keys(result)).toEqual([
+      ...(options.translation || options.wordTranslation ? ["translation"] : []),
+      ...(options.romanization || options.wordRomanization ? ["romanization"] : []),
+    ]);
   });
 
   it("多项任务必须整行完整有效才记入续译进度", () => {
