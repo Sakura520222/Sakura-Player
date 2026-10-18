@@ -1,7 +1,7 @@
 import { defineConfig, type DefaultTheme, type UserConfig } from "vitepress";
 import llmstxt from "vitepress-plugin-llms";
 
-const base = "/Sakura-Player/";
+const base = "/";
 
 const socialLinks: DefaultTheme.SocialLink[] = [
   { icon: "github", link: "https://github.com/Sakura520222/Sakura-Player" },
