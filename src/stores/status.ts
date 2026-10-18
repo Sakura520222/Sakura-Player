@@ -8,9 +8,7 @@ import type {
 import type { Platform } from "@shared/types/platform";
 import type { ContentScope } from "@/types/collection";
 import type { SortField, SortOrder } from "@/types/list";
-import type { PersonalFmOptions } from "@/types/netease";
-export type { RepeatMode, ShuffleMode } from "@shared/types/player";
-export type { SortField, SortOrder } from "@/types/list";
+import type { PersonalFmOptions } from "@shared/types/platform/netease";
 import * as queue from "./queue";
 
 export const useStatusStore = defineStore(

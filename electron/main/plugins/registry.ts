@@ -95,7 +95,7 @@ const isNewerVersion = (remote: string, current: string): boolean => {
   return false;
 };
 
-interface PluginRuntime {
+export interface PluginRuntime {
   hostSession?: AbortController;
   /** 首次启动任务，恢复独立来源曲目时只等待所属插件 */
   initialLoad?: Promise<void>;
@@ -849,4 +849,3 @@ class PluginRegistry extends EventEmitter {
 }
 
 export const pluginRegistry = new PluginRegistry();
-export type { PluginRuntime };

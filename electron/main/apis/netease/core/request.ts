@@ -42,8 +42,6 @@ export interface RequestOptions {
   checkToken?: string | boolean;
 }
 
-export { NeteaseRequestError, type RequestResponse } from "./response";
-
 interface NeteaseBody {
   code?: number | string;
   [key: string]: unknown;

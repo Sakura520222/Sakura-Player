@@ -3,7 +3,7 @@
  *
  * 用户指定一个目录作为 TTML 歌词仓库。按需扫描目录下所有 .ttml，解析 AMLL
  * `<amll:meta>` 头（musicName / artists / ncmMusicId / qqMusicId）建立索引：
- * - 平台 id（网易云 / QQ）→ 文件路径（精确命中）
+ * - 平台 id（NCM / QQ）→ 文件路径（精确命中）
  * - 归一化标题 → 候选列表
  * 命中返回文件原文，交由渲染层 parseTTML 解析。
  *

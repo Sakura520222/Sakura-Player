@@ -966,7 +966,12 @@
       "showMore": "More Contributors",
       "collapse": "Collapse",
       "commit": "Commit",
-      "date": "Date"
+      "date": "Date",
+      "dependencies": {
+        "splayer": "Upstream project for this fork (AGPL-3.0)",
+        "lyrics": "Apple Music-style lyrics display library",
+        "neteaseApi": "NCM API backup and enhancements"
+      }
     },
     "storeVersion": "Store",
     "language": {
@@ -1379,6 +1384,10 @@
     "showWordTranslation": {
       "label": "Word-timed translation",
       "description": "Highlight aligned translation with the original words. Disable to display plain line translation."
+    },
+    "keepScreenAwake": {
+      "label": "Keep screen awake during playback",
+      "description": "Only while Now Playing is expanded"
     },
     "showTranslation": {
       "label": "Show Translation",

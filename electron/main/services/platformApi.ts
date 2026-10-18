@@ -8,7 +8,7 @@ import type { ApiPlatform, ApiCallResponse } from "@shared/types/apis";
 /**
  * 界面和插件共用全部已注册的平台接口，沿用原始业务响应
  * @param platform - 音乐平台
- * @param name - 模块名；网易云也支持 /api/ 路径
+ * @param name - 模块名；NCM也支持 /api/ 路径
  * @param params - 平台接口参数
  * @returns 与渲染端一致的响应包装
  */

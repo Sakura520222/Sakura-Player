@@ -3,7 +3,9 @@
  */
 
 import type { Track, TrackDetail } from "@shared/types/player";
-import type { LyricData, LyricFormat, LyricInput } from "@shared/types/lyrics";
+import type { LyricFormat, LyricInput } from "lyric-kit";
+import type { LyricData } from "@shared/types/lyrics";
+
 import { isPlatform } from "@shared/types/platform";
 import { useMediaStore } from "@/stores/media";
 import { useSettingsStore } from "@/stores/settings";

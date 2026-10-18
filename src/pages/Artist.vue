@@ -154,7 +154,7 @@ const handlePlayAll = () => {
   player.playFrom(artist.value.tracks, { context: playbackContext.value });
 };
 
-/** 收藏歌手仅支持网易云 */
+/** 收藏歌手仅支持 NCM */
 const canSubscribeArtist = computed(() => artist.value?.source === "netease");
 
 /** 当前歌手是否已收藏（依据用户收藏歌手列表） */

@@ -80,7 +80,7 @@ const handleCopyEnvInfo = (): void => {
 
 interface Dependency {
   name: string;
-  description: string;
+  descriptionKey: string;
   url: string;
 }
 
@@ -88,17 +88,17 @@ interface Dependency {
 const dependencies: Dependency[] = [
   {
     name: "SPlayer-Next",
-    description: "本项目基于其二次开发（AGPL-3.0）",
+    descriptionKey: "settings.about.dependencies.splayer",
     url: "https://github.com/SPlayer-Dev/SPlayer-Next",
   },
   {
     name: "applemusic-like-lyrics",
-    description: "类 Apple Music 歌词显示组件库",
+    descriptionKey: "settings.about.dependencies.lyrics",
     url: "https://github.com/Steve-xmh/applemusic-like-lyrics",
   },
   {
     name: "NeteaseCloudMusicApiEnhanced",
-    description: "网易云音乐 API 备份 + 增强",
+    descriptionKey: "settings.about.dependencies.neteaseApi",
     url: "https://github.com/neteasecloudmusicapienhanced/api-enhanced",
   },
 ];
@@ -209,7 +209,7 @@ onMounted(async () => {
             />
           </div>
           <div class="text-xs text-on-surface-variant/70 mt-0.5 line-clamp-1">
-            {{ dep.description }}
+            {{ t(dep.descriptionKey) }}
           </div>
         </SCard>
       </div>

@@ -961,7 +961,12 @@
       "showMore": "更多贡献者",
       "collapse": "收起",
       "commit": "提交",
-      "date": "日期"
+      "date": "日期",
+      "dependencies": {
+        "splayer": "本项目基于其二次开发（AGPL-3.0）",
+        "lyrics": "类 Apple Music 歌词显示组件库",
+        "neteaseApi": "NCM API 备份 + 增强"
+      }
     },
     "storeVersion": "Store",
     "language": {
@@ -1374,6 +1379,10 @@
     "showWordTranslation": {
       "label": "逐字翻译高亮",
       "description": "译文包含字词对齐时间时，随主歌词逐字高亮；关闭后整行显示"
+    },
+    "keepScreenAwake": {
+      "label": "播放时保持屏幕常亮",
+      "description": "仅在播放页展开时生效"
     },
     "showTranslation": {
       "label": "显示翻译",

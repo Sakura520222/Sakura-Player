@@ -327,6 +327,12 @@ const api = {
     ready: (): Promise<void> => ipcRenderer.invoke("window:ready"),
     startupComplete: (): Promise<void> => ipcRenderer.invoke("window:startupComplete"),
     startupFailed: (error: string): void => ipcRenderer.send("window:startupFailed", error),
+    /**
+     * 同步播放页展开状态
+     * @param expanded - 播放页是否展开
+     */
+    setPlayerExpanded: (expanded: boolean): void =>
+      ipcRenderer.send("window:setPlayerExpanded", expanded),
     // 切换桌面歌词窗口
     toggleDesktopLyric: () => ipcRenderer.invoke("window:toggleDesktopLyric"),
     // 关闭桌面歌词窗口

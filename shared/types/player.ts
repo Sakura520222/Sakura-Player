@@ -77,7 +77,7 @@ export interface AudioQuality {
 }
 
 /**
- * 付费标记，遵循网易云 fee 规范
+ * 付费标记，遵循 NCM fee 规范
  * - 0: 免费
  * - 1: VIP
  * - 4: 需购买（数字专辑等）

@@ -293,5 +293,3 @@ const createServer = (): McpServer => {
 
 /** 创建 Sakura Player MCP HTTP 端点 */
 export const createMcpEndpoint = (): McpEndpoint => createHttpEndpoint(createServer);
-
-export type { McpEndpoint } from "./endpoint";

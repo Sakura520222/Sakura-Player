@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   syncDynamicIslandVisibility: vi.fn(),
   get: vi.fn(),
   broadcast: vi.fn(),
+  refreshPowerBlocker: vi.fn(),
 }));
 vi.mock("electron", () => ({
   dialog: {},
@@ -26,6 +27,7 @@ vi.mock("@main/services/updater", () => ({
   syncUpdateChannel: mocks.sync,
 }));
 vi.mock("@main/utils/logger", () => ({ systemLog: {} }));
+vi.mock("@main/utils/powerBlocker", () => ({ refreshPowerBlocker: mocks.refreshPowerBlocker }));
 vi.mock("@main/utils/config", () => ({ isWin: true }));
 vi.mock("@main/utils/broadcast", () => ({ broadcast: mocks.broadcast }));
 vi.mock("@main/services/media", () => ({}));
@@ -88,8 +90,18 @@ describe("更新配置入口", () => {
   it.each([
     ["config:reset", []],
     ["config:replaceAll", [null, { dynamicIsland: { hideWhenPaused: false } }]],
-  ] as const)("%s 后重新应用暂停隐藏策略", (channel, args) => {
+  ] as const)("%s 后重新应用暂停隐藏与电源策略", (channel, args) => {
     mocks.handlers.get(channel)!(...args);
     expect(mocks.syncDynamicIslandVisibility).toHaveBeenCalledOnce();
+    expect(mocks.refreshPowerBlocker).toHaveBeenCalledOnce();
+  });
+
+  it("屏幕常亮开关写入后立即刷新电源策略", () => {
+    mocks.handlers.get("config:set")!(null, "player.keepScreenAwake", true);
+    expect(mocks.set).toHaveBeenCalledWith("player.keepScreenAwake", true);
+    expect(mocks.refreshPowerBlocker).toHaveBeenCalledOnce();
+    expect(mocks.set.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.refreshPowerBlocker.mock.invocationCallOrder[0],
+    );
   });
 });

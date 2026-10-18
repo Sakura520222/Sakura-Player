@@ -1,4 +1,5 @@
-import type { LyricFormat } from "@shared/types/lyrics";
+import type { LyricFormat } from "lyric-kit";
+
 import { DEFAULT_LYRIC_FORMAT_ORDER as DEFAULT_LYRIC_FORMAT_ORDER_SHARED } from "@shared/types/lyrics";
 import type { Platform } from "@shared/types/platform";
 import type { TransitionPreference } from "@shared/types/player";

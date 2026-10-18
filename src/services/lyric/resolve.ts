@@ -1,5 +1,7 @@
 import type { Track, TrackDetail } from "@shared/types/player";
-import type { LyricData, LyricFormat, LyricInput, LyricMatchResult } from "@shared/types/lyrics";
+import type { LyricFormat, LyricInput } from "lyric-kit";
+import type { LyricData, LyricMatchResult } from "@shared/types/lyrics";
+
 import type { Platform } from "@shared/types/platform";
 import { isPlatform } from "@shared/types/platform";
 import { detectFormat } from "lyric-kit";
