@@ -28,7 +28,41 @@
 > Sakura Player installs side-by-side with the upstream app and manages its own user data.
 > Fork modifications date: **2026-10-13**. Upstream copyright and provenance are retained in [NOTICE](./NOTICE).
 
+## Features Added Compared with Upstream
+
+This comparison covers Sakura Player **v1.2.0-beta.4** against upstream **`dev` as of 2026-10-18 ([`aa460b50`](https://github.com/SPlayer-Dev/SPlayer-Next/commit/aa460b502639167c82d4fb7e06ce10f9f744d11b))**. Feature attribution below refers to that baseline.
+
+### Features Added by This Fork
+
+| Feature                                                                                                  | Additions in Sakura Player                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Song highlight lookup and seeking](https://sakura-player.pyabunny.com/en/playback.html#song-highlights) | Query NetEase chorus and Kugou highlight annotations, show gold progress bands, and jump with the flame button. Supports multiple ranges, regular / floating / full-screen layouts, and metadata matching for local, QQ Music, and streaming tracks.                                                                                                  |
+| [AI lyric translation and generation](https://sakura-player.pyabunny.com/en/ai.html)                     | Choose translation, romanization, word-aligned translation, and word-aligned romanization. Supports Simplified Chinese, Traditional Chinese, English, Japanese, and Korean translations, with fill-missing and regenerate modes that preserve unselected auxiliary tracks.                                                                            |
+| AI model requests and resumable generation                                                               | Extend upstream's existing model configuration with actual OpenAI-compatible / Anthropic text requests, connection tests, streamed previews, cancellation, and reasoning-effort settings for compatible services. Resume after failure or cancellation within the current dialog session.                                                             |
+| [Local lyric alignment](https://sakura-player.pyabunny.com/en/lyric-alignment.html)                      | Map existing translation and romanization to primary word timings without a model API key, with realignment, per-line previews, and selective application. Japanese romanization works immediately; translation alignment includes dedicated runtime/model installation, background downloads, cancellation, retries, and removal, then runs offline. |
+| [Complete lyric saving](https://sakura-player.pyabunny.com/en/lyrics.html#copy-share-and-save)           | Add whole-song saving to the copy dialog: write tags in standalone local audio, export LRC, or save eligible TTML. Audio tags preserve the primary lyric format and auxiliary tracks, with save/reload support for romanization ranges spanning multiple source words.                                                                                |
+| Pre-save lyric diffs                                                                                     | Compare existing and proposed lyrics for audio-tag, LRC, and TTML targets, showing added/removed lines, format changes, and target paths when known.                                                                                                                                                                                                  |
+| Copy liked-song lists                                                                                    | Copy the entire currently filtered and sorted list from Liked Songs as “Title - Artist”, in the same order shown on screen.                                                                                                                                                                                                                           |
+| Hide Dynamic Island when paused                                                                          | Optionally hide it when playback pauses and show it again on resume, retaining its window position.                                                                                                                                                                                                                                                   |
+
+AI generation and local alignment process existing lyric text and reuse primary timings; they do not transcribe audio or rebuild the primary timeline. Apply results, then explicitly save them to persist changes. LRC exports translations by line; preserving word-aligned translations requires audio tags or eligible TTML. Song highlights use online platform annotations, and plugin-source tracks do not participate.
+
+### Experience and Maintenance Improvements by This Fork
+
+- **Lyric display:** add word-aligned translation highlighting and improve wrapped auxiliary highlighting, cross-word romanization mapping, centered romanization, and immediate refresh after applying changes in both the default and AMLL engines.
+- **Audio output:** add short smoothing ramps at output boundaries, improve asynchronous output-stream cleanup, and stop old output streams promptly when switching tracks.
+- **Independent releases and coexistence:** separate app identifiers, installation names, user data, and update feeds; use `SakuraPlayerData/` for portable builds and distinct default service ports while retaining plugin and MCP compatibility. See [Fork compatibility](#fork-compatibility).
+- **Updates and maintenance:** derive the initial update channel from the installed version while preserving saved choices; improve release-asset validation, native-build retries, list headers, and bilingual documentation, and pin this repository's owner in the contributor list.
+
+### Features Inherited or Synced from Upstream
+
+FFmpeg / Rust decoding, CUE segments, local libraries and playlists, listening statistics, online music, self-hosted media, song recognition, downloads, basic lyric formats and word-timed display, desktop lyrics / Dynamic Island / Windows taskbar lyrics, system media controls, plugins, HTTP / WebSocket APIs, and MCP are inherited from [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next). Thanks to imsyy and the upstream contributors.
+
+The streaming subsystem refactor, plugin and MCP extensions, playback-page screen-awake settings, Kugou list pagination fixes, and the separate translation / romanization font size already available upstream are classified as existing or synced upstream improvements.
+
 ## Features
+
+The overview below includes both inherited capabilities and additions by this fork; attribution is described above.
 
 | Feature                        | Capabilities                                                                                                                                                      | Guide                                                                                                                                                                          |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
