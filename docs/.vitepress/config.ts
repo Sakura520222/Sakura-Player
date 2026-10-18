@@ -12,17 +12,18 @@ const zhTheme: DefaultTheme.Config = {
     { text: "首页", link: "/" },
     { text: "下载", link: "/download" },
     { text: "使用指南", link: "/guide" },
+    { text: "AI 功能", link: "/ai" },
     { text: "插件", link: "/plugins/" },
     {
       text: "开发",
       items: [
         { text: "原生模块", link: "/native" },
+        { text: "类型参考", link: "/types" },
         { text: "外部 API", link: "/api" },
         { text: "MCP 接口", link: "/mcp" },
         { text: "贡献指南", link: "/contributing" },
       ],
     },
-    { text: "类型参考", link: "/types" },
     {
       text: "关于",
       items: [
@@ -30,7 +31,6 @@ const zhTheme: DefaultTheme.Config = {
         { text: "隐私策略", link: "/privacy" },
       ],
     },
-    { text: "GitHub", link: "https://github.com/Sakura520222/Sakura-Player" },
   ],
   sidebar: [
     {
@@ -39,6 +39,7 @@ const zhTheme: DefaultTheme.Config = {
         { text: "下载", link: "/download" },
         { text: "使用指南", link: "/guide" },
         { text: "流媒体服务", link: "/streaming" },
+        { text: "AI 功能", link: "/ai" },
         { text: "本地歌词对齐", link: "/lyric-alignment" },
         { text: "用户协议", link: "/agreement" },
         { text: "隐私策略", link: "/privacy" },
@@ -113,17 +114,18 @@ const enTheme: DefaultTheme.Config = {
     { text: "Home", link: "/en/" },
     { text: "Download", link: "/en/download" },
     { text: "User Guide", link: "/en/guide" },
+    { text: "AI Features", link: "/en/ai" },
     { text: "Plugins", link: "/en/plugins/" },
     {
       text: "Development",
       items: [
         { text: "Native Modules", link: "/en/native" },
+        { text: "Type Reference", link: "/en/types" },
         { text: "External API", link: "/en/api" },
         { text: "MCP", link: "/en/mcp" },
         { text: "Contributing", link: "/en/contributing" },
       ],
     },
-    { text: "Type Reference", link: "/en/types" },
     {
       text: "About",
       items: [
@@ -131,7 +133,6 @@ const enTheme: DefaultTheme.Config = {
         { text: "Privacy Policy", link: "/en/privacy" },
       ],
     },
-    { text: "GitHub", link: "https://github.com/Sakura520222/Sakura-Player" },
   ],
   sidebar: [
     {
@@ -140,6 +141,7 @@ const enTheme: DefaultTheme.Config = {
         { text: "Download", link: "/en/download" },
         { text: "User Guide", link: "/en/guide" },
         { text: "Streaming Services", link: "/en/streaming" },
+        { text: "AI Features", link: "/en/ai" },
         { text: "Local Lyric Alignment", link: "/en/lyric-alignment" },
         { text: "User Agreement", link: "/en/agreement" },
         { text: "Privacy Policy", link: "/en/privacy" },

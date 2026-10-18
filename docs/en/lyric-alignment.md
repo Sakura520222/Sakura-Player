@@ -2,6 +2,18 @@
 
 The "Smart Alignment" entry on the right side of the full-player lyrics associates existing translations and romanization with the word-level timeline of the primary lyrics. Nothing is re-recognized from audio, no timing is re-created, and no lyric text is generated or rewritten: romanization alignment runs entirely locally, while translation alignment uses a self-contained local Python environment installed by the app.
 
+Use [AI lyric translation and generation](/en/ai) to generate missing translation or romanization, or align words through your configured text model. The local alignment described here requires no AI model API key.
+
+## Quick start
+
+1. Play a song with real word-timed primary lyrics and existing translation or romanization.
+2. Open **Algorithmic lyric alignment** beside the full-player lyrics and select the auxiliary tracks to process.
+3. For translation, click **Install environment** and wait until it is ready. Romanization needs no installation.
+4. Click **Start alignment**, review and select candidate lines, then click **Apply selected lines**.
+5. Applying refreshes the lyrics immediately. To keep the results, open **Copy Lyrics → Save complete lyrics**, preview changes, and save.
+
+Complete existing alignments are preserved by default. Select **Realign existing word-timed translation and romanization** to recalculate them; unselected or poorly matched lines remain unchanged. See [saving AI results](/en/ai#apply-display-and-save) for save targets and overwrite behavior.
+
 ## The Two Alignment Tasks
 
 Alignment here covers two distinct tasks:
@@ -81,7 +93,7 @@ Everything lives under `{userData}/app-data/runtimes/lyric-alignment/` — the s
 - Individual lines can be deselected in the preview; poorly matched lines keep their current text;
 - Only one task runs at a time; each task owns the worker and Python subprocess, and dictionaries and the model are released afterwards;
 - Input is limited to 1,000 lines and 64,000 characters in total;
-- Applying reuses the existing auxiliary TTML saving and external lyric window sync; the source text and primary timestamps stay unchanged;
+- Applying updates auxiliary tracks and synchronizes external lyric windows; source text and primary timestamps stay unchanged, and writing files requires a separate save;
 - If model loading or inference fails, completed romanization can still be applied alone and the translation is left untouched.
 
 ## Design Trade-offs

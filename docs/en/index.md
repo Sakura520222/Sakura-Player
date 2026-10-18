@@ -23,6 +23,11 @@ features:
   - icon: 📝
     title: Expressive lyrics
     details: LRC, QRC, YRC, and TTML lyrics with word-by-word highlighting, translations, desktop lyrics, Dynamic Island, and Windows taskbar lyrics.
+  - icon: 🤖
+    title: AI lyric translation and generation
+    details: Use your chosen model for translation, romanization, and word alignment, with fill-missing and regenerate modes, streamed previews, resumable generation, and explicit apply and save steps.
+    link: /en/ai
+    linkText: Set up and use AI
   - icon: 🌐
     title: Streaming services
     details: Connect Subsonic, Navidrome, Jellyfin, Emby, and other self-hosted servers, manage multiple servers, and access your library anywhere.
@@ -35,4 +40,14 @@ features:
   - icon: 🧩
     title: Extensible by design
     details: Built-in plugins and external HTTP and WebSocket APIs let you add music sources or control playback remotely.
+  - icon: 🔤
+    title: Local lyric alignment
+    details: Associate existing translation and romanization with the primary timeline using Japanese reading matches and cross-language semantic alignment, then review and apply candidates locally.
+    link: /en/lyric-alignment
+    linkText: Explore local alignment
+  - icon: 🔌
+    title: AI client control
+    details: A separate local MCP service lets compatible AI clients inspect playback and the queue, search songs, and control the player.
+    link: /en/mcp
+    linkText: Connect with MCP
 ---

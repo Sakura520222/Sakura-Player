@@ -2,6 +2,8 @@
 
 Sakura Player 内置 [Model Context Protocol](https://modelcontextprotocol.io/) 服务，允许支持 MCP 的 AI 应用查询当前播放状态、本地曲库并控制播放器。
 
+模型配置与歌词翻译的使用步骤见 [AI 功能](/ai)。MCP 的连接密钥与模型 API Key 分别管理，使用 MCP 无需在播放器内配置 AI 模型。
+
 ## 连接
 
 MCP 服务默认关闭。先在 **设置 → AI 集成 → MCP** 中启用，再使用设置页显示的实际端口与连接密钥。

@@ -2,6 +2,8 @@
 
 Sakura Player includes a [Model Context Protocol](https://modelcontextprotocol.io/) service that lets MCP clients inspect playback, search the local library, and control the player.
 
+See [AI Features](/en/ai) for model configuration and lyric translation. MCP connection keys and model API keys are managed separately; using MCP does not require a model configured in the player.
+
 ## Connection
 
 MCP is disabled by default. Enable **Settings → AI Integration → MCP**, then use the port and connection key shown in Settings.

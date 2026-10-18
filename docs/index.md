@@ -24,6 +24,11 @@ features:
   - icon: 📝
     title: 丰富的歌词展现
     details: 支持 LRC / QRC / YRC / TTML 多种歌词，逐字高亮与翻译，并提供桌面歌词、灵动岛、Windows 任务栏歌词等多种展现形式。
+  - icon: 🤖
+    title: AI 歌词翻译与生成
+    details: 自选模型生成翻译、音译与逐字对齐内容，支持补齐缺失、重新生成、流式预览和断点续译，确认后应用并按需保存。
+    link: /ai
+    linkText: 配置与使用 AI
   - icon: 🌐
     title: 流媒体服务
     details: 接入 Subsonic / Navidrome / Jellyfin / Emby 等自建流媒体服务器，多服务器管理、自动连接，随时随地访问你的曲库。
@@ -36,4 +41,14 @@ features:
   - icon: 🧩
     title: 可扩展能力
     details: 内置插件系统与外部 API（HTTP + WebSocket），可编写脚本扩展音源，或通过接口远程控制播放。
+  - icon: 🔤
+    title: 本地歌词对齐
+    details: 通过日语读音匹配与跨语言语义对齐，将已有翻译、音译关联到主歌词时间轴，在本机预览候选并选择应用。
+    link: /lyric-alignment
+    linkText: 了解本地对齐
+  - icon: 🔌
+    title: AI 客户端控制
+    details: 内置独立的本机 MCP 服务，让支持 MCP 的 AI 客户端查询播放状态与队列、搜索歌曲并控制播放。
+    link: /mcp
+    linkText: 连接 MCP
 ---

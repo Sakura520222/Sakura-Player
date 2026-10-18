@@ -22,7 +22,7 @@ Connect self-hosted Subsonic, Navidrome, Jellyfin, or Emby servers. See [Streami
 
 Sakura Player supports LRC, QRC, YRC, and TTML, including word-by-word highlighting, translations, and romanization. Online lyrics are matched according to **Settings → Lyrics → Source preference**, source order, and format preference.
 
-[Local lyric alignment](/en/lyric-alignment) can also associate existing translations and romanization with the word-level timing of the primary lyrics.
+[Local lyric alignment](/en/lyric-alignment) can also associate existing translations and romanization with the word-level timing of the primary lyrics. Use [AI features](/en/ai) to generate missing translation or romanization.
 
 ### Online TTML lyrics
 
@@ -47,6 +47,16 @@ If you maintain your own TTML files, select a local directory as a lyrics librar
 - **Taskbar lyrics (Windows):** Displays the current line in the Windows taskbar.
 
 Toggle these windows from the player or tray menu and configure their styles independently.
+
+## AI lyric translation and generation
+
+1. Add, test, and activate a model in **Settings → AI Integration → AI Model Configuration**.
+2. Click the language icon beside the full-player lyrics to open **AI Lyric Translation**.
+3. Select translation, romanization, word romanization, or word translation. Use **Fill missing** to preserve existing content or **Regenerate all** to replace selected content.
+4. Review the streamed preview and **Apply selected content** when generation completes. Cancelled or failed tasks can be resumed in the current dialog.
+5. To keep the results, preview changes and save under **Copy Lyrics → Save complete lyrics**.
+
+See [AI Features](/en/ai) for configuration fields, target languages, resume conditions, and save requirements. Applying does not automatically write audio tags or lyric files.
 
 ## System integration
 
