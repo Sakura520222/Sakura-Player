@@ -18,7 +18,7 @@
 
 ## 日志文件
 
-最简单的方式：在 **设置 → 关于** 中点击 **打开日志目录**。
+最简单的方式：在 **设置 → 关于软件** 中点击 **打开日志目录**。
 
 日志位于用户数据目录下的 `app-data/logs/`：
 
@@ -30,11 +30,13 @@
 
 原生模块日志位于 `app-data/logs/native/`。
 
+Windows 便携版的实际日志位于 exe 同目录的 `SakuraPlayerData/app-data/logs/`；Linux 使用自定义 `XDG_CONFIG_HOME` 时以对应目录为准。更多位置与备份范围见 [数据管理](/data-management)。
+
 ## 常见问题
 
 - **歌曲无法播放 / 卡顿 / 无声**：检查 Console 是否有错误、音频源是否有效、系统输出设备是否正常。
 - **封面 / 歌词加载失败**：在 Network 面板查看失败请求与状态码，确认网络与音源可达。
-- **界面异常 / 白屏**：查看 Console 错误堆栈，尝试清缓存后重启（设置 → 缓存，或删除 `app-data/cache/`）。
+- **界面异常 / 白屏**：查看 Console 错误堆栈，按需在 **设置 → 本地与缓存** 清理对应缓存后重启。自定义缓存位置时以设置页显示的路径为准。
 
 ## 提交 Issue
 
@@ -46,21 +48,4 @@
 
 ## 重置应用
 
-::: warning 注意
-重置会清除全部用户数据（登录状态、播放列表、设置、本地库等）。
-:::
-
-删除用户数据目录即可重置：
-
-先退出播放器并备份数据，仅在明确需要完整重置时执行。以下命令适用于安装版；Windows 便携版使用 exe 同目录的 `SakuraPlayerData/`，请在确认路径后手动备份或清理。普通 Gatekeeper 排错无需重置。
-
-```bash
-# Windows
-rd /s /q "%APPDATA%\Sakura Player"
-
-# macOS
-rm -rf "$HOME/Library/Application Support/Sakura Player"
-
-# Linux
-rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/Sakura Player"
-```
+完整重置前先退出播放器、备份，并确认实际用户数据目录后再清理。便携版和安装版目录不同，原音乐文件应单独保留。设置中的重置操作不一定删除每个独立存储的文件，请按 [数据管理](/data-management) 区分。普通 Gatekeeper 排错无需重置。

@@ -4,24 +4,39 @@ title: Download
 
 # Download Sakura Player
 
-The list below fetches the latest release for the selected channel from GitHub and recommends a package for your system. Stable is selected by default. If GitHub is slow, choose a download mirror.
+The list below fetches the latest release for the selected channel from GitHub. It prefers Stable, but switches to Beta if no public Stable exists and a Beta is available. Check x64/ARM64 manually because browser architecture detection can be inaccurate. Choose a mirror if GitHub downloads are slow.
 
 <DownloadPage />
 
 ## Release channels
 
-| Channel    | Intended audience       | Releases received           | Example         |
-| ---------- | ----------------------- | --------------------------- | --------------- |
-| **Stable** | Everyday use            | Stable                      | `1.2.0`         |
-| **Beta**   | Early feature access    | Beta, then Stable           | `1.3.0-beta.1`  |
-| **Alpha**  | Development and testing | Alpha, then Beta and Stable | `1.4.0-alpha.1` |
+| Channel     | Intended audience                | Releases received                        | Example           |
+| ----------- | -------------------------------- | ---------------------------------------- | ----------------- |
+| **Stable**  | Everyday use                     | Stable                                   | `1.2.0`           |
+| **Beta**    | Early feature access             | Beta, then Stable                        | `1.3.0-beta.1`    |
+| **Alpha**   | Development and testing          | Alpha, then Beta and Stable              | `1.4.0-alpha.1`   |
+| **Nightly** | Following the development branch | Separate rolling release and update feed | `nightly` release |
 
-Change the channel under **Settings → General → Release channel**. Alpha builds may be highly unstable. Moving to a more stable channel may require installing a build with a lower version number.
+Change the channel under **Settings → About → Update**. Saved choices are preserved; otherwise the installed version supplies the default. Nightly has a separate update source. The selector above lists only Stable, Beta, and Alpha.
+
+Changing channels starts a fresh check and invalidates downloaded installers from the previous channel. The updater does not automatically downgrade. If the more stable channel has a lower version, download and install it manually.
+
+## Update methods
+
+| Installation form                                          | Capability                                                                    |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Windows installer                                          | Check, download, and install after an explicit action                         |
+| Linux AppImage and identified deb/rpm/pacman installations | In-app updates, subject to installation permissions and package form          |
+| macOS, Windows portable, Linux archives                    | Check and open the external download page for manual replacement/installation |
+| AppX Store edition                                         | Store-managed updates; in-app channel settings are hidden                     |
+
+The player does not automatically download updates or install them on exit. Use the corresponding buttons. Saving songs is a separate feature; see [Music Downloads](/en/music-downloads).
 
 ## Other sources
 
 - **Previous versions:** Browse all archived builds on [GitHub Releases](https://github.com/Sakura520222/Sakura-Player/releases).
 - **Development builds:** Download the latest workflow artifact from [GitHub Actions](https://github.com/Sakura520222/Sakura-Player/actions). A GitHub account is required.
+- **Nightly:** Visit the separate [rolling Nightly release](https://github.com/Sakura520222/Sakura-Player/releases/tag/nightly).
 
 ## Installation notes
 

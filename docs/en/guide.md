@@ -2,15 +2,24 @@
 
 This page covers the basics of Sakura Player. See [Download](/en/download) for installation packages.
 
+| Task                                                     | Guide                                  |
+| -------------------------------------------------------- | -------------------------------------- |
+| Scan folders, manage likes/playlists, inspect statistics | [Library and Statistics](/en/library)  |
+| Equalizer, speed, A-B loop, timer, and crossfade         | [Playback and Effects](/en/playback)   |
+| Match lyrics, adjust fonts, copy, and save               | [Lyrics](/en/lyrics)                   |
+| Download songs, retry, and manage files                  | [Music Downloads](/en/music-downloads) |
+| Accounts, recognition, Last.fm, and Discord              | [Integrations](/en/integrations)       |
+| Caches, settings backup, and migration                   | [Data Management](/en/data-management) |
+
 ## Playing music
 
 - **Search and play:** Enter a song, artist, or album in the top search box, then play it or add it to the queue.
 - **Queue:** Use sequential, shuffle, and repeat-one modes, and drag tracks to reorder them.
-- **Quality and effects:** Select audio quality and enable fades, loudness normalization, the equalizer, playback speed, and pitch controls in Settings.
+- **Quality and effects:** Choose quality, fades, and normalization in Player settings. The toolbar's More menu opens the equalizer, speed/pitch, A-B loop, and sleep timer.
 
 ## Local music
 
-1. Open **Settings → Local Music** or the library page and add folders to scan.
+1. Open **Library** in the sidebar and add folders to scan. Manage them later through **More → Folder management**.
 2. After scanning, browse the library by track, album, or artist.
 3. Local track tags and cover art can be edited in the metadata editor.
 
@@ -20,7 +29,7 @@ Connect self-hosted Subsonic, Navidrome, Jellyfin, or Emby servers. See [Streami
 
 ## Lyrics
 
-Sakura Player supports LRC, QRC, YRC, and TTML, including word-by-word highlighting, translations, and romanization. Online lyrics are matched according to **Settings → Lyrics → Source preference**, source order, and format preference.
+Sakura Player supports TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT, including word highlighting, translation, and romanization. Selection considers source preference, platform/format order, smart preference, and existing lyrics. See [Lyrics](/en/lyrics).
 
 [Local lyric alignment](/en/lyric-alignment) can also associate existing translations and romanization with the word-level timing of the primary lyrics. Use [AI features](/en/ai) to generate missing translation or romanization.
 
@@ -37,7 +46,7 @@ Sakura Player supports LRC, QRC, YRC, and TTML, including word-by-word highlight
 If you maintain your own TTML files, select a local directory as a lyrics library:
 
 - Enable **Settings → Lyrics → Local TTML lyrics library** (Beta).
-- Choose a folder containing `.ttml` files. Tracks are matched by metadata such as title and artist.
+- Choose a folder containing `.ttml` files. Matching uses song IDs or metadata such as title and artist; one file can associate with multiple platform song IDs.
 - A local match takes precedence over online lyrics.
 
 ### Lyrics windows

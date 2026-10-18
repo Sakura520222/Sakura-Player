@@ -8,6 +8,17 @@ Thank you for contributing to Sakura Player. This page covers the local environm
 - **pnpm** >= 10
 - **Rust toolchain** for [native modules](/en/native)
 
+Prefer the pnpm version declared by `packageManager` in `package.json`; CI currently uses Node.js 24. On Windows, use Git Bash and MSVC C/C++ build tools. Linux dependencies match CI:
+
+```bash
+sudo apt-get update
+sudo apt-get install --no-install-recommends -y \
+  libasound2-dev libdbus-1-dev libpipewire-0.3-dev libpulse-dev pkg-config clang \
+  rpm libarchive-tools
+```
+
+`ffmpeg_audio` statically builds FFmpeg without a system FFmpeg installation. The first build still downloads Rust dependencies and build resources.
+
 ## Getting started
 
 ```bash
@@ -49,7 +60,22 @@ pnpm lint
 pnpm format
 pnpm build:native
 pnpm build:native --dev
+pnpm test
+pnpm test:native
 ```
+
+## Documentation site
+
+Sources live in `docs/`, English counterparts in `docs/en/`, and navigation in `docs/.vitepress/config.ts`. Documentation-only builds need neither Rust compilation nor Electron native dependency rebuilding:
+
+```bash
+pnpm install --ignore-scripts
+pnpm docs:dev
+pnpm docs:build
+pnpm docs:preview
+```
+
+Update both languages, navigation, and internal links. Format the changed files and inspect `git diff` before committing. Documentation changes on `dev` trigger `.github/workflows/docs.yml`; verify live page content after deployment succeeds.
 
 ## Project structure
 

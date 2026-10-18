@@ -4,7 +4,7 @@
 
 **Version: v1.3**<br>
 **Effective: October 13, 2026**<br>
-**Last updated: October 13, 2026**
+**Last updated: October 18, 2026**
 
 This English translation is provided for convenience. If it differs from the [Chinese agreement](/agreement), the Chinese text prevails.
 
@@ -72,7 +72,7 @@ HTTP, WebSocket, and MCP interfaces are neutral local control mechanisms. You ar
 
 ## 6. Accounts and credentials
 
-Credentials are used only for requested features and remain on your device. Streaming passwords and Last.fm session keys prefer operating-system `safeStorage`; when unavailable, the app stores them as Base64 and logs a warning. AI model API keys are not saved without secure storage. Base64 is not encryption. The developers do not upload these credentials to a server they control.
+Credentials are used only for requested features and saved on your device. Streaming passwords and AI keys require operating-system `safeStorage` and are not saved when it is unavailable or uses Linux `basic_text`. Last.fm session keys prefer encryption, but currently retain a logged Base64 fallback when secure storage is unavailable; Base64 is not encryption. Credentials are used with the services you select and are not uploaded to a developer-controlled server.
 
 You are responsible for protecting accounts, devices, and credentials.
 

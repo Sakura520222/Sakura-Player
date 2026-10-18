@@ -3,7 +3,7 @@
 Sakura Player provides an optional local HTTP API for inspecting and controlling playback. Use the [WebSocket API](/en/socket) for realtime events and [MCP](/en/mcp) for AI applications.
 
 ::: warning Disabled by default
-Enable it under **Settings → External API**. The server binds to `127.0.0.1` by default and has **no authentication**. Enable LAN access only on a trusted network.
+Enable it under **Settings → Services → External API**. The server binds to `127.0.0.1` by default and has **no authentication**. Enable LAN access only on a trusted network.
 :::
 
 MCP has its own switch, port, and lifecycle and does not depend on this API.

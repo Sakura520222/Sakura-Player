@@ -2,7 +2,7 @@
 
 **Version: v1.3**<br>
 **Effective: October 13, 2026**<br>
-**Last updated: October 13, 2026**
+**Last updated: October 18, 2026**
 
 > [!IMPORTANT]
 > Sakura Player is an unofficial fork of [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next), maintained by [Sakura520222](https://github.com/Sakura520222). “We” in this policy means only this fork's maintainer and contributors to its modifications; it makes no data-processing promises on behalf of imsyy, `SPlayer-Dev`, or third-party service operators. Fork modifications are dated **2026-10-13**. Original copyright and applicable notices are retained in the repository's `NOTICE` and `LICENSE`.
@@ -21,7 +21,7 @@ This policy describes how Sakura Player processes, stores, and protects informat
 
 ### 2.1 Information you provide
 
-- **Third-party credentials:** Server URLs, usernames, passwords, tokens, or API keys entered for services such as Subsonic, Navidrome, Jellyfin, Emby, Last.fm, or a configured AI model. Credentials are encrypted locally through the operating system's secure storage when available. If it is unavailable, streaming passwords and Last.fm session keys fall back to Base64 storage and the application writes a warning to the local log; AI model API keys are refused instead of being saved. Base64 is not encryption. Credentials are not sent to a server controlled by the developers.
+- **Third-party credentials:** Addresses, usernames, passwords, tokens, or API keys used for media servers, Last.fm, and AI models. Streaming passwords and AI keys require operating-system secure storage and are refused without it, including the Linux `basic_text` backend. Last.fm session keys prefer encryption but the current implementation still logs a warning and falls back to Base64 when secure storage is unavailable; Base64 is not encryption. Credentials are saved locally and used to communicate with the services you select, not uploaded to a developer-controlled server.
 - **Preferences:** Language, theme, shortcuts, audio output, and other settings.
 
 ### 2.2 Local runtime and cache data
@@ -37,11 +37,13 @@ The software processes this information to play and organize media, restore your
 
 1. **Self-hosted media servers:** Traffic is sent directly from your client to the configured server. You and the server operator are responsible for its security and privacy.
 2. **Plugins and source extensions:** The optional plugin market performs automated checks and maintainer review, but this is not a complete security audit or endorsement. Community plugins can make their own network requests and process data. Review their source, permissions, and origin before use.
-3. **Discord, Last.fm, and similar integrations:** When enabled, the app communicates with the relevant local IPC endpoint or official API. Their own terms and privacy policies apply.
+3. **Discord, Last.fm, and similar integrations:** Enabled options send titles, artists, and playback activity through local IPC or the platform API. The service's terms and privacy policy apply.
+4. **AI lyrics:** Explicit generation sends required lyric text, song title, artists, and necessary existing auxiliary text to your configured model service. Resume requests can include bounded error feedback. Audio, artwork, local paths, and original timestamps are not sent. The provider sets its retention and billing rules; see [AI Features](/en/ai).
+5. **Local alignment and recognition:** Installing translation alignment downloads Python, dependencies, and the model; prepared alignment runs offline. Recognition captures your selected system or microphone audio, generates fingerprints locally, and sends fingerprints and excerpt duration to NetEase for matching. It is not offline; see [Integrations](/en/integrations).
 
 ## 5. Storage, retention, and protection
 
-Most data remains in the application's local data directory until you clear it or remove the application data. Sensitive credentials prefer operating-system secure storage. Base64 fallback for streaming and Last.fm is explicitly logged; AI model API keys are not saved when secure storage is unavailable. Network features prefer HTTPS/TLS when the destination supports it.
+Most data remains in the application's local data directory until you clear it or remove the application data. Streaming passwords and AI keys require secure storage. Last.fm currently retains a logged Base64 fallback when secure storage is unavailable; these policies are distinct. Network features prefer HTTPS/TLS when the destination supports it.
 
 No system can guarantee absolute security. Protect your device and third-party accounts accordingly.
 

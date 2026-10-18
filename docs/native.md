@@ -7,9 +7,13 @@ Sakura Player 将性能敏感的能力下沉到 **Rust**，通过 [NAPI-RS](http
 | 模块                | 职责                                                                         |
 | ------------------- | ---------------------------------------------------------------------------- |
 | `audio-engine`      | 音频解码（FFmpeg）与播放（rodio）、FFT 频谱、封面提取                        |
+| `audio-capture`     | Windows / Linux 系统声音与麦克风采集，供听歌识曲使用                         |
 | `media-ctrl`        | 系统媒体控制（Windows SMTC / Linux MPRIS / macOS Now Playing）与 Discord RPC |
 | `taskbar-lyric`     | Windows 任务栏歌词文字渲染                                                   |
 | `taskbar-thumbnail` | Windows 任务栏悬停缩略图 / Peek 预览替换为专辑封面                           |
+| `opencc`            | 基于 ferrous-opencc 的简繁、地区用字与日文字形转换                           |
+
+仓库共六个模块。构建脚本按平台选择：`audio-capture` 仅在 Windows / Linux 构建，任务栏歌词和缩略图模块仅在 Windows 构建，其余模块跨平台构建。
 
 ### audio-engine
 
@@ -28,6 +32,14 @@ Sakura Player 将性能敏感的能力下沉到 **Rust**，通过 [NAPI-RS](http
 - Windows SMTC、Linux MPRIS、macOS Now Playing；
 - Discord Rich Presence（播放状态展示）。
 
+### audio-capture
+
+Windows 使用 WASAPI，Linux 使用 PulseAudio，输出供音频指纹处理的 8 kHz 单声道 PCM。macOS 不构建该模块，麦克风识曲可使用渲染进程的浏览器采集路径，见 [听歌识曲](/integrations#听歌识曲)。
+
+### opencc
+
+在主进程转换歌词文本，支持内置 OpenCC 配置和批量转换，无需单独安装系统 OpenCC。
+
 ### taskbar-lyric
 
 Windows 任务栏歌词渲染，跟随系统主题与任务栏状态自适应。
@@ -43,6 +55,8 @@ Windows 任务栏缩略图自定义（仅 Windows）：
 
 构建原生模块需要 **Rust 工具链**（通过 [rustup](https://rustup.rs/) 安装）。
 
+`ffmpeg_audio` 静态编译 FFmpeg，不需要系统 FFmpeg、`FFMPEG_DIR` 或 FFmpeg 的 pkg-config 配置；编译仍需要平台的 C/C++ 工具链。Linux 的音频与媒体控制还需要 ALSA、D-Bus、PipeWire、PulseAudio 开发包，具体安装示例见 [贡献指南](/contributing)。
+
 `pnpm dev` 与 `pnpm build` 会自动编译原生模块，通常无需手动操作：
 
 ```bash
@@ -57,9 +71,11 @@ NAPI-RS 会自动生成各模块的 `index.d.ts` 类型声明，主进程通过�
 
 ```
 @splayer/audio-engine      → native/audio-engine
+@splayer/audio-capture     → native/audio-capture
 @splayer/media-ctrl        → native/media-ctrl
 @splayer/taskbar-lyric     → native/taskbar-lyric
 @splayer/taskbar-thumbnail → native/taskbar-thumbnail
+@splayer/opencc            → native/opencc
 ```
 
 ::: tip 跳过原生构建
@@ -68,6 +84,8 @@ NAPI-RS 会自动生成各模块的 `index.d.ts` 类型声明，主进程通过�
 ```bash
 SKIP_NATIVE_BUILD=true pnpm dev
 ```
+
+跳过编译不会生成 `.node` 文件。需要使用原生能力时，仍须已有与本机平台、架构匹配的构建产物。
 
 :::
 

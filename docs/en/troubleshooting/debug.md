@@ -22,11 +22,13 @@ The easiest route is **Settings → About → Open log directory**.
 
 Native module logs are in `app-data/logs/native/`.
 
+Windows portable logs live in `SakuraPlayerData/app-data/logs/` beside the executable. Linux follows a custom `XDG_CONFIG_HOME` when configured. See [Data Management](/en/data-management) for locations and backup scope.
+
 ## Common checks
 
 - **No playback, stuttering, or silence:** Check Console errors, the source URL, and the selected output device.
 - **Cover or lyrics fail:** Inspect failed Network requests and verify that the source is reachable.
-- **Broken UI or blank window:** Inspect the Console, clear `app-data/cache/`, and restart.
+- **Broken UI or blank window:** Inspect the Console and clear the relevant category under **Settings → Local & Cache** before restarting. For a custom cache location, use the path shown in Settings.
 
 ## Filing an issue
 
@@ -34,21 +36,4 @@ Include the operating system and version, Sakura Player version or commit, compl
 
 ## Resetting the app
 
-::: warning Data loss
-Resetting deletes all local user data, including accounts, playlists, settings, and the local library index.
-:::
-
-Quit the player and back up the data first. Run these commands only when you intend a full reset. They apply to installed builds; Windows portable builds use `SakuraPlayerData/` beside the executable, which you should back up or clear manually after checking the path. Gatekeeper troubleshooting does not require a reset.
-
-```bat
-:: Windows
-rd /s /q "%APPDATA%\Sakura Player"
-```
-
-```bash
-# macOS
-rm -rf "$HOME/Library/Application Support/Sakura Player"
-
-# Linux
-rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/Sakura Player"
-```
+A complete reset requires quitting, backing up, and identifying the actual user-data directory before removing it. Portable and installed builds use different locations; original music files should be kept separately. Settings reset actions do not necessarily remove every independently stored file. Follow [Data Management](/en/data-management) to distinguish these operations. Gatekeeper troubleshooting does not require a reset.

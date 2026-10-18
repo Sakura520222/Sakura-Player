@@ -3,7 +3,7 @@
 The WebSocket interface adds realtime bidirectional communication to the [HTTP API](/en/api): clients can send controls and receive playback events.
 
 ::: warning Disabled by default
-Enable **Settings → External API**, then enable WebSocket separately. It has the same security model as HTTP: loopback-only by default and no authentication.
+Enable **Settings → Services → External API**, then enable WebSocket separately. It has the same security model as HTTP: loopback-only by default and no authentication.
 :::
 
 ## Connection

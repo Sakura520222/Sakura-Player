@@ -8,6 +8,17 @@
 - **pnpm** >= 10
 - **Rust 工具链**（构建原生模块所需，见 [原生模块](/native)）
 
+优先使用 `package.json` 的 `packageManager` 指定的 pnpm 版本；当前 CI 使用 Node.js 24。Windows 使用 Git Bash，并准备 MSVC C/C++ 构建工具。Linux 的构建依赖与 CI 保持一致：
+
+```bash
+sudo apt-get update
+sudo apt-get install --no-install-recommends -y \
+  libasound2-dev libdbus-1-dev libpipewire-0.3-dev libpulse-dev pkg-config clang \
+  rpm libarchive-tools
+```
+
+FFmpeg 随 `ffmpeg_audio` 静态编译，无需安装系统 FFmpeg。首次构建仍需下载 Rust 依赖与构建资源。
+
 ## 快速开始
 
 ```bash
@@ -58,7 +69,22 @@ pnpm typecheck        # tsc + vue-tsc（node + web 双目标）
 pnpm lint             # ESLint
 pnpm format           # Prettier
 pnpm build:native     # 仅构建 Rust 原生模块（加 `--dev` 为 debug 构建）
+pnpm test            # Node、Web 与发行脚本测试
+pnpm test:native     # Rust 工作区测试
 ```
+
+## 维护文档站
+
+文档在 `docs/`，英文镜像位于 `docs/en/`，导航在 `docs/.vitepress/config.ts`。只构建文档时无需编译 Rust 或重建 Electron 原生依赖：
+
+```bash
+pnpm install --ignore-scripts
+pnpm docs:dev
+pnpm docs:build
+pnpm docs:preview
+```
+
+同时更新对应中英文页面、导航和内部链接。提交前只格式化本次修改的文件，并检查 `git diff`。`dev` 上的文档变更会触发 `.github/workflows/docs.yml`；部署成功后还应核对线上页面内容。
 
 ## 项目结构
 

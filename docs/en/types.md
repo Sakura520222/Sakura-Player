@@ -6,35 +6,38 @@ These are the objects delivered to plugin callbacks and handlers. A `?` marks an
 
 ### Track
 
-The `track` payload for [`trackChange`](/en/plugins/control#events) and [`menuClick`](/en/plugins/api#menus).
+Lightweight metadata without full lyrics or the on-demand `TrackDetail`. This is the `track` payload for [`trackChange`](/en/plugins/control#events) and [`menuClick`](/en/plugins/api#menus).
 
-| Field           | Type                               | Description                                           |
-| --------------- | ---------------------------------- | ----------------------------------------------------- |
-| `id`            | `string`                           | Track ID                                              |
-| `extId`         | `string?`                          | Secondary ID                                          |
-| `source`        | [`TrackSource`](#tracksource)      | Track source                                          |
-| `plugin`        | [Plugin source](#plugin-source)`?` | Independent plugin source information, added in API 5 |
-| `path`          | `string?`                          | Local file path                                       |
-| `cuePath`       | `string?`                          | CUE file path                                         |
-| `cueAudioPath`  | `string?`                          | Audio file referenced by the CUE                      |
-| `cueStartMs`    | `number?`                          | CUE segment start in milliseconds                     |
-| `cueEndMs`      | `number?`                          | CUE segment end in milliseconds                       |
-| `serverId`      | `string?`                          | Streaming server instance ID                          |
-| `originalId`    | `string?`                          | Server-native track ID                                |
-| `title`         | `string`                           | Title                                                 |
-| `comment`       | `string?`                          | Comment or subtitle                                   |
-| `artists`       | [`Artist[]`](#artist)              | Artists                                               |
-| `album`         | [`Album`](#album)`?`               | Album                                                 |
-| `track`         | `number?`                          | Track number                                          |
-| `duration`      | `number`                           | Duration in milliseconds                              |
-| `cover`         | `string?`                          | Cover URL                                             |
-| `coverOriginal` | `string?`                          | Original cover URL                                    |
-| `fileSize`      | `number?`                          | File size in bytes                                    |
-| `mtime`         | `number?`                          | Modification time in Unix milliseconds                |
-| `ctime`         | `number?`                          | Creation time in Unix milliseconds                    |
-| `quality`       | [`AudioQuality`](#audioquality)`?` | Audio quality                                         |
-| `fee`           | [`TrackFee`](#trackfee)`?`         | Access fee flag                                       |
-| `cloud`         | `boolean?`                         | Whether this is a cloud-library track                 |
+| Field            | Type                               | Description                                                    |
+| ---------------- | ---------------------------------- | -------------------------------------------------------------- |
+| `id`             | `string`                           | Track ID                                                       |
+| `extId`          | `string?`                          | Secondary ID                                                   |
+| `mediaId`        | `string?`                          | Platform media-file ID                                         |
+| `favorite`       | `boolean?`                         | Authoritative server favorite state; absent means not yet read |
+| `source`         | [`TrackSource`](#tracksource)      | Track source                                                   |
+| `plugin`         | [Plugin source](#plugin-source)`?` | Independent plugin source information, added in API 5          |
+| `path`           | `string?`                          | Local file path                                                |
+| `cuePath`        | `string?`                          | CUE file path                                                  |
+| `cueAudioPath`   | `string?`                          | Audio file referenced by the CUE                               |
+| `cueStartMs`     | `number?`                          | CUE segment start in milliseconds                              |
+| `cueEndMs`       | `number?`                          | CUE segment end in milliseconds                                |
+| `serverId`       | `string?`                          | Streaming server instance ID                                   |
+| `originalId`     | `string?`                          | Server-native track ID                                         |
+| `serverRevision` | `number?`                          | Media identity revision after account/address changes          |
+| `title`          | `string`                           | Title                                                          |
+| `comment`        | `string?`                          | Comment or subtitle                                            |
+| `artists`        | [`Artist[]`](#artist)              | Artists                                                        |
+| `album`          | [`Album`](#album)`?`               | Album                                                          |
+| `track`          | `number?`                          | Track number                                                   |
+| `duration`       | `number`                           | Duration in milliseconds                                       |
+| `cover`          | `string?`                          | Cover URL                                                      |
+| `coverOriginal`  | `string?`                          | Original cover URL                                             |
+| `fileSize`       | `number?`                          | File size in bytes                                             |
+| `mtime`          | `number?`                          | Modification time in Unix milliseconds                         |
+| `ctime`          | `number?`                          | Creation time in Unix milliseconds                             |
+| `quality`        | [`AudioQuality`](#audioquality)`?` | Audio quality                                                  |
+| `fee`            | [`TrackFee`](#trackfee)`?`         | Access fee flag                                                |
+| `cloud`          | `boolean?`                         | Whether this is a cloud-library track                          |
 
 ### TrackSource
 
@@ -58,23 +61,37 @@ Fee flag: `0` free, `1` VIP, `4` purchase required, and `8` quality restricted.
 
 ### Artist
 
-| Field        | Type      | Description |
-| ------------ | --------- | ----------- |
-| `id`         | `string?` | Artist ID   |
-| `name`       | `string`  | Name        |
-| `avatar`     | `string?` | Avatar URL  |
-| `albumCount` | `number?` | Album count |
+| Field        | Type      | Description                                     |
+| ------------ | --------- | ----------------------------------------------- |
+| `id`         | `string?` | Artist ID                                       |
+| `serverId`   | `string?` | Originating media server; retain for navigation |
+| `name`       | `string`  | Name                                            |
+| `avatar`     | `string?` | Avatar URL                                      |
+| `albumCount` | `number?` | Album count                                     |
 
 ### Album
 
-| Field        | Type      | Description  |
-| ------------ | --------- | ------------ |
-| `id`         | `string?` | Album ID     |
-| `name`       | `string`  | Name         |
-| `cover`      | `string?` | Cover URL    |
-| `artist`     | `string?` | Album artist |
-| `trackCount` | `number?` | Track count  |
-| `year`       | `number?` | Release year |
+| Field        | Type      | Description                                     |
+| ------------ | --------- | ----------------------------------------------- |
+| `id`         | `string?` | Album ID                                        |
+| `serverId`   | `string?` | Originating media server; retain for navigation |
+| `name`       | `string`  | Name                                            |
+| `cover`      | `string?` | Cover URL                                       |
+| `artist`     | `string?` | Album artist                                    |
+| `trackCount` | `number?` | Track count                                     |
+| `year`       | `number?` | Release year                                    |
+
+### Playlist
+
+| Field         | Type      | Description              |
+| ------------- | --------- | ------------------------ |
+| `id`          | `string?` | Playlist ID              |
+| `serverId`    | `string?` | Originating media server |
+| `name`        | `string`  | Name                     |
+| `cover`       | `string?` | Cover                    |
+| `description` | `string?` | Description              |
+| `trackCount`  | `number?` | Track count              |
+| `owner`       | `string?` | Creator                  |
 
 ### AudioQuality
 
@@ -92,18 +109,24 @@ Fee flag: `0` free, `1` VIP, `4` purchase required, and `8` quality restricted.
 
 One parsed lyric line. The `lines` payload in [`lyricChange`](/en/plugins/control#events) is `LyricLine[]`.
 
-| Field             | Type                                     | Description                             |
-| ----------------- | ---------------------------------------- | --------------------------------------- |
-| `words`           | [`LyricWord[]`](#lyricword)              | Timed words; line-timed formats use one |
-| `translatedLyric` | `string`                                 | Translation or an empty string          |
-| `romanLyric`      | `string`                                 | Romanization or an empty string         |
-| `startTime`       | `number`                                 | Line start in milliseconds              |
-| `endTime`         | `number`                                 | Line end in milliseconds                |
-| `isBG`            | `boolean`                                | Background-vocal line                   |
-| `isDuet`          | `boolean`                                | Duet line, usually right-aligned        |
-| `language`        | `"ja" \| "ko" \| "zh-CN" \| "und-Latn"?` | Main lyric language                     |
+| Field               | Type                                         | Description                                            |
+| ------------------- | -------------------------------------------- | ------------------------------------------------------ |
+| `words`             | [`LyricWord[]`](#lyricword)                  | Timed words; line-timed formats use one                |
+| `translatedLyric`   | `string`                                     | Translation or an empty string                         |
+| `romanLyric`        | `string`                                     | Romanization or an empty string                        |
+| `translationWords`  | [`LyricSpan[]`](#lyricspan)`?`               | Timed translation on the primary millisecond timeline  |
+| `romanizationWords` | [`RomanizationSpan[]`](#romanizationspan)`?` | Timed romanization that can span several primary words |
+| `startTime`         | `number`                                     | Line start in milliseconds                             |
+| `endTime`           | `number`                                     | Line end in milliseconds                               |
+| `isBG`              | `boolean`                                    | Background-vocal line                                  |
+| `isDuet`            | `boolean`                                    | Duet line, usually right-aligned                       |
+| `language`          | `"ja" \| "ko" \| "zh-CN" \| "und-Latn"?`     | Main lyric language                                    |
 
 Plain text is `line.words.map((word) => word.word).join("")`.
+
+### RomanizationSpan
+
+Extends [`LyricSpan`](#lyricspan) with optional numeric `from` and `to` indexes into primary `words`. Both are zero-based and inclusive. A complete romanization fragment can cover several source words; do not duplicate it by concatenating it once per source word.
 
 ### LyricWord
 

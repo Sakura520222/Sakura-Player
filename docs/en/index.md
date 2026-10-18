@@ -22,7 +22,9 @@ features:
     details: A high-performance FFmpeg + Rust audio engine supporting MP3, FLAC, WAV, AAC, OGG, APE, and more, with fades, loudness normalization, and an equalizer.
   - icon: 📝
     title: Expressive lyrics
-    details: LRC, QRC, YRC, and TTML lyrics with word-by-word highlighting, translations, desktop lyrics, Dynamic Island, and Windows taskbar lyrics.
+    details: TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT with timed translation, romanization, copy/share, complete saving, and external lyric windows.
+    link: /en/lyrics
+    linkText: Display and save lyrics
   - icon: 🤖
     title: AI lyric translation and generation
     details: Use your chosen model for translation, romanization, and word alignment, with fill-missing and regenerate modes, streamed previews, resumable generation, and explicit apply and save steps.
@@ -31,9 +33,13 @@ features:
   - icon: 🌐
     title: Streaming services
     details: Connect Subsonic, Navidrome, Jellyfin, Emby, and other self-hosted servers, manage multiple servers, and access your library anywhere.
+    link: /en/streaming
+    linkText: Set up media sources
   - icon: 🎧
     title: System integration
     details: Windows SMTC, Linux MPRIS, macOS Now Playing, Discord status, lock-screen controls, notifications, and media keys.
+    link: /en/integrations
+    linkText: Services and recognition
   - icon: 🎨
     title: Adaptive themes
     details: Cover-driven colors, Light, Dark, and Auto modes, spectrum visualization, and carefully polished details.

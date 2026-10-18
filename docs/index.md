@@ -23,7 +23,9 @@ features:
     details: 基于 FFmpeg + Rust 的高性能音频引擎，支持 MP3、FLAC、WAV、AAC、OGG、APE 等众多格式，渐入渐出、音量均衡、均衡器一应俱全。
   - icon: 📝
     title: 丰富的歌词展现
-    details: 支持 LRC / QRC / YRC / TTML 多种歌词，逐字高亮与翻译，并提供桌面歌词、灵动岛、Windows 任务栏歌词等多种展现形式。
+    details: 支持 TTML / LYS / QRC / KRC / YRC / LRC / ASS / SRT，逐字高亮、翻译、音译、复制分享与完整保存，提供多种外部歌词窗口。
+    link: /lyrics
+    linkText: 歌词使用与保存
   - icon: 🤖
     title: AI 歌词翻译与生成
     details: 自选模型生成翻译、音译与逐字对齐内容，支持补齐缺失、重新生成、流式预览和断点续译，确认后应用并按需保存。
@@ -32,9 +34,13 @@ features:
   - icon: 🌐
     title: 流媒体服务
     details: 接入 Subsonic / Navidrome / Jellyfin / Emby 等自建流媒体服务器，多服务器管理、自动连接，随时随地访问你的曲库。
+    link: /streaming
+    linkText: 配置媒体源
   - icon: 🎧
     title: 系统级集成
     details: 对接系统媒体控制（Windows SMTC / Linux MPRIS / macOS Now Playing）与 Discord 状态，锁屏、通知栏、耳机线控皆可掌控。
+    link: /integrations
+    linkText: 服务与听歌识曲
   - icon: 🎨
     title: 自适应主题
     details: 封面取色驱动全站着色，Light / Dark / Auto 自动切换，音乐频谱可视化，细节处处打磨。
