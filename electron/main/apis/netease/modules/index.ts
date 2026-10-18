@@ -52,6 +52,7 @@ import comment_music from "./comment_music";
 import comment_hot from "./comment_hot";
 
 import song_detail from "./song_detail";
+import song_chorus from "./song_chorus";
 import song_url from "./song_url";
 import song_download_url from "./song_download_url";
 import song_simi_get from "./song_simi_get";
@@ -143,6 +144,7 @@ export const modules: Record<string, NeteaseModule> = {
   comment_hot,
 
   song_detail,
+  song_chorus,
   song_url,
   song_url_v1: song_url,
   song_download_url,

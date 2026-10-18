@@ -2,6 +2,9 @@
  * 主进程音源 API 统一类型
  */
 
+import type { Track } from "./player";
+import type { SongHighlightResponse } from "./songHighlight";
+
 /** 支持的音源平台 */
 export type ApiPlatform = "netease" | "qqmusic" | "kugou";
 
@@ -12,6 +15,12 @@ export type ApiCallResponse =
 
 /** 渲染端统一入口 */
 export interface ApisApi {
+  /**
+   * 复用平台登录会话获取歌曲高潮标注
+   * @param track - 当前歌曲元数据
+   * @returns 毫秒时间轴，无标注时 data 为 null
+   */
+  getSongHighlight: (track: Track) => Promise<SongHighlightResponse>;
   /**
    * 调用任意音源接口
    * @param platform 音源平台

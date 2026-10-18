@@ -40,6 +40,7 @@ The software processes this information to play and organize media, restore your
 3. **Discord, Last.fm, and similar integrations:** Enabled options send titles, artists, and playback activity through local IPC or the platform API. The service's terms and privacy policy apply.
 4. **AI lyrics:** Explicit generation sends required lyric text, song title, artists, and necessary existing auxiliary text to your configured model service. Resume requests can include bounded error feedback. Audio, artwork, local paths, and original timestamps are not sent. The provider sets its retention and billing rules; see [AI Features](/en/ai).
 5. **Local alignment and recognition:** Installing translation alignment downloads Python, dependencies, and the model; prepared alignment runs offline. Recognition captures your selected system or microphone audio, generates fingerprints locally, and sends fingerprints and excerpt duration to NetEase for matching. It is not offline; see [Integrations](/en/integrations).
+6. **Song highlights:** Enabled by default, this feature sends song IDs / Hashes or title-and-artist search terms to NetEase or Kugou and reuses the corresponding platform's existing session. It does not read or upload audio files or perform local model analysis. Turn off **Settings → Player → Playback control → Find Song Highlights** to stop new queries. See [Song highlights](/en/playback#song-highlights).
 
 ## 5. Storage, retention, and protection
 

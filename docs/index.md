@@ -20,7 +20,9 @@ hero:
 features:
   - icon: 🎵
     title: 广泛的格式支持
-    details: 基于 FFmpeg + Rust 的高性能音频引擎，支持 MP3、FLAC、WAV、AAC、OGG、APE 等众多格式，渐入渐出、音量均衡、均衡器一应俱全。
+    details: 基于 FFmpeg + Rust 的高性能音频引擎，支持 MP3、FLAC、WAV、AAC、OGG、APE 等众多格式，提供渐入渐出、音量均衡、均衡器与歌曲高潮查询和跳转。
+    link: /playback
+    linkText: 播放控制与高潮跳转
   - icon: 📝
     title: 丰富的歌词展现
     details: 支持 TTML / LYS / QRC / KRC / YRC / LRC / ASS / SRT，逐字高亮、翻译、音译、复制分享与完整保存，提供多种外部歌词窗口。

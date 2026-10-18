@@ -466,6 +466,15 @@
       "settings": "流媒体配置"
     }
   },
+  "songHighlight": {
+    "sources": { "netease": "网易云", "kugou": "酷狗" },
+    "loading": "正在获取歌曲高潮…",
+    "jump": "跳转高潮 {range} · {source}",
+    "emptyRetry": "暂无高潮标注，点击重新获取",
+    "errorRetry": "高潮获取失败，点击重试",
+    "empty": "未找到这首歌曲的高潮标注",
+    "error": "高潮获取失败，请检查网络或平台登录状态后重试"
+  },
   "player": {
     "localAlignment": {
       "title": "算法智能对齐",
@@ -1104,6 +1113,10 @@
     "showProgressTooltip": {
       "label": "显示进度条悬浮信息",
       "description": "拖拽进度条时显示悬浮提示框"
+    },
+    "showSongHighlight": {
+      "label": "获取歌曲高潮",
+      "description": "自动查询网易云和酷狗的高潮标注，在进度条显示并支持一键跳转；本地和流媒体歌曲会按歌名、歌手与时长匹配"
     },
     "showProgressLyric": {
       "label": "进度条悬浮时显示歌词",

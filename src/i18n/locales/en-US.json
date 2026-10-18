@@ -466,6 +466,15 @@
       "settings": "Streaming settings"
     }
   },
+  "songHighlight": {
+    "sources": { "netease": "NetEase", "kugou": "Kugou" },
+    "loading": "Finding song highlights…",
+    "jump": "Jump to highlight {range} · {source}",
+    "emptyRetry": "No highlight found, click to try again",
+    "errorRetry": "Could not fetch highlights, click to retry",
+    "empty": "No highlight annotations found for this song",
+    "error": "Could not fetch highlights. Check your connection or platform login and retry"
+  },
   "player": {
     "localAlignment": {
       "title": "Algorithmic lyric alignment",
@@ -1109,6 +1118,10 @@
     "showProgressTooltip": {
       "label": "Show Progress Tooltip",
       "description": "Show a tooltip when dragging the progress bar"
+    },
+    "showSongHighlight": {
+      "label": "Find Song Highlights",
+      "description": "Automatically query NetEase and Kugou for highlights and enable progress markers and one-click seeking; local and streaming tracks are matched by title, artist and duration"
     },
     "showProgressLyric": {
       "label": "Show Lyric in Tooltip",

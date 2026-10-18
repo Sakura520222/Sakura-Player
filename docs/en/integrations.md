@@ -6,6 +6,8 @@ Signing into NetEase enables the account's liked playlist, collections, daily re
 
 Manage QQ Music and Kugou accounts in **Settings → Other → Platform login**, using the web login, QR code, or manual Cookie methods shown by the interface. Choose the Kugou variant under platform configuration. One platform's account or entitlements do not apply to other platforms.
 
+[Song highlight queries](/en/playback#song-highlights) reuse existing NetEase and Kugou sessions and the selected Kugou variant, without a separate sign-in. See the playback guide for the switch, flame button, and handling of missing annotations.
+
 Search also supports [independent source plugins](/en/plugins/source#independent). Built-in platforms, plugins, and self-hosted [media sources](/en/streaming) manage their sources and permissions separately.
 
 ## Song recognition

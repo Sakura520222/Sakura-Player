@@ -10,7 +10,6 @@ import { useDownload, buildDownloadQualityItems } from "@/composables/useDownloa
 import { usePlaylistPicker } from "@/composables/usePlaylistPicker";
 import { useImmersiveMode } from "@/composables/useImmersiveMode";
 import { useTimeFormat } from "@/composables/useTimeFormat";
-import { useProgressLyric } from "@/composables/useProgressLyric";
 import Lyrics from "@/components/player/Lyrics/index.vue";
 import { useWindowControls } from "@/composables/useWindowControls";
 import * as player from "@/core/player";
@@ -24,8 +23,6 @@ const { t } = useI18n();
 const {
   isPlaying,
   isLoading,
-  position,
-  duration,
   isPlayerExpanded,
   repeatMode,
   shuffleMode,
@@ -35,7 +32,6 @@ const {
 } = storeToRefs(status);
 
 const { timeDisplay, toggleTimeFormat } = useTimeFormat();
-const { snapToNearestLyric } = useProgressLyric();
 
 const lyricRef = ref<InstanceType<typeof Lyrics>>();
 const lyricMounted = ref(false);
@@ -167,10 +163,6 @@ const onDownloadSelect = (key: string): void => {
 
 const collapse = (): void => {
   isPlayerExpanded.value = false;
-};
-
-const onSeekDragEnd = (value: number): void => {
-  player.seek(snapToNearestLyric(value));
 };
 
 const {
@@ -503,16 +495,7 @@ const showComments = (): void => {
               >
                 {{ timeDisplay[0] }}
               </span>
-              <SSlider
-                :model-value="position"
-                :min="0"
-                :max="duration"
-                :step="100"
-                :always-show-thumb="false"
-                cover
-                class="flex-1"
-                @drag-end="onSeekDragEnd"
-              />
+              <PlayerProgress cover :track-height="4" :thumb-size="14" class="flex-1" />
               <span
                 class="text-xs text-cover/50 tabular-nums min-w-9 text-center cursor-pointer px-1.5 py-0.5 rounded-md transition-colors hover:bg-cover/10"
                 @click="toggleTimeFormat"

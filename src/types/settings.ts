@@ -269,6 +269,8 @@ export interface PlayerSettings {
   timeFormat: TimeFormat;
   /** 显示进度条悬浮信息 */
   showProgressTooltip: boolean;
+  /** 自动查询并标记当前歌曲的高潮 */
+  showSongHighlight: boolean;
   /** 进度条悬浮时显示歌词 */
   showProgressLyric: boolean;
   /** 进度调节吸附最近歌词 */

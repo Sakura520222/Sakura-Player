@@ -9,11 +9,14 @@ import { openNeteaseLoginWindow } from "@main/window/login";
 import { coreLog } from "@main/utils/logger";
 import type { ApiPlatform } from "@shared/types/apis";
 import { callPlatformApi } from "@main/services/platformApi";
+import { getSongHighlight } from "@main/services/songHighlight";
+import type { Track } from "@shared/types/player";
 
 /**
  * 注册平台接口的进程通信处理器
  */
 export const registerApisIpc = (): void => {
+  ipcMain.handle("apis:getSongHighlight", (_evt, track: Track) => getSongHighlight(track));
   ipcMain.handle(
     "apis:call",
     async (_evt, platform: ApiPlatform, name: string, params?: Record<string, unknown>) => {

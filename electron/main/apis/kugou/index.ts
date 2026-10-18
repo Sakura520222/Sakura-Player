@@ -32,6 +32,7 @@ const NON_CACHEABLE = new Set([
   "login_qr_check",
   "user_detail",
   "song_url",
+  "song_climax",
   "comment",
 ]);
 

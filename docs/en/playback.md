@@ -6,6 +6,21 @@ The player supports list repeat, repeat-one, and shuffle, with queue viewing and
 
 **Settings → Player → Audio source** provides default quality and trial-play options. Available online quality depends on the source, account permissions, and track resources. Selecting a higher quality does not convert a lower-quality file into lossless audio.
 
+## Song highlights
+
+**Settings → Player → Playback control → Find Song Highlights** is enabled by default. Once a track finishes loading, the player queries NetEase's chorus annotations or Kugou's highlight annotations. It reuses existing platform sessions and the selected Kugou standard/concept variant without requiring a separate service setup.
+
+When annotations are available, gold bands show the highlight ranges on the progress bar. Click the **flame button** to jump to a highlight's start in the regular, floating, or full-screen player. Seeking while paused keeps playback paused. For multiple highlights, the button selects the next upcoming range, or returns to the first when none remain. The bands display ranges; adjust playback position by dragging the progress bar as usual.
+
+- **NetEase and Kugou tracks:** Query the original platform's song ID or Hash first. If no valid annotation is available or the request fails, try matching a version on the other platform.
+- **Local, QQ Music, and streaming tracks:** Search by title and artist, then use album and duration to select a matching version. No highlight range is shown when a reliable match cannot be found.
+- **Plugin-source tracks:** Do not participate in the built-in platforms' highlight queries.
+- **Retries and caching:** Valid annotations are cached in memory to reduce repeated requests and are discarded when the player exits. Click the flame button again to retry an empty or failed lookup.
+
+Highlight queries require a network connection and depend on platform annotation coverage; not every song has a result. For repeated failures, check your connection and [platform login status](/en/integrations#accounts-and-online-pages). Local audio analysis is not provided. No AI model configuration or audio download is needed to identify highlights.
+
+Queries send the song ID / Hash or title-and-artist search terms to the corresponding platform. They do not read or upload audio files. Turning off **Find Song Highlights** stops new highlight queries and hides the bands and flame button.
+
 ## Playback toolbar menu
 
 | Entry                    | Purpose                                                                                                      |

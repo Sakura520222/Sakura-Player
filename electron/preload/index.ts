@@ -495,6 +495,12 @@ const api = {
       subscribe<PluginInfo>("plugin:status", callback),
   },
   apis: {
+    /**
+     * 获取歌曲的高潮区间
+     * @param track - 当前歌曲元数据
+     * @returns 平台标注的毫秒时间轴
+     */
+    getSongHighlight: (track: Track) => ipcRenderer.invoke("apis:getSongHighlight", track),
     // 调用任意平台的任意接口
     call: (platform: string, name: string, params?: Record<string, unknown>) =>
       ipcRenderer.invoke("apis:call", platform, name, params ?? {}),

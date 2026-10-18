@@ -149,6 +149,7 @@ export const useSettingsStore = defineStore(
       allowTrialPlay: false,
       timeFormat: "current-total",
       showProgressTooltip: true,
+      showSongHighlight: true,
       showProgressLyric: false,
       snapToLyric: false,
       showLyricInBar: true,

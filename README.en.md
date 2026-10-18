@@ -52,6 +52,12 @@ AI lyrics support OpenAI-compatible and Anthropic protocols, using your configur
 
 Recognition requires online matching and depends on platform capture capabilities. Native system capture is available on Windows/Linux; microphone capture can use the browser when native capture is unavailable. Settings backups contain configuration, not the library, playlists, history, or original audio.
 
+## Song highlights
+
+The player automatically queries NetEase's chorus annotations and Kugou's highlight annotations, reusing existing login sessions. Local, QQ Music, and streaming tracks are matched by metadata. Gold bands show available highlight ranges on the progress bar; click the **flame button** to jump to a highlight in the regular, floating, or full-screen player.
+
+Disable this feature in **Settings → Player → Playback control → Find Song Highlights**. Queries require a network connection and depend on platform annotation coverage. Click the flame button again to retry an empty or failed lookup. Audio files are not read or uploaded, and local audio analysis is not performed. See [Song highlights](https://sakura-player.pyabunny.com/en/playback.html#song-highlights) for details.
+
 ## Downloads and Documentation
 
 - The [download page](https://sakura-player.pyabunny.com/en/download.html) offers x64/ARM64 packages for Windows, macOS, and Linux. Check your architecture and installation form.

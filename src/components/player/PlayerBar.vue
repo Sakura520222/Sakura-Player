@@ -1,30 +1,17 @@
 <script setup lang="ts">
-import { useStatusStore } from "@/stores/status";
 import { useSettingsStore } from "@/stores/settings";
 import { useMediaStore } from "@/stores/media";
 import { useFavorite } from "@/composables/useFavorite";
 import { usePlaylistPicker } from "@/composables/usePlaylistPicker";
 import { useTrackMenu } from "@/composables/useTrackMenu";
 import { useDownload } from "@/composables/useDownload";
-import { useProgressLyric } from "@/composables/useProgressLyric";
-import * as player from "@/core/player";
 
-const status = useStatusStore();
 const settings = useSettingsStore();
 const media = useMediaStore();
 const fav = useFavorite();
-const { position, duration } = storeToRefs(status);
-const { formatTooltip, snapToNearestLyric } = useProgressLyric();
 
 /** 是否是浮动模式 */
 const isFloating = computed(() => settings.appearance.layoutMode === "floating");
-/** 是否显示进度条提示 */
-const showTooltip = computed(() => settings.player.showProgressTooltip);
-
-const onSeekDragEnd = (value: number): void => {
-  const snappedValue = snapToNearestLyric(value);
-  player.seek(snappedValue);
-};
 
 /** 添加到歌单 */
 const {
@@ -95,19 +82,7 @@ const { items: menuItems, handleSelect: onMenuSelect } = useTrackMenu(toRef(medi
         </TrackInfo>
         <PlayerTimeInfo compact />
       </div>
-      <SSlider
-        :model-value="position"
-        :min="0"
-        :max="duration"
-        :step="100"
-        :track-height="3"
-        :thumb-size="10"
-        :always-show-thumb="false"
-        :show-popover="showTooltip"
-        @drag-end="onSeekDragEnd"
-      >
-        <template #popover="{ value }">{{ formatTooltip(value) }}</template>
-      </SSlider>
+      <PlayerProgress :thumb-size="10" />
     </div>
     <div class="shrink-0">
       <Toolbar />
@@ -116,19 +91,7 @@ const { items: menuItems, handleSelect: onMenuSelect } = useTrackMenu(toRef(medi
   <!-- 默认模式 -->
   <div v-else class="relative h-full">
     <div class="absolute left-0 right-0 top-0 -translate-y-1/2 z-10">
-      <SSlider
-        :model-value="position"
-        :min="0"
-        :max="duration"
-        :step="100"
-        :track-height="3"
-        :thumb-size="12"
-        :always-show-thumb="false"
-        :show-popover="showTooltip"
-        @drag-end="onSeekDragEnd"
-      >
-        <template #popover="{ value }">{{ formatTooltip(value) }}</template>
-      </SSlider>
+      <PlayerProgress />
     </div>
     <div class="grid grid-cols-[1fr_auto_1fr] items-center h-full px-3 gap-3">
       <TrackInfo>

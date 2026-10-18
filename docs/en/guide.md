@@ -2,14 +2,15 @@
 
 This page covers the basics of Sakura Player. See [Download](/en/download) for installation packages.
 
-| Task                                                     | Guide                                  |
-| -------------------------------------------------------- | -------------------------------------- |
-| Scan folders, manage likes/playlists, inspect statistics | [Library and Statistics](/en/library)  |
-| Equalizer, speed, A-B loop, timer, and crossfade         | [Playback and Effects](/en/playback)   |
-| Match lyrics, adjust fonts, copy, and save               | [Lyrics](/en/lyrics)                   |
-| Download songs, retry, and manage files                  | [Music Downloads](/en/music-downloads) |
-| Accounts, recognition, Last.fm, and Discord              | [Integrations](/en/integrations)       |
-| Caches, settings backup, and migration                   | [Data Management](/en/data-management) |
+| Task                                                     | Guide                                           |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| Scan folders, manage likes/playlists, inspect statistics | [Library and Statistics](/en/library)           |
+| Find song highlights and jump to them                    | [Song highlights](/en/playback#song-highlights) |
+| Equalizer, speed, A-B loop, timer, and crossfade         | [Playback and Effects](/en/playback)            |
+| Match lyrics, adjust fonts, copy, and save               | [Lyrics](/en/lyrics)                            |
+| Download songs, retry, and manage files                  | [Music Downloads](/en/music-downloads)          |
+| Accounts, recognition, Last.fm, and Discord              | [Integrations](/en/integrations)                |
+| Caches, settings backup, and migration                   | [Data Management](/en/data-management)          |
 
 ## Playing music
 

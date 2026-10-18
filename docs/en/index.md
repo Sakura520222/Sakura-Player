@@ -19,7 +19,9 @@ hero:
 features:
   - icon: 🎵
     title: Broad format support
-    details: A high-performance FFmpeg + Rust audio engine supporting MP3, FLAC, WAV, AAC, OGG, APE, and more, with fades, loudness normalization, and an equalizer.
+    details: A high-performance FFmpeg + Rust audio engine supporting MP3, FLAC, WAV, AAC, OGG, APE, and more, with fades, loudness normalization, an equalizer, and song highlight lookup and seeking.
+    link: /en/playback
+    linkText: Playback controls and highlights
   - icon: 📝
     title: Expressive lyrics
     details: TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT with timed translation, romanization, copy/share, complete saving, and external lyric windows.
