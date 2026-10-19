@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { nextTick, reactive, toRaw } from "vue";
-import { parseLyric, toTTML } from "lyric-kit";
+import { normalizeLyricLines, parseLyric, toTTML } from "lyric-kit";
 import { ALIGNMENT_LINES, ALIGNMENT_RESULT } from "@shared/testFixtures/lyricAlignment";
 import type { LyricLine } from "@shared/types/lyrics";
 import type { CjkTransformMode } from "@shared/types/opencc";
@@ -187,6 +187,87 @@ describe("当前歌曲本地算法对齐", () => {
 });
 
 describe("当前歌曲 AI 译文应用", () => {
+  it("勾选两项逐字任务但只补齐翻译时，已有音译的原始保存数据保持不变", () => {
+    const media = load();
+    media.setLyric(
+      { source: "embedded", format: "ttml" },
+      { content: toTTML(ALIGNMENT_LINES), format: "ttml" },
+    );
+    expect(
+      media.applyAlignedLyricTranslation(
+        media.lyricRevision,
+        new Map([[0, ALIGNMENT_RESULT]]),
+        "en",
+      ),
+    ).toBe(true);
+    const romaji = media.lyricContent!.romaji;
+    media.parsedLyric = media.parsedLyric.map((line) => ({ ...line, translationWords: undefined }));
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        new Map([[0, { translation: ALIGNMENT_RESULT.translation }]]),
+        { translation: false, romanization: false, wordTranslation: true, wordRomanization: true },
+        "en",
+      ),
+    ).toBe(true);
+    expect(media.lyricContent!.romaji).toBe(romaji);
+    expect(getGenerationCoverage(media.parsedLyric).existing.wordRomanization).toBe(1);
+  });
+
+  it("补齐其他行后保留原有词内音译的时间，保存重读不会退化为逐行轨道", () => {
+    const media = load();
+    const first = structuredClone(ALIGNMENT_LINES[0]);
+    first.romanLyric = "kimi  to aruku";
+    first.words.forEach((word, index) => {
+      word.romanWord = ["kimi", "to", "aruku"][index];
+    });
+    const second = structuredClone(ALIGNMENT_LINES[0]);
+    second.id = "second";
+    second.startTime += 5000;
+    second.endTime += 5000;
+    second.words.forEach((word) => {
+      word.startTime += 5000;
+      word.endTime += 5000;
+      word.ruby?.forEach((ruby) => {
+        ruby.startTime += 5000;
+        ruby.endTime += 5000;
+      });
+    });
+    second.romanLyric = "kimi to aruku";
+    normalizeLyricLines([first, second]);
+    const content = toTTML([first, second]);
+    media.setLyric({ source: "embedded", format: "ttml" }, { content, format: "ttml" });
+    media.parsedLyric = [first, second];
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: false,
+      wordRomanization: true,
+    };
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        new Map([[1, { romanization: ALIGNMENT_RESULT.romanization }]]),
+        options,
+        "zh-CN",
+      ),
+    ).toBe(true);
+    const saved = structuredClone(toRaw(media.lyricContent!));
+    for (let repeat = 0; repeat < 3; repeat++) {
+      media.setLyric({ source: "embedded", format: "ttml" }, saved);
+      expect(getGenerationCoverage(media.parsedLyric).existing.wordRomanization).toBe(2);
+      expect(media.parsedLyric[0].romanLyric).toBe(first.romanLyric);
+      expect(media.parsedLyric[0].romanizationWords?.map(({ word }) => word)).toEqual([
+        "kimi  ",
+        "to ",
+        "aruku",
+      ]);
+      expect(media.parsedLyric[0].words.map((word) => word.romanWord)).toEqual(
+        first.words.map((word) => word.romanWord),
+      );
+    }
+  });
+
   it("范围音译经过实际应用、窗口同步和多次歌词重载后保持同一分组", () => {
     const media = load();
     const content = toTTML([ROMANIZATION_RANGE_LINE]);

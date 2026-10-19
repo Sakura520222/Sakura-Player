@@ -478,7 +478,7 @@
   "player": {
     "localAlignment": {
       "title": "Algorithmic lyric alignment",
-      "hint": "Match existing translations and romanization to the original word timings without rewriting text. Romanization uses Japanese readings; translation uses cross-language word alignment. Complete alignments are preserved by default or can be realigned",
+      "hint": "Match existing translations and romanization to the original word timings without rewriting text. Romanization matches Japanese readings and Chinese pinyin; translation uses cross-language word alignment. Complete alignments are preserved by default or can be realigned",
       "realignExisting": "Realign existing word-timed translation and romanization",
       "realignHint": "Recalculate timings for the auxiliary tracks selected above. Unselected tracks and lines without a reliable match keep their existing alignment",
       "translation": "Align existing translation",

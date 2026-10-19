@@ -8,6 +8,7 @@ import type {
 import { getExistingRomanization, type GeneratedLyric } from "./aiGeneration";
 import { hasCompleteAuxiliary } from "./auxiliaryCoverage";
 import { applyLyricResult } from "@/utils/lyric/alignment";
+import { getRomanizationSpans } from "@/utils/lyric/romanization";
 
 /**
  * 收集真实逐字主歌词的辅助文本，按选择保留或重做已有完整对齐
@@ -48,20 +49,10 @@ export const collectLocalAlignmentLines = (
     if (!realignExisting) {
       for (const [field, spans] of [
         ["translation", line.translationWords],
-        [
-          "romanization",
-          line.romanizationWords?.length
-            ? line.romanizationWords
-            : words.map((word) => ({ ...word, word: word.romanWord ?? "" })),
-        ],
+        ["romanization", getRomanizationSpans(line)],
       ] as const) {
-        // 整行时间即使覆盖所有原词也不是逐字；词内音译还须与当前整行文本一致
-        if (
-          spans &&
-          new Set(spans.map((span) => `${span.startTime}:${span.endTime}`)).size > 1 &&
-          hasCompleteAuxiliary(line, spans, source[field])
-        )
-          source[field] = "";
+        // 使用同一规则区分整行占位与明确语义范围，并校验词内音译文本
+        if (hasCompleteAuxiliary(line, spans, source[field])) source[field] = "";
       }
     }
     if (!source.translation.trim() && !source.romanization.trim()) continue;

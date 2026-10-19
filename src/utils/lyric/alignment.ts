@@ -12,7 +12,12 @@ import {
   type GenerationMode,
 } from "@/services/lyric/aiGeneration";
 
-/** 排除空白词占位时间，在原词语义范围内顺排译文的语序冲突片段 */
+/**
+ * 在原词语义范围内顺排译文，单个短语保留明确关联以区别于普通逐行文本
+ * @param line - 原始逐字歌词
+ * @param parts - 已校验的译文语义范围
+ * @returns 保留语序的辅助时间片段
+ */
 const createTranslationWords = (line: LyricLine, parts: AlignedTranslation["translation"]) =>
   sequenceTranslationWords(
     parts.map(({ text, from, to }) =>
@@ -24,7 +29,12 @@ const createTranslationWords = (line: LyricLine, parts: AlignedTranslation["tran
           }
           return span;
         },
-        { word: text, startTime: line.words[from].startTime, endTime: line.words[to].endTime },
+        {
+          word: text,
+          startTime: line.words[from].startTime,
+          endTime: line.words[to].endTime,
+          ...(parts.length === 1 ? { from, to } : {}),
+        },
       ),
     ),
   );

@@ -338,7 +338,7 @@ describe("逐字辅助歌词对齐与重载", () => {
       ]),
     )!;
     expect(result[0].translationWords).toEqual([
-      { word: "与你同行", startTime: 1100, endTime: 4000 },
+      { word: "与你同行", startTime: 1100, endTime: 4000, from: 0, to: 3 },
     ]);
     expect(result[0].words[1].romanWord).toBeUndefined();
     expect(source[0].words[1].romanWord).toBe("stale");

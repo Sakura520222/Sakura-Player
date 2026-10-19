@@ -18,6 +18,10 @@ export interface AlignmentSourceLine {
 export interface AlignmentSourcePhrase {
   text: string;
   indices: number[];
+  /** 短语中可独立承担语义的分词下标 */
+  heads?: number[];
+  /** 与 indices 同序的词典基本形，仅用于语义回退 */
+  lemmas?: string[];
 }
 
 export interface AlignmentTrackResult {

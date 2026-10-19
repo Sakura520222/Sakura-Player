@@ -53,6 +53,9 @@ importers:
       lyric-kit:
         specifier: ^0.6.1
         version: 0.6.1
+      pinyin-pro:
+        specifier: ^3.29.5
+        version: 3.29.5
       tar:
         specifier: 7.5.22
         version: 7.5.22
@@ -4404,6 +4407,9 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  pinyin-pro@3.29.5:
+    resolution: {integrity: sha512-Fk5YoRmtdHqJWqAuzYVG/NzvzeCbaG+ZEwbY6Nbps3QAIrvQQEtcm49frcyCM8i2b5najnzPDtYqrHRYTTiuwQ==}
 
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
@@ -9824,6 +9830,8 @@ snapshots:
       vue: 3.5.41(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
+
+  pinyin-pro@3.29.5: {}
 
   pkce-challenge@5.0.1: {}
 

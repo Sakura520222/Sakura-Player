@@ -4,6 +4,7 @@ import kuromoji from "kuromoji";
 import type { AlignmentSourcePhrase, LocalAlignmentRequest } from "@shared/types/lyricAlignment";
 import { alignRomanization } from "@shared/utils/lyricAlignment";
 import { tokenizeAlignmentSource } from "./readings";
+import { alignPinyin } from "./pinyin";
 
 const englishFunctionWords = new Set(
   "a an the to of in on at for by with from into over under about after before as than and or but if is am are was were be been being have has had would could should can may might must do does did not".split(
@@ -37,21 +38,41 @@ const prepare = async (request: LocalAlignmentRequest) => {
   return request.lines.map((line) => {
     const { source, phonetic } = tokenizeAlignmentSource(line, tokenizer);
     const translation = request.translation && !!line.translation.trim();
-    const japanese =
-      translation && /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(line.words.join(""));
+    const text = line.words.join("");
+    const japanese = translation && /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
+    let cursor = 0;
     const tokens = japanese
-      ? tokenizer!.tokenize(line.words.join("")).filter((token) => token.surface_form.trim())
+      ? tokenizer!
+          .tokenize(text)
+          .filter((token) => token.surface_form.trim())
+          .map((token) => {
+            const start = text.indexOf(token.surface_form, cursor);
+            cursor = start + token.surface_form.length;
+            return { ...token, start, end: cursor };
+          })
+      : [];
+    cursor = 0;
+    const features = japanese
+      ? source.map((token) => {
+          const start = text.indexOf(token.text, cursor);
+          cursor = start + token.text.length;
+          return tokens.find((word) => word.start <= start && word.end >= cursor)!;
+        })
       : [];
     const groups: number[][] = [];
+    const heads = new Set<number>();
     let pending: number[] = [];
     for (const [index, token] of (translation ? source : []).entries()) {
       if (japanese) {
-        const current = tokens[index];
-        const previous = tokens[index - 1];
+        const current = features[index];
+        const previous = features[index - 1];
         const dependent =
           ["助詞", "助動詞", "記号"].includes(current.pos) ||
-          ["非自立", "接尾"].includes(current.pos_detail_1);
+          current.pos_detail_1 === "接尾" ||
+          (current.pos_detail_1 === "非自立" && current.pos !== "名詞");
+        if (!dependent) heads.add(index);
         const compound =
+          current !== previous &&
           current.pos === "動詞" &&
           previous?.pos === "動詞" &&
           previous.conjugated_form.startsWith("連用");
@@ -67,6 +88,7 @@ const prepare = async (request: LocalAlignmentRequest) => {
       } else if (englishFunctionWords.has(token.text.toLowerCase())) pending.push(index);
       else {
         groups.push([...pending, index]);
+        if (/[\p{L}\p{N}]/u.test(token.text)) heads.add(index);
         pending = [];
       }
     }
@@ -74,18 +96,29 @@ const prepare = async (request: LocalAlignmentRequest) => {
       if (groups.length) groups.at(-1)!.push(...pending);
       else groups.push(pending);
     }
+    const romanization =
+      request.romanization && line.romanization
+        ? (alignPinyin(line) ?? alignRomanization(phonetic, line.romanization))
+        : null;
     return {
       id: line.id,
       source,
       sourcePhrases: groups.map((indices) => ({
         indices,
         text: indices.map((index) => source[index].text).join(japanese ? "" : " "),
+        heads: indices.filter((index) => heads.has(index)),
+        lemmas: indices.map((index) => {
+          const feature = features[index];
+          return feature &&
+            feature.surface_form === source[index].text &&
+            ["動詞", "形容詞"].includes(feature.pos) &&
+            feature.basic_form !== "*"
+            ? feature.basic_form
+            : source[index].text;
+        }),
       })) satisfies AlignmentSourcePhrase[],
       target: Array.from(segmenter.segment(line.translation), (segment) => segment.segment),
-      romanization:
-        request.romanization && line.romanization
-          ? (alignRomanization(phonetic, line.romanization) ?? undefined)
-          : undefined,
+      romanization: romanization && romanization.parts.length > 1 ? romanization : undefined,
     };
   });
 };

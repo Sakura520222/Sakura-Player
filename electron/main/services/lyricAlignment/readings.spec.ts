@@ -20,6 +20,95 @@ beforeAll(async () => {
 
 describe("按主歌词时间粒度匹配日语音译", () => {
   it.each([
+    ["ゆっくり歩き", "yu  ku li alu ki"],
+    ["一緒に居ようよ", "i xiyo ni i yo u yo"],
+    ["ふたりの時間が写ったphotograph", "fu ta li no ji kan ga wucu  ta photograph"],
+    ["煌きがほら", "kilame ki ga ho la"],
+    ["コントロールさせて", "ko n to ro o ru sa se te"],
+    ["私のハート", "wa ta shi no ha to"],
+    ["気づけた素直な思いへと", "ki du ke ta su na o na o mo i he to"],
+    ["膨らんでくシフォンな想い", "fu ku ra n de ku shi fo n na o mo i"],
+    ["“キマグレ”“自分勝手”", "“ ki ma gu re ”“ ji bu n ka 't te ”"],
+    ["词：カサンドラ", "shi :ka sa n do ra"],
+    ["2人を見守り続けて", "fu ta ri wo mi ma mo ri tsu zu ke te"],
+    ["100人家族", "hya ku ni n ka zo ku"],
+    ["わくわくするような未来の一歩目", "wa ku wa ku su ru yo u na mi ra i no i chi ho me"],
+    ["私はいました誰にも見えず一人で", "wataxi wa i ma xi ta dare ni mo mi e zu hito li de"],
+  ])("转写差异、长音和独立标点均保留完整原词范围：%s", (text, existing) => {
+    const line = { id: 0, words: Array.from(text), translation: "", romanization: existing };
+    const result = alignRomanization(tokenizeAlignmentSource(line, tokenizer).phonetic, existing)!;
+    expect(result).not.toBeNull();
+    expect(result.score).toBeGreaterThanOrEqual(0.8);
+    expect(result.parts.map((part) => part.text).join("")).toBe(existing);
+    expect(
+      result.parts.flatMap((part) =>
+        Array.from({ length: part.to - part.from + 1 }, (_, index) => part.from + index),
+      ),
+    ).toEqual(line.words.map((_, index) => index));
+  });
+
+  it("数字注音沿用原字范围，重复词按实际字词范围拆分，英文拼写保持独立", () => {
+    const numeric = {
+      id: 0,
+      words: ["２", "人", "の", "恋"],
+      readings: ["ふた", "り", "", "こい"],
+      translation: "",
+      romanization: "fu ta ri no ko i",
+    };
+    const result = alignRomanization(
+      tokenizeAlignmentSource(numeric, tokenizer).phonetic,
+      numeric.romanization,
+    )!;
+    expect(result.parts[0]).toEqual({ text: "fu ta ", from: 0, to: 0 });
+    const repeated = tokenizeAlignmentSource(
+      { id: 0, words: Array.from("ひとつひとつが"), translation: "每一句每一句", romanization: "" },
+      tokenizer,
+    );
+    expect(repeated.source.slice(0, 2).map(({ text, from, to }) => ({ text, from, to }))).toEqual([
+      { text: "ひとつ", from: 0, to: 2 },
+      { text: "ひとつ", from: 3, to: 5 },
+    ]);
+    const english = tokenizeAlignmentSource(
+      { id: 0, words: ["君", "murmur"], translation: "", romanization: "" },
+      tokenizer,
+    );
+    expect(english.source.filter((token) => token.text === "murmur")).toHaveLength(1);
+    expect(
+      alignRomanization([{ text: "river", reading: "river", from: 0, to: 0 }], "livel"),
+    ).toBeNull();
+  });
+
+  it("整词词典补充行く的另一读音，未收录汉字必须有充分且唯一的上下文", () => {
+    const line = { id: 0, words: ["行", "く"], translation: "", romanization: "yu ku" };
+    expect(
+      alignRomanization(tokenizeAlignmentSource(line, tokenizer).phonetic, line.romanization)
+        ?.score,
+    ).toBe(1);
+    const source = [
+      { text: "煌", reading: "煌", from: 0, to: 0 },
+      ...["ki", "ga", "ho", "ra"].map((reading, index) => ({
+        text: "かな",
+        reading,
+        from: index + 1,
+        to: index + 1,
+      })),
+    ];
+    expect(alignRomanization(source, "kilame ki ga ho ra")?.parts[0]).toEqual({
+      text: "kilame ",
+      from: 0,
+      to: 0,
+    });
+    expect(alignRomanization(source.slice(0, 4), "kilame ki ga ho")).toBeNull();
+    expect(alignRomanization(source, "unrelatedlongtext ki ga ho ra")).toBeNull();
+    expect(
+      alignRomanization(
+        source.map((token, index) => (index ? token : { ...token, to: 1 })),
+        "kilame ki ga ho ra",
+      ),
+    ).toBeNull();
+  });
+
+  it.each([
     ["こんな穏やかな君が来ることを", "konna odayaka na kimi ga kuru koto o"],
     ["自分の未来を描いてくこと", "jibun no mirai o egaiteku koto"],
     ["あきらめて出したを", "akiramete dashita o"],

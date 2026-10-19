@@ -123,7 +123,7 @@ const runSimAlign = async (
       z.object({
         id: z.number().int(),
         pairs,
-        alternatives: z.array(pairs).max(3).default([]),
+        alternatives: z.array(pairs).max(8).default([]),
       }),
     )
     .max(1000)

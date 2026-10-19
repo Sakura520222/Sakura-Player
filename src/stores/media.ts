@@ -13,6 +13,7 @@ import { applyLyricExclude } from "@/utils/lyric/lyricStripper";
 import { applyLyricCjkTransform } from "@/utils/lyric/cjkTransform";
 import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
+import { getRomanizationSpans } from "@/utils/lyric/romanization";
 import { alignGeneratedLyrics, applyGeneratedLyrics } from "@/utils/lyric/alignment";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
 import { applyLocalAlignment } from "@/services/lyric/localAlignment";
@@ -327,7 +328,7 @@ export const useMediaStore = defineStore("media", () => {
         new Map(
           lines.map((line, index) => [
             index,
-            line.romanizationWords?.length ? line.romanizationWords : getExistingRomanization(line),
+            getRomanizationSpans(line) ?? getExistingRomanization(line),
           ]),
         ),
         "und-Latn",
@@ -348,7 +349,7 @@ export const useMediaStore = defineStore("media", () => {
   };
 
   /**
-   * 所选辅助轨道完整生成后一次提交，未勾选轨道的内容与保存数据保持原样
+   * 完整生成后一次提交，仅序列化实际返回结果的轨道，保留其他原始保存数据
    * @param revision - 生成开始时的歌词版本
    * @param results - 覆盖本次待生成行的所选项目结果
    * @param options - 用户勾选的生成项目
@@ -382,7 +383,19 @@ export const useMediaStore = defineStore("media", () => {
             : "und";
       }
     }
-    commitAuxiliaryLyrics(lines, options, translationLanguage);
+    const generated = Array.from(results.values());
+    const translationUpdated = generated.some((line) => line.translation !== undefined);
+    const romanizationUpdated = generated.some((line) => line.romanization !== undefined);
+    commitAuxiliaryLyrics(
+      lines,
+      {
+        translation: options.translation && translationUpdated,
+        wordTranslation: options.wordTranslation && translationUpdated,
+        romanization: options.romanization && romanizationUpdated,
+        wordRomanization: options.wordRomanization && romanizationUpdated,
+      },
+      translationLanguage,
+    );
     return true;
   };
 

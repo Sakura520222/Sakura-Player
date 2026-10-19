@@ -13,6 +13,7 @@ import { TRANSLATION_LANGUAGES, type TranslationLanguage } from "./aiTranslation
 import { JsonRecordDecoder } from "./jsonRecords";
 import { readLyricIndex } from "./aiResponse";
 import { hasCompleteAuxiliary } from "./auxiliaryCoverage";
+import { getRomanizationSpans } from "../../utils/lyric/romanization";
 
 export const GENERATION_TASKS = [
   "translation",
@@ -83,10 +84,7 @@ export const getGenerationCoverage = (lines: LyricLine[]) => {
     total++;
     if (line.translatedLyric.trim()) existing.translation++;
     if (getExistingRomanization(line)) existing.romanization++;
-    if (
-      words.every((word) => word.romanWord?.trim()) ||
-      hasCompleteAuxiliary(line, line.romanizationWords, getExistingRomanization(line))
-    )
+    if (hasCompleteAuxiliary(line, getRomanizationSpans(line), getExistingRomanization(line)))
       existing.wordRomanization++;
     if (hasCompleteAuxiliary(line, line.translationWords, line.translatedLyric))
       existing.wordTranslation++;

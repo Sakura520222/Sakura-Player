@@ -1,48 +1,39 @@
 import { alignRomanization } from "lyric-kit";
-import type { LyricWord, RomanizationSpan } from "@shared/types/lyrics";
+import type { LyricLine, LyricWord, RomanizationSpan } from "@shared/types/lyrics";
 
-export const ROMANIZATION_NAMESPACE = "urn:sakura-player:lyrics";
 export const ROMANIZATION_LRC_KEY = "sakura-romanization";
 
 /**
- * 读取 TTML 扩展中的包含下标，缺失或无效属性交给时间匹配
- * @param element - 单个音译时间片段
- * @returns 有效的原词范围或空对象
+ * 优先沿用独立逐字轨道，将完整词内音译按原文本空白恢复成可保存的时间片段
+ * @param line - 当前主歌词与已有音译
+ * @returns 已有独立轨道或完整词内音译；缺词或文本不一致时不推导
  */
-export const readRomanizationRange = (element: Element): Pick<RomanizationSpan, "from" | "to"> => {
-  const from = Number(
-    element.getAttributeNS(ROMANIZATION_NAMESPACE, "from") ??
-      element.getAttribute("sakura:from") ??
-      NaN,
-  );
-  const to = Number(
-    element.getAttributeNS(ROMANIZATION_NAMESPACE, "to") ??
-      element.getAttribute("sakura:to") ??
-      NaN,
-  );
-  return Number.isSafeInteger(from) && Number.isSafeInteger(to) && from >= 0 && to >= from
-    ? { from, to }
-    : {};
+export const getRomanizationSpans = (line: LyricLine): RomanizationSpan[] | undefined => {
+  if (line.romanizationWords?.length) return line.romanizationWords;
+  const words = line.words.filter((word) => word.word.trim());
+  if (!words.length || words.some((word) => !word.romanWord?.trim())) return undefined;
+  const text = line.romanLyric || words.map((word) => word.romanWord!.trim()).join(" ");
+  if (
+    words
+      .map((word) => word.romanWord)
+      .join("")
+      .replace(/\s+/g, "") !== text.replace(/\s+/g, "")
+  )
+    return undefined;
+  const characters = Array.from(text.matchAll(/\S/gu));
+  let position = 0;
+  let start = 0;
+  return words.map((word, index) => {
+    position += Array.from(word.romanWord!.replace(/\s+/g, "")).length;
+    const end = index === words.length - 1 ? text.length : characters[position].index;
+    const part = { word: text.slice(start, end), startTime: word.startTime, endTime: word.endTime };
+    start = end;
+    return part;
+  });
 };
 
 /**
- * 将跨词范围写入 TTML，保持标准时间与文本仍可被其他播放器读取
- * @param element - 待保存的音译片段
- * @param part - 时间、文本及可选原词范围
- */
-export const writeRomanizationRange = (element: Element, part: RomanizationSpan): void => {
-  if (part.from === undefined || part.to === undefined) return;
-  element.ownerDocument.documentElement.setAttributeNS(
-    "http://www.w3.org/2000/xmlns/",
-    "xmlns:sakura",
-    ROMANIZATION_NAMESPACE,
-  );
-  element.setAttributeNS(ROMANIZATION_NAMESPACE, "sakura:from", String(part.from));
-  element.setAttributeNS(ROMANIZATION_NAMESPACE, "sakura:to", String(part.to));
-};
-
-/**
- * 恢复音译对应的原词范围，旧轨道仅在时间能唯一确定完整分组时升级
+ * 恢复音译原词范围，保留原始时间能唯一确定的分组与促音空拍
  * @param words - 保留原始下标的主歌词字词
  * @param parts - 带时间及可选原词范围的音译片段
  * @returns 已恢复范围的音译片段；不能可靠分组时沿用普通逐词匹配
@@ -53,6 +44,29 @@ export const alignRomanizationWords = (
 ): RomanizationSpan[] => {
   const source = words.flatMap((word, index) => (word.word.trim() ? [{ word, index }] : []));
   const explicit = parts.some((part) => part.from !== undefined || part.to !== undefined);
+  if (!explicit && parts.some((part) => !part.word.trim())) {
+    parts = parts.map((part) => ({ ...part }));
+    for (let index = parts.length - 2; index >= 0; index--) {
+      const part = parts[index];
+      if (part.word.trim()) continue;
+      const silent = source.filter(
+        ({ word }) => word.startTime >= part.startTime && word.endTime <= part.endTime,
+      );
+      const next = parts[index + 1];
+      // 促音可只有空拍，不能把其他缺失读音的空片段当成完整音译
+      if (
+        silent.length &&
+        silent[0].word.startTime === part.startTime &&
+        silent.at(-1)!.word.endTime === part.endTime &&
+        silent.every(({ word }) => /^[っッ]+$/.test(word.word)) &&
+        next.startTime === part.endTime
+      ) {
+        next.word = part.word + next.word;
+        next.startTime = part.startTime;
+        parts.splice(index, 1);
+      }
+    }
+  }
   const memo = new Map<string, { ranges: RomanizationSpan[]; count: number }>();
 
   /**

@@ -58,7 +58,7 @@ const normalizeReading = (text: string): { text: string; offsets: number[] } => 
 };
 
 /**
- * 在候选读音图上求全局编辑距离，保留主歌词字词边界及已有音译的原始切片
+ * 匹配日语转写差异及省略促音，将无声标点并入邻词并保留现成音译原始切片
  * @param tokens - 按原文顺序排列、带候选读音的语言学词元
  * @param existing - 必须原样保留的现成音译
  * @returns 读音匹配或唯一锚定的完整切片；缺词、歧义或超长输入返回 null
@@ -73,7 +73,15 @@ export const alignRomanization = (
     )
   )
     return null;
-  const groups: { text: string; readings: string[]; from: number; to: number }[] = [];
+  const groups: {
+    text: string;
+    readings: string[];
+    from: number;
+    to: number;
+    anchorFrom: number;
+    anchorTo: number;
+  }[] = [];
+  let leadingPunctuation: number | undefined;
   for (const token of tokens) {
     const unresolved =
       /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
@@ -87,25 +95,55 @@ export const alignRomanization = (
             (token.readings ?? [token.reading])
               .flatMap((reading) => {
                 const normalized = normalizeReading(reading).text;
-                return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(token.text)
-                  ? [
-                      normalized,
-                      normalized.replace(/oo/g, "ou"),
-                      normalized.replace(/ou/g, "oo"),
-                      normalized.replace(/oo|ou/g, "o"),
-                    ]
-                  : [normalized];
+                if (!/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(token.text))
+                  return [normalized];
+                // 部分音译采用 xi、qi、cu、l 和展开的小拗音，只补充候选，不改写现成文本
+                return [
+                  normalized,
+                  normalized.replace(/oo/g, "ou"),
+                  normalized.replace(/ou/g, "oo"),
+                  normalized.replace(/oo|ou/g, "o"),
+                ].flatMap((value) =>
+                  [value, value.replace(/([kstcp])\1/g, "$1")].flatMap((spelling) => {
+                    const expanded = spelling
+                      .replace(/([kgnhbpmr])y([auo])/g, "$1iy$2")
+                      .replace(/sh([auo])/g, "xiy$1")
+                      .replace(/ch([auo])/g, "qiy$1")
+                      .replace(/j([auo])/g, "jiy$1")
+                      .replace(/si/g, "xi")
+                      .replace(/ti/g, "qi")
+                      .replace(/tu/g, "cu");
+                    return [
+                      spelling,
+                      spelling.replace(/r/g, "l"),
+                      expanded,
+                      expanded.replace(/r/g, "l"),
+                    ];
+                  }),
+                );
               })
               .filter(Boolean),
           ),
         ];
+    if (/^[っッ]$/u.test(token.text)) readings.push("");
     if (!readings.length) {
       if (!/^\p{Script=Han}+$/u.test(token.text)) {
         if (/[\p{L}\p{N}]/u.test(token.text)) return null;
+        const previous = groups.at(-1);
+        if (previous) previous.to = Math.max(previous.to, token.to);
+        else leadingPunctuation ??= token.from;
         continue;
       }
     }
-    groups.push({ text: token.text, readings, from: token.from, to: token.to });
+    groups.push({
+      text: token.text,
+      readings,
+      from: leadingPunctuation ?? token.from,
+      to: token.to,
+      anchorFrom: token.from,
+      anchorTo: token.to,
+    });
+    leadingPunctuation = undefined;
   }
   const target = normalizeReading(existing);
   if (
@@ -181,6 +219,11 @@ export const alignRomanization = (
     let first = -1;
     let exact = 0;
     length += row;
+    if (!row) {
+      starts[index] = column;
+      coverage[index] = 1;
+      continue;
+    }
     while (row > 0) {
       const step = column > 0 ? steps[row * width + column] : 1;
       if (step === 0) {
@@ -206,7 +249,7 @@ export const alignRomanization = (
     // 现成音译可能采用词典没有的汉字读音，只允许强读音锚点夹住的单个原词沿用其时间
     if (
       uncertain.length > 1 ||
-      groups[index].from !== groups[index].to ||
+      groups[index].anchorFrom !== groups[index].anchorTo ||
       !/\p{Script=Han}/u.test(groups[index].text) ||
       index < 2 ||
       index + 2 >= groups.length ||
@@ -217,7 +260,7 @@ export const alignRomanization = (
   }
   const boundaries = Array.from(starts, (position, index) => {
     if (index === 0) return 0;
-    const offset = target.offsets[position];
+    const offset = target.offsets[position] ?? existing.length;
     return /['’]/.test(existing[offset - 1] ?? "") ? offset - 1 : offset;
   });
   const parts: AlignmentPart[] = [];
@@ -227,7 +270,8 @@ export const alignRomanization = (
     const previous = parts.at(-1);
     if (
       previous &&
-      (group.from <= previous.to ||
+      (!/[\p{L}\p{N}]/u.test(previous.text) ||
+        group.from <= previous.to ||
         start === end ||
         (starts[index] > 0 && target.offsets[starts[index]] === target.offsets[starts[index] - 1]))
     ) {

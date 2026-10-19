@@ -8,12 +8,8 @@ import {
 import type { LyricInput, LyricLine, LyricSpan } from "@shared/types/lyrics";
 import { AUXILIARY_TIME_BASIS_KEY } from "./translation";
 import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
-import {
-  alignRomanizationWords,
-  readRomanizationRange,
-  ROMANIZATION_LRC_KEY,
-  ROMANIZATION_NAMESPACE,
-} from "./romanization";
+import { alignRomanizationWords, ROMANIZATION_LRC_KEY } from "./romanization";
+import { AUXILIARY_NAMESPACE, readAuxiliaryRange, TRANSLATION_LRC_KEY } from "./auxiliaryRange";
 
 const metadataNamespace = "http://www.w3.org/ns/ttml#metadata";
 
@@ -102,7 +98,7 @@ const pairTimedLines = (
 };
 
 /**
- * 从 TTML、增强 LRC 扩展和独立辅助轨道恢复逐字时间及原词范围
+ * 从内嵌和独立辅助轨道恢复逐字时间、原词范围及生成轨道的原始空白
  * @param lines - 已解析的当前歌词，原始边界用于匹配普通外部轨道
  * @param input - 原始歌词及可选辅助轨道
  * @param preferredLang - 与主歌词解析一致的首选翻译语言
@@ -112,20 +108,26 @@ export const applyTimedAuxiliary = (
   input: LyricInput,
   preferredLang = "",
 ): void => {
-  if (input.format === "lrc" && !input.romaji) {
-    const prefix = `[${ROMANIZATION_LRC_KEY}:`;
-    const tag = input.content
-      .split(/\r?\n/)
-      .find((line) => line.startsWith(prefix) && line.endsWith("]"));
-    if (tag) {
-      try {
-        input = {
-          ...input,
-          romaji: decodeURIComponent(tag.slice(prefix.length, -1)),
-          romajiFormat: "ttml",
-        };
-      } catch {
-        // 损坏的扩展标签不影响标准主歌词和普通辅助行
+  if (input.format === "lrc") {
+    for (const [key, field, formatField] of [
+      [ROMANIZATION_LRC_KEY, "romaji", "romajiFormat"],
+      [TRANSLATION_LRC_KEY, "translation", "translationFormat"],
+    ] as const) {
+      if (input[field]) continue;
+      const prefix = `[${key}:`;
+      const tag = input.content
+        .split(/\r?\n/)
+        .find((line) => line.startsWith(prefix) && line.endsWith("]"));
+      if (tag) {
+        try {
+          input = {
+            ...input,
+            [field]: decodeURIComponent(tag.slice(prefix.length, -1)),
+            [formatField]: "ttml",
+          };
+        } catch {
+          // 损坏的扩展标签不影响标准主歌词和普通辅助行
+        }
       }
     }
   }
@@ -168,7 +170,7 @@ export const applyTimedAuxiliary = (
                   word: element.textContent,
                   startTime,
                   endTime,
-                  ...(role === "x-roman" ? readRomanizationRange(element) : {}),
+                  ...readAuxiliaryRange(element),
                 },
               ]
             : [];
@@ -186,13 +188,16 @@ export const applyTimedAuxiliary = (
   ] as const) {
     if (!content) continue;
     const actualFormat = format ?? detectFormat(content);
-    if (actualFormat !== "ttml" && actualFormat !== "lrc") continue;
     const result = parseLyric({ content, format: actualFormat }, { extractMetadata: true });
-    if (
-      field === "romanizationWords" &&
-      actualFormat === "ttml" &&
-      content.includes(ROMANIZATION_NAMESPACE)
-    ) {
+    const timeBasis = result.metadata.rawProperties?.[AUXILIARY_TIME_BASIS_KEY]?.[0];
+    // 旧版生成轨道仅带专用占位声部，仍须沿用其规范化时间基准与逐字数据
+    const legacyGenerated =
+      !timeBasis &&
+      Object.values(result.metadata.agents ?? {}).some(
+        (agent) => /^ai-translation-anchor-*$/.test(agent.id) && agent.type === "group",
+      );
+    const normalized = timeBasis === "normalized" || legacyGenerated;
+    if (actualFormat === "ttml" && (normalized || content.includes(AUXILIARY_NAMESPACE))) {
       const doc = new DOMParser().parseFromString(content, "application/xml");
       const owners = getTtmlLyricOwners(doc);
       for (const [index, owner] of owners.entries()) {
@@ -201,19 +206,13 @@ export const applyTimedAuxiliary = (
           (element) => element.hasAttribute("begin") && !getTtmlRole(element),
         );
         if (words?.length !== elements.length) continue;
-        words.forEach((word, position) =>
-          Object.assign(word, readRomanizationRange(elements[position])),
-        );
+        words.forEach((word, position) => {
+          const element = elements[position];
+          Object.assign(word, readAuxiliaryRange(element));
+          if (normalized) word.word = element.textContent ?? word.word;
+        });
       }
     }
-    const timeBasis = result.metadata.rawProperties?.[AUXILIARY_TIME_BASIS_KEY]?.[0];
-    // 旧版生成轨道仅带专用占位声部，仍须沿用其规范化时间基准与逐字数据。
-    const legacyGenerated =
-      !timeBasis &&
-      Object.values(result.metadata.agents ?? {}).some(
-        (agent) => /^ai-translation-anchor-*$/.test(agent.id) && agent.type === "group",
-      );
-    const normalized = timeBasis === "normalized" || legacyGenerated;
     if (normalized) {
       for (const line of lines) {
         if (field === "translationWords") line.translatedLyric = "";
@@ -228,14 +227,14 @@ export const applyTimedAuxiliary = (
       ...line,
       // 普通 LRC 只有行起点，其推导的行尾不能当作真实逐字对齐数据。
       [field]:
-        (actualFormat === "ttml" && (result.metadata.timingMode === "Word" || legacyGenerated)) ||
+        result.metadata.timingMode === "Word" ||
+        legacyGenerated ||
         (actualFormat === "lrc" && line.words.length > 1)
           ? line.words.map((word) => ({
               word: word.word,
               startTime: word.startTime,
               endTime: word.endTime,
-              ...(field === "romanizationWords" &&
-              "from" in word &&
+              ...("from" in word &&
               typeof word.from === "number" &&
               "to" in word &&
               typeof word.to === "number"

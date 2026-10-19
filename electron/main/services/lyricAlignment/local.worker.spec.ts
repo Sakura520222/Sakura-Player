@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRequire } from "node:module";
-import type { AlignmentSourceLine } from "@shared/types/lyricAlignment";
+import type { AlignmentSourceLine, AlignmentSourcePhrase } from "@shared/types/lyricAlignment";
 
 const mocks = vi.hoisted(() => ({
   post: vi.fn(),
@@ -26,6 +26,35 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("本地语义短语分组", () => {
+  it("重复词保留各自的语义锚点，名词和动词原形覆盖原文下标", async () => {
+    mocks.request.lines = ["ひとつひとつが", "出会った頃のままで", "悲しみを乗り越え"].map(
+      (text, id) => ({ id, words: Array.from(text), translation: "已有翻译", romanization: "" }),
+    );
+    await import("./local.worker");
+    await vi.waitFor(() => expect(mocks.post).toHaveBeenCalled(), { timeout: 5000 });
+    const { lines, error } = mocks.post.mock.calls[0][0] as {
+      lines: { source: unknown[]; sourcePhrases: AlignmentSourcePhrase[] }[];
+      error?: string;
+    };
+    expect(error).toBeUndefined();
+    expect(lines[0].sourcePhrases.map((phrase) => phrase.text)).toEqual(["ひとつ", "ひとつが"]);
+    expect(lines[0].sourcePhrases.map((phrase) => phrase.heads)).toEqual([[0], [1]]);
+    expect(lines[1].sourcePhrases.map((phrase) => phrase.text)).toEqual([
+      "出会った",
+      "頃の",
+      "ままで",
+    ]);
+    expect(lines[2].sourcePhrases.at(-1)!.lemmas).toContain("乗り越える");
+    for (const line of lines) {
+      expect(line.sourcePhrases.flatMap((phrase) => phrase.indices)).toEqual(
+        line.source.map((_, index) => index),
+      );
+      for (const phrase of line.sourcePhrases) {
+        expect(phrase.lemmas).toHaveLength(phrase.indices.length);
+        expect(phrase.heads!.every((index) => phrase.indices.includes(index))).toBe(true);
+      }
+    }
+  });
   it("保留日语词干、连用动词和英文功能词，行首助词不能成为独立锚点", async () => {
     const lyrics = [
       "曇っていた空から",
@@ -65,6 +94,7 @@ describe("本地语义短语分组", () => {
     mocks.request.romanization = true;
     mocks.request.lines = [
       { id: 0, words: ["hello ", "world"], translation: "", romanization: "hello world" },
+      { id: 1, words: ["～", "Fin", "～"], translation: "", romanization: "~ Fin ~" },
     ];
     await import("./local.worker");
     await vi.waitFor(() => expect(mocks.post).toHaveBeenCalled());
@@ -74,5 +104,6 @@ describe("本地语义短语分组", () => {
     expect(
       result.lines[0].romanization.parts.map((part: { text: string }) => part.text).join(""),
     ).toBe("hello world");
+    expect(result.lines[1].romanization).toBeUndefined();
   });
 });
