@@ -467,7 +467,10 @@
     }
   },
   "songHighlight": {
-    "sources": { "netease": "网易云", "kugou": "酷狗" },
+    "sources": {
+      "netease": "网易云",
+      "kugou": "酷狗"
+    },
     "loading": "正在获取歌曲高潮…",
     "jump": "跳转高潮 {range} · {source}",
     "emptyRetry": "暂无高潮标注，点击重新获取",
@@ -483,34 +486,30 @@
       "realignHint": "对上方勾选的辅助轨道重算时间映射，未选项目和匹配不足的行保留原有对齐",
       "translation": "对齐已有翻译",
       "romanization": "对齐已有音译",
-      "environment": "本地翻译对齐环境",
-      "environmentHint": "点击安装后，播放器会自动下载便携 Python、安装依赖和模型，无需自行配置。关闭弹窗或主窗口后继续后台安装，重新打开可查看进度；明确退出播放器会取消安装。音译无需安装环境",
+      "environment": "本地翻译对齐模型",
+      "environmentHint": "点击下载模型后即可离线对齐翻译，无需配置运行环境。已有模型会先校验，仅下载缺失或损坏的文件。关闭弹窗或主窗口后继续后台下载；明确退出播放器会取消。音译无需下载模型",
       "environmentLoading": "正在读取状态…",
-      "installEnvironment": "安装环境",
-      "cancelInstall": "取消安装",
-      "uninstallEnvironment": "卸载环境",
+      "installEnvironment": "下载或校验模型",
+      "cancelInstall": "取消下载",
+      "uninstallEnvironment": "移除模型",
       "installProgress": "当前阶段下载进度",
       "installWaiting": "正在准备，请稍候…",
       "environmentInUse": "对齐使用中，结束后可卸载",
-      "unsupported": "当前平台暂不支持自动安装，仍可使用音译对齐",
+      "unsupported": "当前平台暂不支持本地翻译模型",
       "environmentPhases": {
-        "not-installed": "未安装",
-        "downloading-python": "正在下载 Python",
-        "extracting-python": "正在解压 Python",
-        "creating-environment": "正在创建专用环境",
-        "installing-dependencies": "正在安装依赖",
+        "not-installed": "未下载",
         "downloading-model": "正在下载模型",
-        "verifying": "正在验证环境",
-        "ready": "已安装",
+        "verifying": "正在校验模型",
+        "ready": "已就绪",
         "cancelling": "正在取消并清理…",
-        "uninstalling": "正在卸载…",
-        "error": "环境未就绪"
+        "uninstalling": "正在移除…",
+        "error": "模型未就绪"
       },
       "running": "正在本地对齐，加载模型可能需要一些时间…",
       "ready": "可处理 {count} 行",
       "summary": "本次已检查 {total} 行，{done} 行生成候选；请勾选要应用的结果",
       "trackSummary": "本次匹配 {done} / {total} 行，保留 {existing} 行已有对齐",
-      "translationUnavailable": "翻译对齐未完成，请检查上方环境状态，必要时卸载后重新安装。已完成的音译仍可应用，原翻译保持不变",
+      "translationUnavailable": "翻译对齐未完成，请检查上方模型状态，必要时移除后重新下载。已完成的音译仍可应用，原翻译保持不变",
       "details": "查看原因",
       "tooLarge": "歌词过长，无法进行本地对齐",
       "invalidResult": "对齐结果无效，请重新运行",
@@ -654,8 +653,17 @@
         "readFailed": "无法读取原有歌词，请重试",
         "chooseOnSave": "保存时选择 LRC 路径。此处预览导出内容，尚未比较目标文件的原有内容。",
         "back": "返回",
-        "targets": { "metadata": "音乐标签", "lrc": "LRC 文件", "ttml": "TTML 文件" },
-        "fields": { "lyrics": "歌词原文", "translation": "翻译", "romaji": "音译", "kana": "注音" }
+        "targets": {
+          "metadata": "音乐标签",
+          "lrc": "LRC 文件",
+          "ttml": "TTML 文件"
+        },
+        "fields": {
+          "lyrics": "歌词原文",
+          "translation": "翻译",
+          "romaji": "音译",
+          "kana": "注音"
+        }
       },
       "saveLocalHint": "音乐标签保留当前歌词原文与原格式；LRC 单独导出到音乐文件同目录，覆盖已有歌词。",
       "saveExportHint": "音乐标签仅支持本地独立歌曲，LRC 可选择位置另存为。",

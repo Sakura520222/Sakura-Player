@@ -4,7 +4,7 @@
 
 Use **Settings → General → Backup & Reset** to export settings JSON or import a backup exported by the player. Restoring replaces main-process and interface settings and restarts the application after confirmation.
 
-A settings backup does not contain audio files, library records, playlists, playback history, artwork/song caches, separately stored service credentials, or local model environments. A settings JSON file does not replace a complete data migration.
+A settings backup does not contain audio files, library records, playlists, playback history, artwork/song caches, separately stored service credentials, or local alignment models. A settings JSON file does not replace a complete data migration.
 
 ## Data locations
 
@@ -24,7 +24,7 @@ app-data/
 ├── cache/         Covers, artists, backgrounds, songs (location configurable)
 ├── logs/          Application and native logs
 ├── plugins/       Plugin scripts, data, and logs
-└── runtimes/      Dedicated lyric translation alignment environment
+└── runtimes/      Local lyric translation alignment model and ready marker
 ```
 
 Library indexes and playlists do not contain the audio files themselves. Quit before a complete migration, and back up the actual user-data directory plus the original music folders. Avoid copying only `library.db` while the app is writing. Credentials protected by operating-system secure storage may require sign-in or re-entry on another device.
@@ -39,7 +39,13 @@ Caches speed up playback and are separate from [music downloads](/en/music-downl
 
 The same settings page has separate file-cache and database managers for inspecting usage and clearing selected content. Images and song files are different from database caches; check the categories shown before clearing them.
 
-Remove local translation alignment's Python, model, and dependencies through **Uninstall environment** in the [alignment dialog](/en/lyric-alignment). Clearing ordinary image or song caches does not imply uninstalling that environment.
+## Alignment model
+
+The Rust alignment worker ships with the player. User data stores the model and ready marker under `app-data/runtimes/lyric-alignment/`. Once prepared, the model works offline. Romanization requires no model download.
+
+Click **Download or verify model** in the [alignment dialog](/en/lyric-alignment#model-management) to download missing or damaged files. The model becomes ready after file integrity checks and native inference verification succeed.
+
+Use **Remove model** to delete this feature's model directory. Clearing ordinary image or song caches does not remove the model. Removal is blocked during alignment or maintenance. A full backup can include the model directory; settings JSON does not contain these files.
 
 ## Reset and complete cleanup
 

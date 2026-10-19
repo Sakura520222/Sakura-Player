@@ -222,10 +222,10 @@ describe("本地歌词对齐任务生命周期", () => {
     expect(state.canApply.value).toBe(false);
   });
   it("翻译模型不可用时，音译仍可单独应用", async () => {
-    api.align.mockResolvedValueOnce({ ...response, translationError: "No module named simalign" });
+    api.align.mockResolvedValueOnce({ ...response, translationError: "模型加载失败" });
     const state = setup();
     await state.start();
-    expect(state.translationError.value).toContain("simalign");
+    expect(state.translationError.value).toContain("模型加载失败");
     expect(state.canApply.value).toBe(true);
   });
   it("卸载立即取消任务，错误返回不会写入歌词", async () => {

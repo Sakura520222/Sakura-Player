@@ -1,110 +1,58 @@
-# Local Lyric Alignment
+# Algorithmic lyric alignment
 
-The "Smart Alignment" entry on the right side of the full-player lyrics associates existing translations and romanization with the word-level timeline of the primary lyrics. Nothing is re-recognized from audio, no timing is re-created, and no lyric text is generated or rewritten: romanization alignment runs entirely locally, while translation alignment uses a self-contained local Python environment installed by the app.
+The alignment action beside full-player lyrics maps existing translations and romanization to the original word timings. Tokenization, reading matching, and semantic inference run in the bundled **Rust worker**, without installing Python, PyTorch, or another runtime.
 
-Use [AI lyric translation and generation](/en/ai) to generate missing translation or romanization, or align words through your configured text model. The local alignment described here requires no AI model API key.
+The feature preserves existing text and original timing. It does not recognize audio or generate lyrics. AI lyric translation and model configuration remain independent.
 
-## Quick start
+## Using alignment
 
-1. Play a song with real word-timed primary lyrics and existing translation or romanization.
-2. Open **Algorithmic lyric alignment** beside the full-player lyrics and select the auxiliary tracks to process.
-3. For translation, click **Install environment** and wait until it is ready. Romanization needs no installation.
-4. Click **Start alignment**, review and select candidate lines, then click **Apply selected lines**.
-5. Applying refreshes the lyrics immediately. To keep the results, open **Copy Lyrics → Save complete lyrics**, preview changes, and save.
+1. Load original lyrics with actual word timings and an existing translation or romanization
+2. Open alignment and select either auxiliary track or both
+3. For translation, click **Download or verify model** once; romanization requires no model download
+4. Start alignment, inspect each candidate, and select the lines to apply
+5. Apply selected lines to update the display immediately; explicitly save lyrics to write files
 
-Complete existing alignments are preserved by default. Select **Realign existing word-timed translation and romanization** to recalculate them; unselected or poorly matched lines remain unchanged. See [saving AI results](/en/ai#apply-display-and-save) for save targets and overwrite behavior.
+Complete auxiliary alignments are preserved by default. Enable realignment to recalculate selected tracks. Unselected, unmatched, and unchecked content remains unchanged. The preview reports requested, matched, and previously aligned counts separately.
 
-## The Two Alignment Tasks
+Line-timed lyrics, missing auxiliary text, and results without two independent timing anchors do not produce word-level candidates. Scores are screening criteria rather than calibrated accuracy estimates; review candidates before applying them.
 
-Alignment here covers two distinct tasks:
+## Romanization
 
-- **Word-level romanization alignment**: word-timed lyrics with timestamps already exist; match the existing romaji to each source fragment and inherit the timestamps.
-- **Word-level translation alignment**: source word timing already exists; semantically match an existing Chinese or English translation to the corresponding source fragments, then derive a word-level timeline for the translation.
+Lindera/IPADIC provides Japanese morphology and readings. Native WanaKana conversion, global edit distance, and unique reading anchors match existing romanization. Compatibility data preserves the original IPADIC reading order and tie priorities, including ruby hints, particles, long vowels, gemination, spelling variants, and readings spanning multiple timed words.
 
-Both build a mapping between the source and auxiliary text while keeping the primary timeline. For one lyric line:
+Chinese pinyin uses dictionary reading candidates and an exact, unique complete match. Tone marks, casing, punctuation, whitespace, and the distinction between `u` and `ü` are retained. Missing words, ambiguous boundaries, or insufficient matches keep the original line.
 
-| Primary lyrics (word timing exists) | Existing romaji     | Existing translation |
-| ----------------------------------- | ------------------- | -------------------- |
-| 君 `10.00–10.40`                    | `kimi to mita yume` | `与你一同看过的梦`   |
-| と `10.40–10.65`                    |                     |                      |
-| 見た `10.65–11.25`                  |                     |                      |
-| 夢 `11.25–12.00`                    |                     |                      |
+## Translation
 
-The ideal output keeps the primary timeline and produces:
+Candle runs the pinned multilingual BERT on the local CPU and extracts layer-eight token vectors, matching the original SimAlign configuration. Rust implements cosine similarity, IterMax, subword and whole-word candidates, semantic heads, phrase expansion, and dictionary-form alternatives in the original priority order.
 
-- Romanization: `kimi` `10.00–10.40`, `to` `10.40–10.65`, `mita` `10.65–11.25`, `yume` `11.25–12.00`
-- Translation (semantic phrases): `与你一同` `10.00–10.65`, `看过的` `10.65–11.25`, `梦` `11.25–12.00`
+Chinese segmentation uses ICU dictionary data with the ICU4C minimum-cost path rather than greedy segmentation. Word pairs map to original lyric ranges. Cross-language reordering uses the existing auxiliary timing workflow; translation length never creates timing anchors.
 
-> The example is hand-crafted to illustrate the target format, not an actual model result.
+Translation failures preserve completed romanization and existing translations. Details remain available in the dialog.
 
-## Romanization: Reading Match + Edit Distance
+## Model management
 
-Splitting the romaji by spaces and pairing by index does not work — a single kanji may span multiple morae, and one romaji token may span multiple source characters. `今日` reads as `kyou`, so the two kanji cannot each be assigned one romaji word. The right approach is to associate reading units first, then derive romaji timestamps from the source time boundaries.
+### Download and storage
 
-Sakura Player implements this as:
+The model is `google-bert/bert-base-multilingual-cased` at revision `3f076fdb1ab68d5b2880cb87a0886f315b8146f8`, with approximately 714 MB of weights. Downloads respect the player proxy configuration and verify every file's size and SHA-256. The ready marker is published only after native inference succeeds. Prepared alignment runs offline.
 
-- [Kuromoji](https://github.com/takuyaa/kuromoji.js) (Apache-2.0, bundled with the IPADIC dictionary) tokenizes the Japanese text and produces candidate readings;
-- [WanaKana](https://github.com/WaniKani/WanaKana) (MIT) converts kana and romaji to a uniform reading representation;
-- Global edit-distance matching aligns the existing romaji, allowing a whole token to span multiple source fragments (e.g. `今` `日` jointly mapping to `kyou`).
+Opening the dialog or starting alignment never starts a download automatically. Downloads can be cancelled and retried. Closing the dialog or main window keeps maintenance running; reopening restores progress. Explicitly quitting cancels maintenance and waits for cleanup.
 
-Original casing, whitespace, and punctuation are preserved verbatim from the source slices. The feature targets Japanese romaji; lines the dictionary cannot handle or that score too low keep their existing content. Romanization alignment needs no Python environment and works out of the box.
+Model files and `ready.json` live in `{userData}/app-data/runtimes/lyric-alignment/`. The native worker is bundled with the application.
 
-## Translation: Cross-Lingual Word Alignment + Time Mapping
+**Download or verify model** checks local files first, reuses complete valid files, and downloads only missing or damaged files. Failed verification can be retried without downloading complete model files again.
 
-Translation alignment uses [SimAlign](https://github.com/cisnlp/simalign) (MIT). It builds word alignments from cross-lingual vector similarity of a pretrained multilingual BERT, with no need to collect parallel corpora and train a model.
+### Removing the model
 
-Flow: word-timed source with timestamps → Chinese segmentation (runtime ICU `Intl.Segmenter`, no jieba install) → SimAlign IterMax matches source words to translation words → word indices map back to source times → cross-lingual reordering and one-to-many mappings merge into semantic phrases.
+The ready marker is independent of absolute paths and platforms, so moving a portable installation does not require downloading the model again. **Remove model** deletes this feature's model directory. Romanization remains available; translation requires preparing the model again. Maintenance and active alignment hold exclusive access.
 
-Semantic alignment is not the same as chronological alignment: Japanese versus Chinese or English involves reordering, additions, omissions, and many-to-one word mappings. Therefore:
+## Resource limits
 
-- Reordered and one-to-many matches merge into semantic phrases instead of splitting time mechanically by translation length;
-- The match score is only a filter — lines scoring below the threshold (0.65) keep their existing alignment rather than receiving invented timestamps;
-- The algorithm only outputs index pairs, text is preserved verbatim, and every line can be reviewed in the preview before applying.
+- One task runs at a time in an independent Rust process; completion or cancellation releases its dictionaries, model, and threads
+- Computation stays outside the main process and does not block playback controls or lyric animation
+- Requests allow up to 1,000 lines and 64,000 UTF-16 code units; process input and output are each limited to 1 MiB
+- Each model input is limited to 512 subwords; truncated inputs cannot become apparently complete candidates
+- Track changes, source changes, lyric edits, closing the dialog, and cancellation invalidate stale results
+- Existing auxiliary display settings, lyric-window synchronization, TTML export, and file saving remain shared
 
-## Candidate Open-Source Projects
-
-The following projects were surveyed during design. Each solves one piece — semantic mapping, reading processing, or lyric format handling — and none turns three lyric tracks into a perfect word-level alignment in one step:
-
-| Project                                                         | Core Capability                                        | Notes                                                |
-| --------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
-| [SimAlign](https://github.com/cisnlp/simalign)                  | Multilingual word semantic alignment                   | ✅ Adopted for translation alignment                 |
-| [awesome-align](https://github.com/neulab/awesome-align)        | Multilingual BERT word alignment                       | Alternative, BSD-3-Clause                            |
-| [Cross-Align](https://github.com/lisasiyu/Cross-Align)          | Deep cross-lingual interactive word alignment          | High-precision research direction                    |
-| Kuroshiro                                                       | Japanese tokenization, kana, romaji conversion         | Its underlying Kuromoji + WanaKana are used directly |
-| [LDDC](https://github.com/chenmozhijin/LDDC)                    | Word lyrics, translation, romaji processing            | Data flow reference only; no source copied           |
-| [AMLL TTML](https://github.com/amll-dev/applemusic-like-lyrics) | Parsing and export of word lyrics, translation, romaji | Format reference; no source copied                   |
-
-## Runtime Environment
-
-Translation alignment requires a local Python environment. Clicking "Install Environment" in the alignment dialog has the player download a portable Python, create a virtual environment, install dependencies, fetch the model, and run an inference check; merely opening the dialog never triggers an install.
-
-- The portable interpreter comes from [Python Standalone Builds](https://github.com/astral-sh/python-build-standalone), pinned to CPython 3.12.15, with length and built-in SHA-256 checks at install time;
-- Windows, macOS, and Linux on x64 and ARM64 are covered; Windows ARM64 uses the x64 interpreter and dependencies and requires x64 app support;
-- macOS uses PyTorch 2.2.2 with NumPy 1.26.4 for Intel Mac compatibility; Windows / Linux install from the official PyTorch CPU index with no CUDA downloads;
-- The Windows VC++ runtime is installed into the dedicated virtual environment via `msvc-runtime`, so no system component is required;
-- The model is pinned to a specific revision of `google-bert/bert-base-multilingual-cased`, verified per-file by SHA-256 in safetensors format;
-- Downloads follow the player's network proxy settings; verification and alignment run fully offline once the model is prepared.
-
-Everything lives under `{userData}/app-data/runtimes/lyric-alignment/` — the system Python is never read, PATH is never modified, and global Python packages or the Hugging Face cache are never used. Installation shows staged progress and can be cancelled or retried; it continues in the background after the dialog closes, while quitting the player cancels the install and waits for cleanup. "Uninstall Environment" removes the Python, virtual environment, model, and caches. Without an installed environment, unchecking translation still allows romanization alignment.
-
-## Usage and Behavior
-
-- Only real word-timed primary lyrics are processed; fully aligned tracks and tracks missing auxiliary text are skipped by default. Checking "Re-align existing word-level translations and romanization" re-processes the selected auxiliary tracks;
-- Individual lines can be deselected in the preview; poorly matched lines keep their current text;
-- Only one task runs at a time; each task owns the worker and Python subprocess, and dictionaries and the model are released afterwards;
-- Input is limited to 1,000 lines and 64,000 characters in total;
-- Applying updates auxiliary tracks and synchronizes external lyric windows; source text and primary timestamps stay unchanged, and writing files requires a separate save;
-- If model loading or inference fails, completed romanization can still be applied alone and the translation is left untouched.
-
-## Design Trade-offs
-
-- **No audio forced alignment**: Whisper, MFA, and similar models would re-recognize audio at a cost that never pays off here;
-- **No LLM fallback**: alignment only associates existing text; low-confidence content is left as-is for manual correction in the preview;
-- **Never damages existing lyrics**: rewritten, out-of-range, or low-score results are rejected, and translation and romaji text are always preserved verbatim.
-
-No verified open-source library yet turns arbitrary line-level translations and romaji into high-quality word-level timelines. This feature combines reading matching with cross-lingual word alignment on top of that groundwork: romanization aims for precise automatic alignment, translation aligns semantically, and anything unreliable is surfaced for the user to decide.
-
-## Format and Licenses
-
-- AMLL's TTML format supports word-level romanization and translation data, but AMLL Player renders word-level translations line by line. This feature reuses the existing auxiliary TTML saving path, so external players without word-level translation support degrade to line display automatically.
-- Licenses must be checked independently when integrating: SimAlign is MIT, Kuromoji is Apache-2.0 (bundling the IPADIC dictionary), WanaKana is MIT, awesome-align is BSD-3-Clause, the AMLL main repository is AGPL-3.0, and LDDC is GPL-3.0. This feature copies no source from LDDC or AMLL; copyright and license notices of the dependencies remain in their distribution packages.
+Build targets are Windows, macOS, and Linux on x64/ARM64. See [Alignment validation](/en/native#alignment-validation) for measured performance and platforms actually tested. Model files are platform-independent.

@@ -72,21 +72,13 @@ const config: Configuration = {
   asarUnpack: ["public/**"],
   extraResources: [
     {
-      from: "node_modules/kuromoji/LICENSE-2.0.txt",
-      to: "licenses/kuromoji-LICENSE.txt",
+      from: "native/lyric-alignment/licenses",
+      to: "licenses/lyric-alignment",
     },
     {
-      from: "node_modules/wanakana/LICENSE",
-      to: "licenses/wanakana-LICENSE.txt",
-    },
-    {
-      from: "node_modules/kuromoji/NOTICE.md",
-      to: "licenses/kuromoji-NOTICE.txt",
-    },
-    {
-      from: "resources/lyric-alignment",
-      to: "lyric-alignment",
-      filter: ["align.py", "requirements.txt"],
+      from: "native/lyric-alignment/bin",
+      to: "native",
+      filter: ["lyric-alignment", "lyric-alignment.exe"],
     },
     {
       from: "native/audio-engine",

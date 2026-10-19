@@ -32,6 +32,8 @@ The right-hand full-player toolbar provides lyric offset, AI translation, algori
 
 Use [AI Features](/en/ai) to add translation or romanization to existing primary lyrics. To map existing text to word timing without a model API key, use [Local Lyric Alignment](/en/lyric-alignment). Both require an explicit save after applying results to write files.
 
+Local alignment runs in the bundled Rust worker without installing Python. Romanization needs no model download; translation runs offline after model setup. See [Model management](/en/lyric-alignment#model-management).
+
 ## Copy, share, and save
 
 In **Copy Lyrics**, select lines and choose whether to include translation, romanization, blank lines, title, and artists, then copy text or export a lyric image. **Copy original** reads the current primary lyric content.
@@ -46,7 +48,7 @@ In **Copy Lyrics**, select lines and choose whether to include translation, roma
 
 **Preview changes** compares before and after for each target. An LRC Save As destination is chosen during saving, so the preview has not read that destination. Review each target's success or failure feedback afterwards.
 
-Word-timed primary lyrics use enhanced LRC, while translation is exported line by line in LRC. Preserve timed translation using auxiliary tracks in music tags or an eligible TTML file. Cross-word romanization uses player extension data that other players may not support.
+Word-timed primary lyrics use enhanced LRC, with ordinary translation lines exported line by line. Sakura extension tags also retain complete timed translation and cross-word romanization ranges for reloading in this player. Auxiliary tracks in music tags or eligible TTML preserve timed content too. Display in other players depends on their support for auxiliary tracks and extension data.
 
 ## External lyric windows
 

@@ -6,7 +6,7 @@ import {
   alignRomanization,
   alignTranslation,
   type ReadingToken,
-} from "@shared/utils/lyricAlignment";
+} from "@shared/testFixtures/legacyLyricAlignment";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyGeneratedLyrics } from "@/utils/lyric/alignment";

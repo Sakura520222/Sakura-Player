@@ -11,6 +11,9 @@ import RekaResolver from "reka-ui/resolver";
 import Components from "unplugin-vue-components/vite";
 import pkg from "./package.json" with { type: "json" };
 
+// 声明文件已纳入版本控制，仅开发时更新，避免生产构建并发覆写
+const generateDeclarations = process.env.NODE_ENV !== "production";
+
 /** 获取当前 git 提交 */
 const getGitCommit = (): string => {
   try {
@@ -36,10 +39,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, "electron/main/index.ts"),
-          "lyric-alignment.worker": resolve(
-            __dirname,
-            "electron/main/services/lyricAlignment/local.worker.ts",
-          ),
           // 插件 host worker
           "host.worker": resolve(__dirname, "electron/main/plugins/host.worker.ts"),
           // 听歌识曲指纹 worker
@@ -119,6 +118,7 @@ export default defineConfig({
       vue(),
       UnoCSS(),
       AutoImport({
+        dts: generateDeclarations,
         imports: ["vue", "pinia", "vue-router", "@vueuse/core", "vue-i18n"],
         eslintrc: {
           enabled: true,
@@ -133,6 +133,7 @@ export default defineConfig({
         },
       }),
       Components({
+        dts: generateDeclarations,
         dirs: ["src/components"],
         resolvers: [RekaResolver(), IconsResolver({ prefix: "icon", customCollections: ["sp"] })],
       }),

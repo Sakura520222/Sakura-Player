@@ -1,165 +1,117 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EventEmitter } from "node:events";
-const mocks = vi.hoisted(() => ({
-  acquire: vi.fn(),
-  release: vi.fn(),
-  worker: vi.fn(),
-  python: vi.fn(),
-}));
-vi.mock("./environment", () => ({
-  acquireAlignmentEnvironment: mocks.acquire,
-  alignmentScript: "align.py",
-}));
-vi.mock("./process", () => ({ runAlignmentPython: mocks.python }));
-vi.mock("node:worker_threads", async (original) => {
-  const actual = await original<typeof import("node:worker_threads")>();
-  const { EventEmitter } = await import("node:events");
-  const Worker = class extends EventEmitter {
-    /** 记录测试创建的工作线程，便于控制结果和退出时机 */
-    constructor() {
-      super();
-      mocks.worker(this);
-    }
-    /** 模拟异步释放线程 */
-    terminate() {
-      return Promise.resolve(0);
-    }
-  };
-  return { ...actual, Worker, default: { ...actual, Worker } };
-});
-import { runLocalAlignment } from "./index";
+
+const mocks = vi.hoisted(() => ({ acquire: vi.fn(), release: vi.fn(), run: vi.fn() }));
+vi.mock("./environment", () => ({ acquireAlignmentEnvironment: mocks.acquire }));
+vi.mock("./native", () => ({ getAlignmentExecutable: () => "lyric-alignment.exe" }));
+vi.mock("./process", () => ({ runAlignmentNative: mocks.run }));
+import { alignmentRequestSchema, runLocalAlignment } from "./index";
+
 const request = {
-  requestId: "lease",
+  requestId: "native",
   translation: true,
   romanization: true,
   lines: [{ id: 0, words: ["君", "と"], translation: "与你", romanization: "kimi to" }],
 };
+const romanization = {
+  parts: [
+    { text: "kimi ", from: 0, to: 0 },
+    { text: "to", from: 1, to: 1 },
+  ],
+  score: 1,
+};
 beforeEach(() => {
-  mocks.acquire.mockReset().mockResolvedValue({
-    python: "python.exe",
-    modelDirectory: "model",
-    env: {},
-    release: mocks.release,
-  });
   mocks.release.mockReset();
-  mocks.worker.mockReset();
-  mocks.python.mockReset();
+  mocks.acquire.mockReset().mockResolvedValue({ modelDirectory: "model", release: mocks.release });
+  mocks.run.mockReset().mockResolvedValue(JSON.stringify({ lines: [{ id: 0, romanization }] }));
 });
-
-describe("环境使用权覆盖整个对齐任务", () => {
-  it("主配对有效时保留已有候选，同时向模型传递完整的短语词元范围", async () => {
-    const pending = runLocalAlignment(request, new AbortController().signal);
-    await vi.waitFor(() => expect(mocks.worker).toHaveBeenCalled());
-    const sourcePhrases = [
-      { text: "君", indices: [0] },
-      { text: "と", indices: [1] },
-    ];
-    (mocks.worker.mock.calls[0][0] as EventEmitter).emit("message", {
-      lines: [
-        {
-          id: 0,
-          source: [
-            { text: "君", from: 0, to: 0 },
-            { text: "と", from: 1, to: 1 },
-          ],
-          sourcePhrases,
-          target: ["与", "你"],
-        },
-      ],
-    });
-    mocks.python.mockResolvedValueOnce(
-      JSON.stringify([
-        {
-          id: 0,
-          pairs: [
-            [0, 0],
-            [1, 1],
-          ],
-          alternatives: [
-            [
-              [0, 1],
-              [1, 0],
-            ],
-          ],
-        },
-      ]),
-    );
-    const result = await pending;
-    expect(result.lines[0].translation?.parts).toEqual([
-      { text: "与", from: 0, to: 0 },
-      { text: "你", from: 1, to: 1 },
-    ]);
-    expect(JSON.parse(mocks.python.mock.calls[0][4])[0].phrases).toEqual(sourcePhrases);
-  });
-
-  it("主配对覆盖不足时依次检查短语候选，跳过越界配对后完整保留补词", async () => {
-    mocks.python.mockResolvedValueOnce(
-      JSON.stringify([
-        {
-          id: 0,
-          pairs: [[0, 0]],
-          alternatives: [
-            [[99, 0]],
-            [
-              [0, 0],
-              [1, 2],
-            ],
-          ],
-        },
-      ]),
-    );
-    const pending = runLocalAlignment(request, new AbortController().signal);
-    await vi.waitFor(() => expect(mocks.worker).toHaveBeenCalled());
-    (mocks.worker.mock.calls[0][0] as EventEmitter).emit("message", {
-      lines: [
-        {
-          id: 0,
-          source: [
-            { text: "hello", from: 0, to: 0 },
-            { text: "world", from: 1, to: 1 },
-          ],
-          target: ["你好", " ", "世界", "吧"],
-        },
-      ],
-    });
-    const result = await pending;
-    expect(result.lines[0].translation?.parts).toEqual([
-      { text: "你好 ", from: 0, to: 0 },
-      { text: "世界吧", from: 1, to: 1 },
-    ]);
-    expect(result.translationError).toBeUndefined();
-    expect(mocks.release).toHaveBeenCalledTimes(1);
-  });
-
-  it("分词开始前持有环境，分词失败仍释放使用权", async () => {
-    const pending = runLocalAlignment(request, new AbortController().signal);
-    const rejected = expect(pending).rejects.toThrow("分词失败");
-    await vi.waitFor(() => expect(mocks.worker).toHaveBeenCalled());
+describe("独立原生对齐任务", () => {
+  it("整个任务持有模型使用权，只将已有歌词和固定模型目录传入原生进程", async () => {
+    const signal = new AbortController().signal;
+    const result = await runLocalAlignment(request, signal);
+    expect(result.lines[0].romanization).toEqual(romanization);
     expect(mocks.acquire.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.worker.mock.invocationCallOrder[0],
+      mocks.run.mock.invocationCallOrder[0],
     );
-    (mocks.worker.mock.calls[0][0] as EventEmitter).emit("message", { error: "分词失败" });
-    await rejected;
+    expect(mocks.run).toHaveBeenCalledWith(
+      "lyric-alignment.exe",
+      ["--model-dir", "model"],
+      signal,
+      JSON.stringify(request),
+    );
     expect(mocks.release).toHaveBeenCalledTimes(1);
   });
-  it("未安装环境仍可返回已有音译，不调用系统 Python", async () => {
-    mocks.acquire.mockRejectedValueOnce(new Error("请先安装环境"));
-    const pending = runLocalAlignment(request, new AbortController().signal);
-    await vi.waitFor(() => expect(mocks.worker).toHaveBeenCalled());
-    const romanization = {
-      parts: [
-        { text: "kimi ", from: 0, to: 0 },
-        { text: "to", from: 1, to: 1 },
+  it("模型未下载时仍运行原生音译并返回模型诊断", async () => {
+    mocks.acquire.mockRejectedValueOnce(new Error("请先下载模型"));
+    expect(await runLocalAlignment(request, new AbortController().signal)).toEqual({
+      lines: [{ id: 0, romanization }],
+      translationError: "请先下载模型",
+    });
+    expect(mocks.run.mock.calls[0][1]).toEqual([]);
+  });
+  it("仅音译时不占用或加载语义模型", async () => {
+    await runLocalAlignment({ ...request, translation: false }, new AbortController().signal);
+    expect(mocks.acquire).not.toHaveBeenCalled();
+    expect(mocks.run.mock.calls[0][1]).toEqual([]);
+  });
+  it("失败或取消后均释放使用权，不接受晚到结果", async () => {
+    mocks.run
+      .mockRejectedValueOnce(new Error("模型失败"))
+      .mockRejectedValueOnce(new Error("原生失败"));
+    await expect(runLocalAlignment(request, new AbortController().signal)).rejects.toThrow(
+      "原生失败",
+    );
+    expect(mocks.release).toHaveBeenCalledTimes(1);
+    const controller = new AbortController();
+    mocks.run.mockImplementationOnce(async () => {
+      controller.abort();
+      return JSON.stringify({ lines: [{ id: 0, romanization }] });
+    });
+    await expect(runLocalAlignment(request, controller.signal)).rejects.toThrow();
+    expect(mocks.release).toHaveBeenCalledTimes(2);
+  });
+  it("模型进程异常退出时只重做音译，保留诊断而不再次加载模型", async () => {
+    mocks.run.mockRejectedValueOnce(new Error("模型进程退出"));
+    const result = await runLocalAlignment(request, new AbortController().signal);
+    expect(result.translationError).toBe("模型进程退出");
+    expect(result.lines[0].romanization).toEqual(romanization);
+    expect(mocks.run).toHaveBeenCalledTimes(2);
+    expect(mocks.run.mock.calls[1][1]).toEqual([]);
+    expect(JSON.parse(mocks.run.mock.calls[1][3]).translation).toBe(false);
+    expect(mocks.release).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    { lines: [] },
+    { lines: [{ id: 1 }] },
+    { lines: [{ id: 0 }, { id: 0 }] },
+    {
+      lines: [
+        {
+          id: 0,
+          romanization: { ...romanization, parts: [{ text: "rewritten", from: 0, to: 1 }] },
+        },
       ],
-      score: 1,
-    };
-    (mocks.worker.mock.calls[0][0] as EventEmitter).emit("message", {
-      lines: [{ id: 0, source: [], target: ["与你"], romanization }],
-    });
-    expect(await pending).toEqual({
-      lines: [{ id: 0, translation: undefined, romanization }],
-      translationError: "请先安装环境",
-    });
-    expect(mocks.python).not.toHaveBeenCalled();
+    },
+    {
+      lines: [
+        { id: 0, romanization: { ...romanization, parts: [{ text: "kimi to", from: 0, to: 3 }] } },
+      ],
+    },
+  ])("拒绝缺行、重复行、文本改写或越界响应：%j", async (response) => {
+    mocks.run.mockResolvedValueOnce(JSON.stringify(response));
+    await expect(runLocalAlignment(request, new AbortController().signal)).rejects.toThrow();
+    expect(mocks.release).toHaveBeenCalledTimes(1);
+  });
+  it("请求必须具有唯一行号、完整注音边界及受限大小", () => {
+    expect(alignmentRequestSchema.safeParse(request).success).toBe(true);
+    expect(
+      alignmentRequestSchema.safeParse({ ...request, lines: [request.lines[0], request.lines[0]] })
+        .success,
+    ).toBe(false);
+    expect(
+      alignmentRequestSchema.safeParse({
+        ...request,
+        lines: [{ ...request.lines[0], readings: ["きみ"] }],
+      }).success,
+    ).toBe(false);
   });
 });

@@ -1,6 +1,0 @@
-simalign==0.4
-transformers==4.57.6
-torch>=2.2,<3
-numpy==1.26.4; sys_platform == "darwin"
-numpy>=2,<3; sys_platform != "darwin"
-msvc-runtime==14.44.35112; sys_platform == "win32"

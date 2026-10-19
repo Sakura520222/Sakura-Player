@@ -50,7 +50,7 @@ features:
     details: Built-in plugins and external HTTP and WebSocket APIs let you add music sources or control playback remotely.
   - icon: 🔤
     title: Local lyric alignment
-    details: Associate existing translation and romanization with the primary timeline using Japanese reading matches and cross-language semantic alignment, then review and apply candidates locally.
+    details: Native Rust maps existing translation and romanization to the primary timeline without Python or an API key. Romanization works immediately; translation runs offline after model setup, with candidate preview and selection.
     link: /en/lyric-alignment
     linkText: Explore local alignment
   - icon: 🔌

@@ -5,58 +5,6 @@ export interface AlignmentDownload {
 }
 
 export const ALIGNMENT_ENVIRONMENT_VERSION = 1;
-export const ALIGNMENT_PYTHON_VERSION = "3.12.15";
-const release = "20261013";
-
-// 固定上游不可变发行资产的 SHA-256，安装时不解析可变的 latest 地址
-const pythonAssets: Record<string, { triple: string; size: number; sha256: string }> = {
-  "win32-x64": {
-    triple: "x86_64-pc-windows-msvc",
-    size: 22019610,
-    sha256: "7a2aef48e5ee569e310b29b32681debbc5d888e92790d85331a47736c6b06aad",
-  },
-  "darwin-x64": {
-    triple: "x86_64-apple-darwin",
-    size: 24774808,
-    sha256: "d09998f85752b646873a8a6bc7eea442a0d251b1c8d2413aa8ea06ef131c3335",
-  },
-  "darwin-arm64": {
-    triple: "aarch64-apple-darwin",
-    size: 25052618,
-    sha256: "9866e11cf2ae9caa1e671383786f248859a52dd8bfb702fb4c0dc2c65f1d36de",
-  },
-  "linux-x64": {
-    triple: "x86_64-unknown-linux-gnu",
-    size: 34340172,
-    sha256: "178d3d83b6e8e99285a65d3fce9c16b87952cc5efdb4d1a0e3ff3be18ff0fc9c",
-  },
-  "linux-arm64": {
-    triple: "aarch64-unknown-linux-gnu",
-    size: 29242161,
-    sha256: "9467a99bacc7d90b64b02de7fa9ecfc99b72905e64e74f7ff6b460ad95cfed5a",
-  },
-};
-
-/**
- * 选择固定的便携解释器，Windows ARM64 使用可运行 PyTorch 的 x64 环境
- * @param platform - 应用运行平台
- * @param arch - 应用进程架构
- * @returns 已知平台的校验资产，不支持的平台返回 null
- */
-export const getAlignmentPythonDownload = (
-  platform = process.platform,
-  arch = process.arch,
-): AlignmentDownload | null => {
-  const target =
-    pythonAssets[`${platform}-${platform === "win32" && arch === "arm64" ? "x64" : arch}`];
-  if (!target) return null;
-  return {
-    url: `https://github.com/astral-sh/python-build-standalone/releases/download/${release}/cpython-${ALIGNMENT_PYTHON_VERSION}%2B${release}-${target.triple}-install_only_stripped.tar.gz`,
-    size: target.size,
-    sha256: target.sha256,
-  };
-};
-
 export const ALIGNMENT_MODEL_REVISION = "3f076fdb1ab68d5b2880cb87a0886f315b8146f8";
 export const ALIGNMENT_MODEL_FILES = [
   {

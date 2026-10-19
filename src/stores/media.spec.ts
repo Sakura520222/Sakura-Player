@@ -31,7 +31,7 @@ vi.mock("@/utils/lyric/lyricStripper", () => ({
 }));
 vi.mock("@/utils/lyric/cjkTransform", () => ({ applyLyricCjkTransform: mocks.transform }));
 import { useMediaStore } from "./media";
-import { alignRomanization, alignTranslation } from "@shared/utils/lyricAlignment";
+import { alignRomanization, alignTranslation } from "@shared/testFixtures/legacyLyricAlignment";
 import {
   ROMANIZATION_RANGE_LINE,
   ROMANIZATION_RANGE_OPTIONS,

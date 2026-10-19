@@ -62,7 +62,10 @@ pnpm build:native
 pnpm build:native --dev
 pnpm test
 pnpm test:native
+pnpm test:alignment
 ```
+
+`pnpm build:native` builds both NAPI addons and the independent lyric alignment worker without a Python environment. Real-model regression and performance checks require a prepared model directory. See [Alignment validation](/en/native#alignment-validation) for commands and verified scope.
 
 ## Documentation site
 
@@ -84,7 +87,7 @@ electron/main/      Main process: windows, IPC, native modules, services
 electron/preload/   contextBridge APIs exposed as window.api
 src/                Vue 3 renderer application
 windows/            Desktop lyric, Dynamic Island, and taskbar lyric windows
-native/             Rust native modules built with NAPI-RS
+native/             Rust NAPI addons and independent lyric alignment worker
 shared/             Cross-process types and defaults
 ```
 

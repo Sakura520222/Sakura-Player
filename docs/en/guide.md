@@ -32,7 +32,7 @@ Connect self-hosted Subsonic, Navidrome, Jellyfin, or Emby servers. See [Streami
 
 Sakura Player supports TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT, including word highlighting, translation, and romanization. Selection considers source preference, platform/format order, smart preference, and existing lyrics. See [Lyrics](/en/lyrics).
 
-[Local lyric alignment](/en/lyric-alignment) can also associate existing translations and romanization with the word-level timing of the primary lyrics. Use [AI features](/en/ai) to generate missing translation or romanization.
+[Local lyric alignment](/en/lyric-alignment) can also associate existing translations and romanization with the word-level timing of the primary lyrics. Its bundled Rust worker requires neither Python nor an API key. Romanization works immediately; translation requires downloading or verifying the model first. Use [AI features](/en/ai) to generate missing translation or romanization.
 
 ### Online TTML lyrics
 

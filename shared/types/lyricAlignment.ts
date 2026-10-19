@@ -45,10 +45,6 @@ export interface LocalAlignmentRequest {
 
 export type AlignmentEnvironmentPhase =
   | "not-installed"
-  | "downloading-python"
-  | "extracting-python"
-  | "creating-environment"
-  | "installing-dependencies"
   | "downloading-model"
   | "verifying"
   | "ready"
@@ -79,16 +75,16 @@ export interface LyricAlignmentApi {
   align: (request: LocalAlignmentRequest) => Promise<LocalAlignmentResponse>;
   /** 取消本窗口的对齐任务并释放词典及模型 */
   cancel: (requestId: string) => Promise<boolean>;
-  /** 获取播放器专用环境的安装状态 */
+  /** 获取本地对齐模型的准备状态 */
   environmentStatus: () => Promise<AlignmentEnvironmentState>;
-  /** 仅由用户点击触发，下载并验证完整运行环境 */
+  /** 仅由用户点击触发，下载或复用并校验本地模型 */
   installEnvironment: () => Promise<AlignmentEnvironmentState>;
-  /** 中止安装并清理未完成的专用环境 */
+  /** 中止模型准备并清理本次新建的未完成模型 */
   cancelEnvironmentInstall: () => Promise<boolean>;
-  /** 卸载专用 Python、依赖、模型和缓存 */
+  /** 手动移除本地对齐模型 */
   uninstallEnvironment: () => Promise<AlignmentEnvironmentState>;
-  /** 环境维护期间关闭到后台，返回是否已隐藏当前窗口 */
+  /** 模型维护期间关闭到后台，返回是否已隐藏当前窗口 */
   continueInBackground: () => Promise<boolean>;
-  /** 订阅有界的安装进度与环境状态 */
+  /** 订阅有界的下载进度与模型状态 */
   onEnvironmentStatus: (callback: (state: AlignmentEnvironmentState) => void) => () => void;
 }

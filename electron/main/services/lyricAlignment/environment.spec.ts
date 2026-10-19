@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { copyFile, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { c as createTar } from "tar";
 
-const mocks = vi.hoisted(() => ({ data: "", archive: "", download: vi.fn(), run: vi.fn() }));
-vi.mock("electron", () => ({ app: { isPackaged: false, getAppPath: () => mocks.data } }));
+const mocks = vi.hoisted(() => ({ data: "", download: vi.fn(), run: vi.fn() }));
 vi.mock("@main/utils/paths", () => ({
   get dataRoot() {
     return mocks.data;
@@ -14,115 +13,97 @@ vi.mock("@main/utils/paths", () => ({
     return path.join(mocks.data, "runtimes", "lyric-alignment");
   },
 }));
-vi.mock("@main/utils/proxy", () => ({ getNetworkProxyUrl: () => null }));
+vi.mock("./native", () => ({
+  getAlignmentExecutable: () => path.join(mocks.data, "engine"),
+  isAlignmentPlatformSupported: () => true,
+}));
 vi.mock("./download", () => ({ downloadAlignmentAsset: mocks.download }));
-vi.mock("./process", () => ({ runAlignmentPython: mocks.run }));
+vi.mock("./process", () => ({ runAlignmentNative: mocks.run }));
 vi.mock("./assets", async (original) => ({
   ...(await original<typeof import("./assets")>()),
   ALIGNMENT_MODEL_FILES: [
-    { name: "model.safetensors", size: 7, sha256: "fixture", url: "https://example.invalid/model" },
+    {
+      name: "model.safetensors",
+      size: 7,
+      sha256: createHash("sha256").update("weights").digest("hex"),
+      url: "https://example.invalid/model",
+    },
   ],
 }));
-
 let directory = "";
 let environment: typeof import("./environment");
+/** 返回本次测试独占的固定模型目录 */
+const managed = (): string => path.join(mocks.data, "runtimes", "lyric-alignment");
 
 beforeEach(async () => {
   vi.resetModules();
-  directory = await mkdtemp(path.join(tmpdir(), "sakura-managed-alignment-"));
+  directory = await mkdtemp(path.join(tmpdir(), "sakura-native-alignment-"));
   mocks.data = path.join(directory, "app-data");
-  mocks.archive = path.join(directory, "python.tar.gz");
-  const source = path.join(directory, "source");
-  await mkdir(path.join(source, "python"), { recursive: true });
-  await writeFile(path.join(source, "python", "python.exe"), "portable");
-  await createTar({ cwd: source, file: mocks.archive, gzip: true }, ["python"]);
+  await mkdir(mocks.data);
+  await writeFile(path.join(mocks.data, "engine"), "native");
   mocks.download
     .mockReset()
     .mockImplementation(async (_asset, destination: string, signal: AbortSignal) => {
       signal.throwIfAborted();
-      if (destination.endsWith("python.tar.gz")) await copyFile(mocks.archive, destination);
-      else await writeFile(destination, "weights");
+      await writeFile(destination, "weights");
     });
-  mocks.run.mockReset().mockImplementation(async (_executable, args: string[]) => {
-    if (args.includes("venv")) {
-      const executable = path.join(
-        args.at(-1)!,
-        process.platform === "win32" ? "Scripts/python.exe" : "bin/python",
-      );
-      await mkdir(path.dirname(executable), { recursive: true });
-      await writeFile(executable, "python");
-    }
-    if (args.includes("--verify")) {
-      await expect(
-        stat(path.join(mocks.data, "runtimes", "lyric-alignment", "ready.json")),
-      ).rejects.toMatchObject({ code: "ENOENT" });
-      return '{"ready":true}';
-    }
-    return "";
-  });
+  mocks.run.mockReset().mockResolvedValue('{"ready":true}');
   environment = await import("./environment");
 });
 afterEach(async () => {
-  vi.unstubAllEnvs();
   await rm(directory, { recursive: true, force: true });
 });
 
-describe("专用对齐环境的安装事务", () => {
-  it("重复安装在检查阶段被取消时保留已就绪的环境", async () => {
-    await environment.installAlignmentEnvironment();
-    const repeated = environment.installAlignmentEnvironment();
-    expect(environment.cancelAlignmentEnvironmentInstall()).toBe(true);
-    expect((await repeated).installed).toBe(true);
-    const lease = await environment.acquireAlignmentEnvironment();
-    lease.release();
-  });
-  it("显式退出会取消安装并等待清理，关闭窗口查询不会取消任务", async () => {
-    mocks.download.mockImplementationOnce(
-      (_asset, _destination, signal: AbortSignal) =>
-        new Promise((_resolve, reject) => {
-          signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
-        }),
-    );
-    const installing = environment.installAlignmentEnvironment();
-    await vi.waitFor(() => expect(mocks.download).toHaveBeenCalled());
-    expect(environment.isAlignmentEnvironmentBusy()).toBe(true);
-    await environment.shutdownAlignmentEnvironment();
-    expect((await installing).phase).toBe("not-installed");
-    expect(environment.isAlignmentEnvironmentBusy()).toBe(false);
-    await expect(environment.installAlignmentEnvironment()).rejects.toThrow("退出");
-    await expect(stat(path.join(mocks.data, "runtimes", "lyric-alignment"))).rejects.toMatchObject({
-      code: "ENOENT",
-    });
-  });
-  it("显式退出等待对齐使用权释放，期间拒绝新请求", async () => {
-    await environment.installAlignmentEnvironment();
-    const lease = await environment.acquireAlignmentEnvironment();
-    let finished = false;
-    const shutdown = environment.shutdownAlignmentEnvironment().then(() => {
-      finished = true;
-    });
-    await Promise.resolve();
-    expect(finished).toBe(false);
-    await expect(environment.acquireAlignmentEnvironment()).rejects.toThrow("退出");
-    await expect(environment.uninstallAlignmentEnvironment()).rejects.toThrow("退出");
-    lease.release();
-    await shutdown;
-    expect(finished).toBe(true);
-  });
-  it("读取状态不下载，重复安装复用任务并在验证后发布 ready", async () => {
+describe("原生对齐模型事务", () => {
+  it("读取状态不下载或启动进程，重复准备只验证一次", async () => {
     expect((await environment.getAlignmentEnvironmentStatus()).phase).toBe("not-installed");
     expect(mocks.download).not.toHaveBeenCalled();
+    expect(mocks.run).not.toHaveBeenCalled();
     const first = environment.installAlignmentEnvironment();
     const second = environment.installAlignmentEnvironment();
     expect((await first).installed).toBe(true);
     expect((await second).installed).toBe(true);
-    expect(mocks.download).toHaveBeenCalledTimes(2);
-    expect(mocks.run.mock.calls.filter(([, args]) => args.includes("--verify"))).toHaveLength(1);
-    expect((await environment.getAlignmentEnvironmentStatus()).phase).toBe("ready");
+    expect(mocks.download).toHaveBeenCalledTimes(1);
+    expect(mocks.run).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(await readFile(path.join(managed(), "ready.json"), "utf8"))).toMatchObject({
+      version: 1,
+      backend: "rust",
+    });
     await environment.installAlignmentEnvironment();
-    expect(mocks.download).toHaveBeenCalledTimes(2);
+    expect(mocks.run).toHaveBeenCalledTimes(1);
   });
-  it("取消会清理部分目录，随后可从头安装", async () => {
+  it("模型推理通过后才发布完成标记", async () => {
+    mocks.run.mockImplementationOnce(async () => {
+      await expect(stat(path.join(managed(), "ready.json"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      expect((await environment.getAlignmentEnvironmentStatus()).phase).toBe("verifying");
+      return '{"ready":true}';
+    });
+    expect((await environment.installAlignmentEnvironment()).phase).toBe("ready");
+  });
+  it("校验完整模型时不重复下载，也不修改其他目录", async () => {
+    await mkdir(path.join(managed(), "model"), { recursive: true });
+    await writeFile(path.join(managed(), "model/model.safetensors"), "weights");
+    for (const name of ["python", "venv", "cache"]) {
+      await mkdir(path.join(managed(), name));
+      await writeFile(path.join(managed(), name, "keep.txt"), "preserve");
+    }
+    await writeFile(path.join(managed(), "ready.json"), "{}");
+    expect((await environment.getAlignmentEnvironmentStatus()).installed).toBe(false);
+    expect((await environment.installAlignmentEnvironment()).installed).toBe(true);
+    expect(mocks.download).not.toHaveBeenCalled();
+    expect(await readFile(path.join(managed(), "model/model.safetensors"), "utf8")).toBe("weights");
+    for (const name of ["python", "venv", "cache"])
+      expect(await readFile(path.join(managed(), name, "keep.txt"), "utf8")).toBe("preserve");
+  });
+  it("同样长度但散列错误的模型必须重新下载", async () => {
+    await mkdir(path.join(managed(), "model"), { recursive: true });
+    await writeFile(path.join(managed(), "model/model.safetensors"), "corrupt");
+    expect((await environment.installAlignmentEnvironment()).installed).toBe(true);
+    expect(mocks.download).toHaveBeenCalledTimes(1);
+  });
+  it("取消首次下载会清理部分目录，随后可以重试", async () => {
     mocks.download.mockImplementationOnce(
       (_asset, _destination, signal: AbortSignal) =>
         new Promise((_resolve, reject) => {
@@ -133,19 +114,31 @@ describe("专用对齐环境的安装事务", () => {
     await vi.waitFor(() => expect(mocks.download).toHaveBeenCalled());
     expect(environment.cancelAlignmentEnvironmentInstall()).toBe(true);
     expect((await pending).phase).toBe("not-installed");
-    await expect(stat(path.join(mocks.data, "runtimes", "lyric-alignment"))).rejects.toMatchObject({
-      code: "ENOENT",
-    });
+    await expect(stat(managed())).rejects.toMatchObject({ code: "ENOENT" });
     expect((await environment.installAlignmentEnvironment()).installed).toBe(true);
   });
-  it("依赖或模型验证失败不会留下可用标记，支持重试", async () => {
-    mocks.run.mockRejectedValueOnce(new Error("package download failed"));
-    const failed = await environment.installAlignmentEnvironment();
-    expect(failed).toMatchObject({ phase: "error", installed: false, hasFiles: false });
-    expect(failed.error).toContain("package download failed");
+  it("模型验证失败时保留已有权重供重试", async () => {
+    await mkdir(path.join(managed(), "model"), { recursive: true });
+    await writeFile(path.join(managed(), "model/model.safetensors"), "weights");
+    mocks.run.mockRejectedValueOnce(new Error("推理失败"));
+    expect((await environment.installAlignmentEnvironment()).installed).toBe(false);
+    expect(await readFile(path.join(managed(), "model/model.safetensors"), "utf8")).toBe("weights");
+    expect(mocks.download).not.toHaveBeenCalled();
     expect((await environment.installAlignmentEnvironment()).installed).toBe(true);
   });
-  it("运行时阻止卸载，释放后只删除专用目录", async () => {
+  it("完成标记不绑定绝对目录、操作系统或架构，便携移动后仍可使用模型", async () => {
+    await environment.installAlignmentEnvironment();
+    const marker = JSON.parse(await readFile(path.join(managed(), "ready.json"), "utf8"));
+    expect(marker).not.toHaveProperty("root");
+    expect(marker).not.toHaveProperty("platform");
+    expect(marker).not.toHaveProperty("arch");
+  });
+  it("工作进程缺失时报告错误，不下载模型", async () => {
+    await rm(path.join(mocks.data, "engine"));
+    expect((await environment.installAlignmentEnvironment()).installed).toBe(false);
+    expect(mocks.download).not.toHaveBeenCalled();
+  });
+  it("运行期间阻止卸载，幂等释放后只清理专用目录", async () => {
     await environment.installAlignmentEnvironment();
     const lease = await environment.acquireAlignmentEnvironment();
     expect((await environment.getAlignmentEnvironmentStatus()).inUse).toBe(true);
@@ -157,30 +150,46 @@ describe("专用对齐环境的安装事务", () => {
     expect((await environment.uninstallAlignmentEnvironment()).hasFiles).toBe(false);
     expect(await readFile(unrelated, "utf8")).toBe("preserve");
   });
-  it("拒绝通过目录链接卸载其他路径", async () => {
+  it("拒绝根目录或模型子目录链接，不能卸载其他位置", async () => {
     const external = path.join(directory, "external");
-    const managed = path.join(mocks.data, "runtimes", "lyric-alignment");
     await mkdir(external);
     await writeFile(path.join(external, "keep.txt"), "keep");
-    await mkdir(path.dirname(managed), { recursive: true });
-    await symlink(external, managed, process.platform === "win32" ? "junction" : "dir");
+    await mkdir(managed(), { recursive: true });
+    await symlink(
+      external,
+      path.join(managed(), "model"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
     expect((await environment.uninstallAlignmentEnvironment()).phase).toBe("error");
     expect(await readFile(path.join(external, "keep.txt"), "utf8")).toBe("keep");
   });
-  it("不继承系统 Python、代理配置或全局模型缓存", () => {
-    vi.stubEnv("PYTHONPATH", "outside");
-    vi.stubEnv("PYTHONHOME", "outside");
-    vi.stubEnv("HF_HOME", "outside");
-    vi.stubEnv("PIP_INDEX_URL", "https://example.invalid");
-    vi.stubEnv("HTTPS_PROXY", "http://example.invalid");
-    const env = environment.getAlignmentProcessEnvironment();
-    expect(env.PYTHONPATH).toBeUndefined();
-    expect(env.PYTHONHOME).toBeUndefined();
-    expect(env.PIP_INDEX_URL).toBeUndefined();
-    expect(env.HTTPS_PROXY).toBeUndefined();
-    expect(env.HF_HOME).toBe(
-      path.toNamespacedPath(path.join(mocks.data, "runtimes", "lyric-alignment", "cache")),
+  it("退出会取消下载并等待清理，之后拒绝新操作", async () => {
+    mocks.download.mockImplementationOnce(
+      (_asset, _destination, signal: AbortSignal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
+        }),
     );
-    expect(env.PATH).toBe(process.env.PATH);
+    const pending = environment.installAlignmentEnvironment();
+    await vi.waitFor(() => expect(mocks.download).toHaveBeenCalled());
+    expect(environment.isAlignmentEnvironmentBusy()).toBe(true);
+    await environment.shutdownAlignmentEnvironment();
+    expect((await pending).hasFiles).toBe(false);
+    expect(environment.isAlignmentEnvironmentBusy()).toBe(false);
+    await expect(environment.installAlignmentEnvironment()).rejects.toThrow("退出");
+  });
+  it("退出会等待正在运行的对齐使用权释放", async () => {
+    await environment.installAlignmentEnvironment();
+    const lease = await environment.acquireAlignmentEnvironment();
+    let finished = false;
+    const shutdown = environment.shutdownAlignmentEnvironment().then(() => {
+      finished = true;
+    });
+    await Promise.resolve();
+    expect(finished).toBe(false);
+    await expect(environment.acquireAlignmentEnvironment()).rejects.toThrow("退出");
+    lease.release();
+    await shutdown;
+    expect(finished).toBe(true);
   });
 });

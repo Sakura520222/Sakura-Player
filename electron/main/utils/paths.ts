@@ -36,5 +36,5 @@ export const logsDir = path.join(dataRoot, "logs");
 /** 插件根目录：scripts / data / logs */
 export const pluginsDir = path.join(dataRoot, "plugins");
 
-/** 算法歌词对齐专用的便携 Python、虚拟环境与模型 */
+/** 原生歌词对齐专用模型目录 */
 export const lyricAlignmentRuntimeDir = path.join(dataRoot, "runtimes", "lyric-alignment");

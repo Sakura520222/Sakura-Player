@@ -1,0 +1,4345 @@
+{
+  "sourceCommit": "5fbb528e",
+  "request": {
+    "requestId": "migration-baseline",
+    "translation": true,
+    "romanization": true,
+    "lines": [
+      {
+        "id": 0,
+        "words": ["あ", "な", "た", "が", "変", "え", "て", "く", "れ", "た"],
+        "translation": "你为我而改变",
+        "romanization": ""
+      },
+      {
+        "id": 1,
+        "words": ["だ", "け", "ど", "と", "て", "も", "暖", "か", "く", "て"],
+        "translation": "而我却感觉非常温暖",
+        "romanization": ""
+      },
+      {
+        "id": 2,
+        "words": ["一", "緒", "に", "刻", "ん", "で", "く"],
+        "translation": "一起铭刻下",
+        "romanization": ""
+      },
+      {
+        "id": 3,
+        "words": ["So ", "don't ", "need ", "to ", "be ", "afraid."],
+        "translation": "所以啊不必恐惧",
+        "romanization": ""
+      },
+      {
+        "id": 4,
+        "words": ["Tell ", "me ", "how ", "the ", "fact"],
+        "translation": "告诉我何为事实吧",
+        "romanization": ""
+      },
+      {
+        "id": 5,
+        "words": [
+          "I ",
+          "don't ",
+          "want ",
+          "your ",
+          "kindness ",
+          "to ",
+          "end ",
+          "up ",
+          "meaningless"
+        ],
+        "translation": "我不愿让你的善意终化作一场空",
+        "romanization": ""
+      },
+      {
+        "id": 6,
+        "words": ["自", "分", "の", "未", "来", "を", "描", "い", "て", "く", "こ", "と"],
+        "translation": "描绘自己的未来",
+        "romanization": ""
+      },
+      {
+        "id": 7,
+        "words": [
+          "そ",
+          "れ",
+          "は",
+          "と",
+          "て",
+          "も",
+          "難",
+          "し",
+          "い",
+          "こ",
+          "と",
+          "だ",
+          "っ",
+          "た",
+          "の"
+        ],
+        "translation": "是十分困难的事情",
+        "romanization": ""
+      },
+      {
+        "id": 8,
+        "words": ["あ", "き", "ら", "め", "な", "ん", "て", "い", "い", "と"],
+        "translation": "就这样放弃也没关系",
+        "romanization": ""
+      },
+      {
+        "id": 9,
+        "words": ["一", "緒", "で", "一", "度", "の", "め", "ぐ", "り", "合", "い", "を"],
+        "translation": "认真去体会一生只有一次的相逢",
+        "romanization": ""
+      },
+      {
+        "id": 10,
+        "words": ["全", "て", "を", "悲", "し", "て", "る"],
+        "translation": "认真去体会一切",
+        "romanization": ""
+      },
+      {
+        "id": 11,
+        "words": ["始", "め", "て", "の", "経", "験", "重", "ね", "ら", "れ", "る"],
+        "translation": "幸福 悲伤 这些初始的经历",
+        "romanization": ""
+      },
+      {
+        "id": 12,
+        "words": ["絶", "対", "忘", "れ", "な", "い"],
+        "translation": "我绝对不会忘记",
+        "romanization": ""
+      },
+      {
+        "id": 13,
+        "words": ["頑", "な", "だ", "っ", "た", "ね", "あ", "の", "頃", "の", "私"],
+        "translation": "那时候的我真的很固执啊",
+        "romanization": ""
+      },
+      {
+        "id": 14,
+        "words": ["曇", "っ", "て", "い", "た", "空", "か", "ら"],
+        "translation": "就像一直阴云的天空里",
+        "romanization": ""
+      },
+      {
+        "id": 15,
+        "words": [
+          "景",
+          "色",
+          "い",
+          "い",
+          "ペ",
+          "ン",
+          "色",
+          "つ",
+          "い",
+          "て",
+          "い",
+          "い",
+          "た",
+          "の"
+        ],
+        "translation": "景色完全变了 一切都有了色彩 变得靓丽起来",
+        "romanization": ""
+      },
+      {
+        "id": 16,
+        "words": ["温", "も", "り", "感", "じ", "て", "る"],
+        "translation": "让我倍感温暖",
+        "romanization": ""
+      },
+      {
+        "id": 17,
+        "words": ["こ", "と", "が", "大", "事"],
+        "translation": "是很重要的事情",
+        "romanization": ""
+      },
+      {
+        "id": 18,
+        "words": ["手", "と", "手", "を", "つ", "な", "い", "で"],
+        "translation": "手牵着手",
+        "romanization": ""
+      },
+      {
+        "id": 19,
+        "words": ["通", "じ", "会", "え", "る", "幸", "せ", "感", "じ", "て", "る"],
+        "translation": "感受彼此间流转的幸福",
+        "romanization": ""
+      },
+      {
+        "id": 20,
+        "words": ["In ", "the ", "face ", "of ", "death, ", "changed ", "way ", "of ", "life"],
+        "translation": "直面死亡，我选择了抗争",
+        "romanization": ""
+      },
+      {
+        "id": 21,
+        "words": ["Blind ", "to ", "heart's ", "shadows?"],
+        "translation": "是未曾察觉内心的阴影吗？",
+        "romanization": ""
+      },
+      {
+        "id": 22,
+        "words": [
+          "I ",
+          "check ",
+          "my ",
+          "scars ",
+          "every ",
+          "time ",
+          "I ",
+          "wake ",
+          "up ",
+          "from ",
+          "sleep"
+        ],
+        "translation": "每次醒来 我都会看看自己的伤疤",
+        "romanization": ""
+      },
+      {
+        "id": 23,
+        "words": ["I ", "hear ", "the ", "clock ", "tick ", "tock"],
+        "translation": "时钟滴答 传入耳中",
+        "romanization": ""
+      },
+      {
+        "id": 24,
+        "words": ["I'll ", "tell ", "as ", "many ", "lies ", "as ", "need ", "to"],
+        "translation": "即使要我撒无数个必要的谎",
+        "romanization": ""
+      },
+      {
+        "id": 25,
+        "words": ["Is ", "this ", "the ", "magic?"],
+        "translation": "这就是魔法吗？",
+        "romanization": ""
+      },
+      {
+        "id": 26,
+        "words": ["甘", "い", "日", "常", "を"],
+        "translation": "一直都很美好 很甜蜜",
+        "romanization": ""
+      },
+      {
+        "id": 27,
+        "words": ["と", "さ", "し", "て", "い", "だ", "け", "ど"],
+        "translation": "将一切隔绝在外",
+        "romanization": ""
+      }
+    ]
+  },
+  "prepared": [
+    {
+      "id": 0,
+      "source": [
+        {
+          "text": "あなた",
+          "reading": "anata",
+          "from": 0,
+          "to": 2
+        },
+        {
+          "text": "が",
+          "reading": "ga",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "変え",
+          "reading": "kae",
+          "from": 4,
+          "to": 5
+        },
+        {
+          "text": "て",
+          "reading": "te",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "text": "くれ",
+          "reading": "kure",
+          "from": 7,
+          "to": 8
+        },
+        {
+          "text": "た",
+          "reading": "ta",
+          "from": 9,
+          "to": 9
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "あなたが",
+          "heads": [0],
+          "lemmas": ["あなた", "が"]
+        },
+        {
+          "indices": [2, 3, 4, 5],
+          "text": "変えてくれた",
+          "heads": [2],
+          "lemmas": ["変える", "て", "くれる", "た"]
+        }
+      ],
+      "target": ["你", "为我", "而", "改变"]
+    },
+    {
+      "id": 1,
+      "source": [
+        {
+          "text": "だけど",
+          "reading": "dakedo",
+          "from": 0,
+          "to": 2
+        },
+        {
+          "text": "とても",
+          "reading": "totemo",
+          "from": 3,
+          "to": 5
+        },
+        {
+          "text": "暖かく",
+          "reading": "atatakaku",
+          "from": 6,
+          "to": 8
+        },
+        {
+          "text": "て",
+          "reading": "te",
+          "from": 9,
+          "to": 9
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "だけど",
+          "heads": [0],
+          "lemmas": ["だけど"]
+        },
+        {
+          "indices": [1],
+          "text": "とても",
+          "heads": [1],
+          "lemmas": ["とても"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "暖かくて",
+          "heads": [2],
+          "lemmas": ["暖かい", "て"]
+        }
+      ],
+      "target": ["而", "我", "却", "感觉", "非常", "温暖"]
+    },
+    {
+      "id": 2,
+      "source": [
+        {
+          "text": "一緒",
+          "reading": "issho",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "に",
+          "reading": "ni",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "刻ん",
+          "reading": "kizan",
+          "from": 3,
+          "to": 4
+        },
+        {
+          "text": "で",
+          "reading": "de",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "く",
+          "reading": "ku",
+          "from": 6,
+          "to": 6
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "一緒に",
+          "heads": [0],
+          "lemmas": ["一緒", "に"]
+        },
+        {
+          "indices": [2, 3, 4],
+          "text": "刻んでく",
+          "heads": [2],
+          "lemmas": ["刻む", "で", "く"]
+        }
+      ],
+      "target": ["一起", "铭刻", "下"]
+    },
+    {
+      "id": 3,
+      "source": [
+        {
+          "text": "So",
+          "reading": "So",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "don't",
+          "reading": "don't",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "need",
+          "reading": "need",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "to",
+          "reading": "to",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "be",
+          "reading": "be",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "afraid",
+          "reading": "afraid",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": ".",
+          "reading": ".",
+          "from": 5,
+          "to": 5
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "So",
+          "heads": [0],
+          "lemmas": ["So"]
+        },
+        {
+          "indices": [1],
+          "text": "don't",
+          "heads": [1],
+          "lemmas": ["don't"]
+        },
+        {
+          "indices": [2],
+          "text": "need",
+          "heads": [2],
+          "lemmas": ["need"]
+        },
+        {
+          "indices": [3, 4, 5, 6],
+          "text": "to be afraid .",
+          "heads": [5],
+          "lemmas": ["to", "be", "afraid", "."]
+        }
+      ],
+      "target": ["所以", "啊", "不必", "恐惧"]
+    },
+    {
+      "id": 4,
+      "source": [
+        {
+          "text": "Tell",
+          "reading": "Tell",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "me",
+          "reading": "me",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "how",
+          "reading": "how",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "the",
+          "reading": "the",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "fact",
+          "reading": "fact",
+          "from": 4,
+          "to": 4
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "Tell",
+          "heads": [0],
+          "lemmas": ["Tell"]
+        },
+        {
+          "indices": [1],
+          "text": "me",
+          "heads": [1],
+          "lemmas": ["me"]
+        },
+        {
+          "indices": [2],
+          "text": "how",
+          "heads": [2],
+          "lemmas": ["how"]
+        },
+        {
+          "indices": [3, 4],
+          "text": "the fact",
+          "heads": [4],
+          "lemmas": ["the", "fact"]
+        }
+      ],
+      "target": ["告诉", "我", "何", "为", "事实", "吧"]
+    },
+    {
+      "id": 5,
+      "source": [
+        {
+          "text": "I",
+          "reading": "I",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "don't",
+          "reading": "don't",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "want",
+          "reading": "want",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "your",
+          "reading": "your",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "kindness",
+          "reading": "kindness",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "to",
+          "reading": "to",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "end",
+          "reading": "end",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "text": "up",
+          "reading": "up",
+          "from": 7,
+          "to": 7
+        },
+        {
+          "text": "meaningless",
+          "reading": "meaningless",
+          "from": 8,
+          "to": 8
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "I",
+          "heads": [0],
+          "lemmas": ["I"]
+        },
+        {
+          "indices": [1],
+          "text": "don't",
+          "heads": [1],
+          "lemmas": ["don't"]
+        },
+        {
+          "indices": [2],
+          "text": "want",
+          "heads": [2],
+          "lemmas": ["want"]
+        },
+        {
+          "indices": [3],
+          "text": "your",
+          "heads": [3],
+          "lemmas": ["your"]
+        },
+        {
+          "indices": [4],
+          "text": "kindness",
+          "heads": [4],
+          "lemmas": ["kindness"]
+        },
+        {
+          "indices": [5, 6],
+          "text": "to end",
+          "heads": [6],
+          "lemmas": ["to", "end"]
+        },
+        {
+          "indices": [7],
+          "text": "up",
+          "heads": [7],
+          "lemmas": ["up"]
+        },
+        {
+          "indices": [8],
+          "text": "meaningless",
+          "heads": [8],
+          "lemmas": ["meaningless"]
+        }
+      ],
+      "target": ["我", "不愿", "让", "你的", "善意", "终", "化作", "一", "场", "空"]
+    },
+    {
+      "id": 6,
+      "source": [
+        {
+          "text": "自分",
+          "reading": "jibun",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "の",
+          "reading": "no",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "未来",
+          "reading": "mirai",
+          "from": 3,
+          "to": 4
+        },
+        {
+          "text": "を",
+          "reading": "wo",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "描い",
+          "reading": "egai",
+          "from": 6,
+          "to": 7
+        },
+        {
+          "text": "て",
+          "reading": "te",
+          "from": 8,
+          "to": 8
+        },
+        {
+          "text": "く",
+          "reading": "ku",
+          "from": 9,
+          "to": 9
+        },
+        {
+          "text": "こと",
+          "reading": "koto",
+          "from": 10,
+          "to": 11
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "自分の",
+          "heads": [0],
+          "lemmas": ["自分", "の"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "未来を",
+          "heads": [2],
+          "lemmas": ["未来", "を"]
+        },
+        {
+          "indices": [4, 5, 6],
+          "text": "描いてく",
+          "heads": [4],
+          "lemmas": ["描く", "て", "く"]
+        },
+        {
+          "indices": [7],
+          "text": "こと",
+          "heads": [7],
+          "lemmas": ["こと"]
+        }
+      ],
+      "target": ["描绘", "自己", "的", "未来"]
+    },
+    {
+      "id": 7,
+      "source": [
+        {
+          "text": "それ",
+          "reading": "sore",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "は",
+          "reading": "ha",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "とても",
+          "reading": "totemo",
+          "from": 3,
+          "to": 5
+        },
+        {
+          "text": "難しい",
+          "reading": "muzukashii",
+          "from": 6,
+          "to": 8
+        },
+        {
+          "text": "こと",
+          "reading": "koto",
+          "from": 9,
+          "to": 10
+        },
+        {
+          "text": "だっ",
+          "reading": "da",
+          "from": 11,
+          "to": 12
+        },
+        {
+          "text": "た",
+          "reading": "ta",
+          "from": 13,
+          "to": 13
+        },
+        {
+          "text": "の",
+          "reading": "no",
+          "from": 14,
+          "to": 14
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "それは",
+          "heads": [0],
+          "lemmas": ["それ", "は"]
+        },
+        {
+          "indices": [2],
+          "text": "とても",
+          "heads": [2],
+          "lemmas": ["とても"]
+        },
+        {
+          "indices": [3],
+          "text": "難しい",
+          "heads": [3],
+          "lemmas": ["難しい"]
+        },
+        {
+          "indices": [4, 5, 6, 7],
+          "text": "ことだったの",
+          "heads": [4],
+          "lemmas": ["こと", "だっ", "た", "の"]
+        }
+      ],
+      "target": ["是", "十分", "困难", "的", "事情"]
+    },
+    {
+      "id": 8,
+      "source": [
+        {
+          "text": "あきらめ",
+          "reading": "akirame",
+          "from": 0,
+          "to": 3
+        },
+        {
+          "text": "なんて",
+          "reading": "nante",
+          "from": 4,
+          "to": 6
+        },
+        {
+          "text": "いい",
+          "reading": "ii",
+          "from": 7,
+          "to": 8
+        },
+        {
+          "text": "と",
+          "reading": "to",
+          "from": 9,
+          "to": 9
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "あきらめなんて",
+          "heads": [0],
+          "lemmas": ["あきらめ", "なんて"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "いいと",
+          "heads": [2],
+          "lemmas": ["いい", "と"]
+        }
+      ],
+      "target": ["就", "这样", "放弃", "也", "没关系"]
+    },
+    {
+      "id": 9,
+      "source": [
+        {
+          "text": "一緒",
+          "reading": "issho",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "で",
+          "reading": "de",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "一",
+          "reading": "ichi",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "度",
+          "reading": "do",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "の",
+          "reading": "no",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "めぐり",
+          "reading": "meguri",
+          "from": 6,
+          "to": 8
+        },
+        {
+          "text": "合い",
+          "reading": "ai",
+          "from": 9,
+          "to": 10
+        },
+        {
+          "text": "を",
+          "reading": "wo",
+          "from": 11,
+          "to": 11
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "一緒で",
+          "heads": [0],
+          "lemmas": ["一緒", "で"]
+        },
+        {
+          "indices": [2, 3, 4],
+          "text": "一度の",
+          "heads": [2],
+          "lemmas": ["一", "度", "の"]
+        },
+        {
+          "indices": [5, 6, 7],
+          "text": "めぐり合いを",
+          "heads": [5],
+          "lemmas": ["めぐる", "合う", "を"]
+        }
+      ],
+      "target": ["认真", "去", "体会", "一生", "只有", "一次", "的", "相逢"]
+    },
+    {
+      "id": 10,
+      "source": [
+        {
+          "text": "全て",
+          "reading": "subete",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "を",
+          "reading": "wo",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "悲し",
+          "reading": "kanashi",
+          "from": 3,
+          "to": 4
+        },
+        {
+          "text": "てる",
+          "reading": "teru",
+          "from": 5,
+          "to": 6
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "全てを",
+          "heads": [0],
+          "lemmas": ["全て", "を"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "悲してる",
+          "heads": [2],
+          "lemmas": ["悲しい", "てる"]
+        }
+      ],
+      "target": ["认真", "去", "体会", "一切"]
+    },
+    {
+      "id": 11,
+      "source": [
+        {
+          "text": "始めて",
+          "reading": "hajimete",
+          "from": 0,
+          "to": 2
+        },
+        {
+          "text": "の",
+          "reading": "no",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "経験",
+          "reading": "keiken",
+          "from": 4,
+          "to": 5
+        },
+        {
+          "text": "重ね",
+          "reading": "kasane",
+          "from": 6,
+          "to": 7
+        },
+        {
+          "text": "られる",
+          "reading": "rareru",
+          "from": 8,
+          "to": 10
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "始めての",
+          "heads": [0],
+          "lemmas": ["始めて", "の"]
+        },
+        {
+          "indices": [2],
+          "text": "経験",
+          "heads": [2],
+          "lemmas": ["経験"]
+        },
+        {
+          "indices": [3, 4],
+          "text": "重ねられる",
+          "heads": [3],
+          "lemmas": ["重ねる", "られる"]
+        }
+      ],
+      "target": ["幸福", " ", "悲伤", " ", "这些", "初始", "的", "经历"]
+    },
+    {
+      "id": 12,
+      "source": [
+        {
+          "text": "絶対",
+          "reading": "zettai",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "忘れ",
+          "reading": "wasure",
+          "from": 2,
+          "to": 3
+        },
+        {
+          "text": "ない",
+          "reading": "nai",
+          "from": 4,
+          "to": 5
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "絶対",
+          "heads": [0],
+          "lemmas": ["絶対"]
+        },
+        {
+          "indices": [1, 2],
+          "text": "忘れない",
+          "heads": [1],
+          "lemmas": ["忘れる", "ない"]
+        }
+      ],
+      "target": ["我", "绝对", "不会", "忘记"]
+    },
+    {
+      "id": 13,
+      "source": [
+        {
+          "text": "頑",
+          "reading": "頑",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "な",
+          "reading": "na",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "だっ",
+          "reading": "da",
+          "from": 2,
+          "to": 3
+        },
+        {
+          "text": "た",
+          "reading": "ta",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "ね",
+          "reading": "ne",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "あの",
+          "reading": "ano",
+          "from": 6,
+          "to": 7
+        },
+        {
+          "text": "頃",
+          "reading": "koro",
+          "from": 8,
+          "to": 8
+        },
+        {
+          "text": "の",
+          "reading": "no",
+          "from": 9,
+          "to": 9
+        },
+        {
+          "text": "私",
+          "reading": "watashi",
+          "from": 10,
+          "to": 10
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1, 2, 3, 4],
+          "text": "頑なだったね",
+          "heads": [0],
+          "lemmas": ["頑", "な", "だっ", "た", "ね"]
+        },
+        {
+          "indices": [5],
+          "text": "あの",
+          "heads": [5],
+          "lemmas": ["あの"]
+        },
+        {
+          "indices": [6, 7],
+          "text": "頃の",
+          "heads": [6],
+          "lemmas": ["頃", "の"]
+        },
+        {
+          "indices": [8],
+          "text": "私",
+          "heads": [8],
+          "lemmas": ["私"]
+        }
+      ],
+      "target": ["那", "时候", "的", "我", "真的", "很", "固执", "啊"]
+    },
+    {
+      "id": 14,
+      "source": [
+        {
+          "text": "曇っ",
+          "reading": "kumo",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "て",
+          "reading": "te",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "い",
+          "reading": "i",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "た",
+          "reading": "ta",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "空",
+          "reading": "sora",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "から",
+          "reading": "kara",
+          "from": 6,
+          "to": 7
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1, 2, 3],
+          "text": "曇っていた",
+          "heads": [0],
+          "lemmas": ["曇る", "て", "いる", "た"]
+        },
+        {
+          "indices": [4, 5],
+          "text": "空から",
+          "heads": [4],
+          "lemmas": ["空", "から"]
+        }
+      ],
+      "target": ["就像", "一直", "阴", "云", "的", "天空", "里"]
+    },
+    {
+      "id": 15,
+      "source": [
+        {
+          "text": "景色",
+          "reading": "keshiki",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "いい",
+          "reading": "ii",
+          "from": 2,
+          "to": 3
+        },
+        {
+          "text": "ペン",
+          "reading": "pen",
+          "from": 4,
+          "to": 5
+        },
+        {
+          "text": "色",
+          "reading": "shoku",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "text": "つい",
+          "reading": "tsui",
+          "from": 7,
+          "to": 8
+        },
+        {
+          "text": "て",
+          "reading": "te",
+          "from": 9,
+          "to": 9
+        },
+        {
+          "text": "い",
+          "reading": "i",
+          "from": 10,
+          "to": 10
+        },
+        {
+          "text": "い",
+          "reading": "i",
+          "from": 11,
+          "to": 11
+        },
+        {
+          "text": "た",
+          "reading": "ta",
+          "from": 12,
+          "to": 12
+        },
+        {
+          "text": "の",
+          "reading": "no",
+          "from": 13,
+          "to": 13
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "景色",
+          "heads": [0],
+          "lemmas": ["景色"]
+        },
+        {
+          "indices": [1],
+          "text": "いい",
+          "heads": [1],
+          "lemmas": ["いい"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "ペン色",
+          "heads": [2],
+          "lemmas": ["ペン", "色"]
+        },
+        {
+          "indices": [4, 5, 6, 7, 8, 9],
+          "text": "ついていいたの",
+          "heads": [4],
+          "lemmas": ["つく", "て", "いる", "いる", "た", "の"]
+        }
+      ],
+      "target": [
+        "景色",
+        "完全",
+        "变",
+        "了",
+        " ",
+        "一切都",
+        "有了",
+        "色彩",
+        " ",
+        "变得",
+        "靓",
+        "丽",
+        "起来"
+      ]
+    },
+    {
+      "id": 16,
+      "source": [
+        {
+          "text": "温もり",
+          "reading": "nukumori",
+          "from": 0,
+          "to": 2
+        },
+        {
+          "text": "感じ",
+          "reading": "kanji",
+          "from": 3,
+          "to": 4
+        },
+        {
+          "text": "てる",
+          "reading": "teru",
+          "from": 5,
+          "to": 6
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "温もり",
+          "heads": [0],
+          "lemmas": ["温もり"]
+        },
+        {
+          "indices": [1, 2],
+          "text": "感じてる",
+          "heads": [1],
+          "lemmas": ["感じる", "てる"]
+        }
+      ],
+      "target": ["让", "我", "倍感", "温暖"]
+    },
+    {
+      "id": 17,
+      "source": [
+        {
+          "text": "こと",
+          "reading": "koto",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "が",
+          "reading": "ga",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "大事",
+          "reading": "daiji",
+          "from": 3,
+          "to": 4
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "ことが",
+          "heads": [0],
+          "lemmas": ["こと", "が"]
+        },
+        {
+          "indices": [2],
+          "text": "大事",
+          "heads": [2],
+          "lemmas": ["大事"]
+        }
+      ],
+      "target": ["是", "很", "重要", "的", "事情"]
+    },
+    {
+      "id": 18,
+      "source": [
+        {
+          "text": "手",
+          "reading": "te",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "と",
+          "reading": "to",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "手",
+          "reading": "te",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "を",
+          "reading": "wo",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "つない",
+          "reading": "tsunai",
+          "from": 4,
+          "to": 6
+        },
+        {
+          "text": "で",
+          "reading": "de",
+          "from": 7,
+          "to": 7
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "手と",
+          "heads": [0],
+          "lemmas": ["手", "と"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "手を",
+          "heads": [2],
+          "lemmas": ["手", "を"]
+        },
+        {
+          "indices": [4, 5],
+          "text": "つないで",
+          "heads": [4],
+          "lemmas": ["つなぐ", "で"]
+        }
+      ],
+      "target": ["手牵着", "手"]
+    },
+    {
+      "id": 19,
+      "source": [
+        {
+          "text": "通じ",
+          "reading": "tsuuji",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "会える",
+          "reading": "aeru",
+          "from": 2,
+          "to": 4
+        },
+        {
+          "text": "幸せ",
+          "reading": "shiawase",
+          "from": 5,
+          "to": 6
+        },
+        {
+          "text": "感じ",
+          "reading": "kanji",
+          "from": 7,
+          "to": 8
+        },
+        {
+          "text": "てる",
+          "reading": "teru",
+          "from": 9,
+          "to": 10
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "通じ会える",
+          "heads": [0, 1],
+          "lemmas": ["通じる", "会える"]
+        },
+        {
+          "indices": [2],
+          "text": "幸せ",
+          "heads": [2],
+          "lemmas": ["幸せ"]
+        },
+        {
+          "indices": [3, 4],
+          "text": "感じてる",
+          "heads": [3],
+          "lemmas": ["感じる", "てる"]
+        }
+      ],
+      "target": ["感受", "彼此", "间", "流", "转", "的", "幸福"]
+    },
+    {
+      "id": 20,
+      "source": [
+        {
+          "text": "In",
+          "reading": "In",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "the",
+          "reading": "the",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "face",
+          "reading": "face",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "of",
+          "reading": "of",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "death",
+          "reading": "death",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": ",",
+          "reading": ",",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "changed",
+          "reading": "changed",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "way",
+          "reading": "way",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "text": "of",
+          "reading": "of",
+          "from": 7,
+          "to": 7
+        },
+        {
+          "text": "life",
+          "reading": "life",
+          "from": 8,
+          "to": 8
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1, 2],
+          "text": "In the face",
+          "heads": [2],
+          "lemmas": ["In", "the", "face"]
+        },
+        {
+          "indices": [3, 4, 5],
+          "text": "of death ,",
+          "heads": [4],
+          "lemmas": ["of", "death", ","]
+        },
+        {
+          "indices": [6],
+          "text": "changed",
+          "heads": [6],
+          "lemmas": ["changed"]
+        },
+        {
+          "indices": [7],
+          "text": "way",
+          "heads": [7],
+          "lemmas": ["way"]
+        },
+        {
+          "indices": [8, 9],
+          "text": "of life",
+          "heads": [9],
+          "lemmas": ["of", "life"]
+        }
+      ],
+      "target": ["直面", "死亡", "，", "我", "选择", "了", "抗争"]
+    },
+    {
+      "id": 21,
+      "source": [
+        {
+          "text": "Blind",
+          "reading": "Blind",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "to",
+          "reading": "to",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "heart's",
+          "reading": "heart's",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "shadows",
+          "reading": "shadows",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "?",
+          "reading": "?",
+          "from": 3,
+          "to": 3
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "Blind",
+          "heads": [0],
+          "lemmas": ["Blind"]
+        },
+        {
+          "indices": [1, 2],
+          "text": "to heart's",
+          "heads": [2],
+          "lemmas": ["to", "heart's"]
+        },
+        {
+          "indices": [3, 4],
+          "text": "shadows ?",
+          "heads": [3],
+          "lemmas": ["shadows", "?"]
+        }
+      ],
+      "target": ["是", "未曾", "察觉", "内心", "的", "阴影", "吗", "？"]
+    },
+    {
+      "id": 22,
+      "source": [
+        {
+          "text": "I",
+          "reading": "I",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "check",
+          "reading": "check",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "my",
+          "reading": "my",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "scars",
+          "reading": "scars",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "every",
+          "reading": "every",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "time",
+          "reading": "time",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "I",
+          "reading": "I",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "text": "wake",
+          "reading": "wake",
+          "from": 7,
+          "to": 7
+        },
+        {
+          "text": "up",
+          "reading": "up",
+          "from": 8,
+          "to": 8
+        },
+        {
+          "text": "from",
+          "reading": "from",
+          "from": 9,
+          "to": 9
+        },
+        {
+          "text": "sleep",
+          "reading": "sleep",
+          "from": 10,
+          "to": 10
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "I",
+          "heads": [0],
+          "lemmas": ["I"]
+        },
+        {
+          "indices": [1],
+          "text": "check",
+          "heads": [1],
+          "lemmas": ["check"]
+        },
+        {
+          "indices": [2],
+          "text": "my",
+          "heads": [2],
+          "lemmas": ["my"]
+        },
+        {
+          "indices": [3],
+          "text": "scars",
+          "heads": [3],
+          "lemmas": ["scars"]
+        },
+        {
+          "indices": [4],
+          "text": "every",
+          "heads": [4],
+          "lemmas": ["every"]
+        },
+        {
+          "indices": [5],
+          "text": "time",
+          "heads": [5],
+          "lemmas": ["time"]
+        },
+        {
+          "indices": [6],
+          "text": "I",
+          "heads": [6],
+          "lemmas": ["I"]
+        },
+        {
+          "indices": [7],
+          "text": "wake",
+          "heads": [7],
+          "lemmas": ["wake"]
+        },
+        {
+          "indices": [8],
+          "text": "up",
+          "heads": [8],
+          "lemmas": ["up"]
+        },
+        {
+          "indices": [9, 10],
+          "text": "from sleep",
+          "heads": [10],
+          "lemmas": ["from", "sleep"]
+        }
+      ],
+      "target": ["每次", "醒来", " ", "我", "都会", "看看", "自己", "的", "伤疤"]
+    },
+    {
+      "id": 23,
+      "source": [
+        {
+          "text": "I",
+          "reading": "I",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "hear",
+          "reading": "hear",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "the",
+          "reading": "the",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "clock",
+          "reading": "clock",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "tick",
+          "reading": "tick",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "tock",
+          "reading": "tock",
+          "from": 5,
+          "to": 5
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "I",
+          "heads": [0],
+          "lemmas": ["I"]
+        },
+        {
+          "indices": [1],
+          "text": "hear",
+          "heads": [1],
+          "lemmas": ["hear"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "the clock",
+          "heads": [3],
+          "lemmas": ["the", "clock"]
+        },
+        {
+          "indices": [4],
+          "text": "tick",
+          "heads": [4],
+          "lemmas": ["tick"]
+        },
+        {
+          "indices": [5],
+          "text": "tock",
+          "heads": [5],
+          "lemmas": ["tock"]
+        }
+      ],
+      "target": ["时钟", "滴答", " ", "传", "入耳", "中"]
+    },
+    {
+      "id": 24,
+      "source": [
+        {
+          "text": "I'll",
+          "reading": "I'll",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "tell",
+          "reading": "tell",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "as",
+          "reading": "as",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "many",
+          "reading": "many",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "lies",
+          "reading": "lies",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "as",
+          "reading": "as",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "need",
+          "reading": "need",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "text": "to",
+          "reading": "to",
+          "from": 7,
+          "to": 7
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "I'll",
+          "heads": [0],
+          "lemmas": ["I'll"]
+        },
+        {
+          "indices": [1],
+          "text": "tell",
+          "heads": [1],
+          "lemmas": ["tell"]
+        },
+        {
+          "indices": [2, 3],
+          "text": "as many",
+          "heads": [3],
+          "lemmas": ["as", "many"]
+        },
+        {
+          "indices": [4],
+          "text": "lies",
+          "heads": [4],
+          "lemmas": ["lies"]
+        },
+        {
+          "indices": [5, 6, 7],
+          "text": "as need to",
+          "heads": [6],
+          "lemmas": ["as", "need", "to"]
+        }
+      ],
+      "target": ["即使", "要", "我", "撒", "无数", "个", "必要", "的", "谎"]
+    },
+    {
+      "id": 25,
+      "source": [
+        {
+          "text": "Is",
+          "reading": "Is",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "this",
+          "reading": "this",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "text": "the",
+          "reading": "the",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "text": "magic",
+          "reading": "magic",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "?",
+          "reading": "?",
+          "from": 3,
+          "to": 3
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1],
+          "text": "Is this",
+          "heads": [1],
+          "lemmas": ["Is", "this"]
+        },
+        {
+          "indices": [2, 3, 4],
+          "text": "the magic ?",
+          "heads": [3],
+          "lemmas": ["the", "magic", "?"]
+        }
+      ],
+      "target": ["这", "就是", "魔法", "吗", "？"]
+    },
+    {
+      "id": 26,
+      "source": [
+        {
+          "text": "甘い",
+          "reading": "amai",
+          "from": 0,
+          "to": 1
+        },
+        {
+          "text": "日常",
+          "reading": "nichijou",
+          "from": 2,
+          "to": 3
+        },
+        {
+          "text": "を",
+          "reading": "wo",
+          "from": 4,
+          "to": 4
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0],
+          "text": "甘い",
+          "heads": [0],
+          "lemmas": ["甘い"]
+        },
+        {
+          "indices": [1, 2],
+          "text": "日常を",
+          "heads": [1],
+          "lemmas": ["日常", "を"]
+        }
+      ],
+      "target": ["一直", "都很", "美好", " ", "很", "甜蜜"]
+    },
+    {
+      "id": 27,
+      "source": [
+        {
+          "text": "と",
+          "reading": "to",
+          "from": 0,
+          "to": 0
+        },
+        {
+          "text": "さし",
+          "reading": "sashi",
+          "from": 1,
+          "to": 2
+        },
+        {
+          "text": "て",
+          "reading": "te",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "text": "い",
+          "reading": "i",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "text": "だ",
+          "reading": "da",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "text": "けど",
+          "reading": "kedo",
+          "from": 6,
+          "to": 7
+        }
+      ],
+      "sourcePhrases": [
+        {
+          "indices": [0, 1, 2, 3, 4, 5],
+          "text": "とさしていだけど",
+          "heads": [1],
+          "lemmas": ["と", "さす", "て", "いる", "だ", "けど"]
+        }
+      ],
+      "target": ["将", "一切", "隔绝", "在外"]
+    }
+  ],
+  "semantic": [
+    {
+      "id": 0,
+      "pairs": [
+        [0, 0],
+        [0, 1],
+        [1, 2],
+        [2, 3]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 3],
+          [3, 3],
+          [4, 3],
+          [5, 3]
+        ],
+        [
+          [0, 0],
+          [0, 1],
+          [0, 2],
+          [1, 0],
+          [1, 1],
+          [1, 2],
+          [2, 3],
+          [3, 3],
+          [4, 3],
+          [5, 3]
+        ],
+        [
+          [0, 0],
+          [1, 2],
+          [2, 3],
+          [4, 1]
+        ],
+        [
+          [0, 0],
+          [0, 1],
+          [1, 0],
+          [1, 1],
+          [1, 2],
+          [2, 3],
+          [3, 3],
+          [4, 3],
+          [5, 3]
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [2, 3],
+          [3, 3],
+          [4, 1],
+          [4, 3],
+          [5, 3]
+        ]
+      ]
+    },
+    {
+      "id": 1,
+      "pairs": [
+        [0, 0],
+        [0, 1],
+        [1, 3],
+        [1, 4],
+        [2, 5]
+      ],
+      "alternatives": [
+        [
+          [0, 3],
+          [1, 4],
+          [2, 5],
+          [3, 5]
+        ],
+        [
+          [0, 0],
+          [0, 1],
+          [1, 3],
+          [1, 4],
+          [2, 5],
+          [3, 5]
+        ],
+        [
+          [0, 1],
+          [1, 4],
+          [2, 5],
+          [3, 3]
+        ],
+        [
+          [0, 3],
+          [1, 3],
+          [1, 4],
+          [2, 5],
+          [3, 5]
+        ],
+        [
+          [0, 1],
+          [1, 4],
+          [2, 5],
+          [3, 5]
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "pairs": [
+        [0, 0],
+        [2, 1],
+        [4, 2]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 1],
+          [3, 1],
+          [4, 1]
+        ],
+        [
+          [0, 0],
+          [0, 1],
+          [1, 0],
+          [1, 1],
+          [2, 1],
+          [2, 2],
+          [3, 1],
+          [3, 2],
+          [4, 1],
+          [4, 2]
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [2, 1],
+          [3, 1],
+          [4, 1],
+          [4, 2]
+        ]
+      ]
+    },
+    {
+      "id": 3,
+      "pairs": [
+        [0, 0],
+        [1, 2],
+        [4, 2],
+        [5, 3],
+        [6, 1]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 2],
+          [3, 3],
+          [4, 3],
+          [5, 3],
+          [6, 3]
+        ],
+        [
+          [0, 0],
+          [1, 2],
+          [3, 1],
+          [3, 2],
+          [3, 3],
+          [4, 1],
+          [4, 2],
+          [4, 3],
+          [5, 1],
+          [5, 2],
+          [5, 3],
+          [6, 1],
+          [6, 2],
+          [6, 3]
+        ],
+        [
+          [0, 0],
+          [1, 2],
+          [5, 3],
+          [6, 1]
+        ],
+        [
+          [0, 0],
+          [1, 2],
+          [3, 3],
+          [4, 2],
+          [4, 3],
+          [5, 3],
+          [6, 1],
+          [6, 3]
+        ],
+        [
+          [0, 0],
+          [1, 2],
+          [3, 3],
+          [4, 3],
+          [5, 3],
+          [6, 1],
+          [6, 3]
+        ],
+        [
+          [0, 0],
+          [1, 2],
+          [2, 1],
+          [3, 3],
+          [4, 3],
+          [5, 3],
+          [6, 3]
+        ]
+      ]
+    },
+    {
+      "id": 4,
+      "pairs": [
+        [0, 0],
+        [1, 1],
+        [2, 2],
+        [3, 3],
+        [4, 4]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 4],
+          [4, 4]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 3],
+          [3, 4],
+          [4, 3],
+          [4, 4]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 3],
+          [3, 4],
+          [4, 4]
+        ]
+      ]
+    },
+    {
+      "id": 5,
+      "pairs": [
+        [0, 0],
+        [1, 1],
+        [2, 2],
+        [3, 3],
+        [4, 4],
+        [5, 5],
+        [6, 6],
+        [7, 6],
+        [8, 9]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 3],
+          [4, 4],
+          [5, 5],
+          [6, 5],
+          [8, 9]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 3],
+          [4, 4],
+          [5, 5],
+          [5, 6],
+          [6, 5],
+          [6, 6],
+          [7, 6],
+          [8, 9]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 3],
+          [4, 4],
+          [7, 6],
+          [8, 9]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 3],
+          [4, 4],
+          [5, 5],
+          [5, 6],
+          [6, 6],
+          [7, 6],
+          [8, 9]
+        ]
+      ]
+    },
+    {
+      "id": 6,
+      "pairs": [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [4, 0]
+      ],
+      "alternatives": [
+        [
+          [0, 1],
+          [0, 2],
+          [1, 1],
+          [1, 2],
+          [2, 3],
+          [3, 3],
+          [4, 0],
+          [5, 0],
+          [6, 0]
+        ],
+        [
+          [0, 1],
+          [1, 1],
+          [1, 2],
+          [2, 3],
+          [3, 3],
+          [4, 0],
+          [5, 0],
+          [6, 0]
+        ],
+        [
+          [0, 1],
+          [1, 1],
+          [2, 3],
+          [3, 3],
+          [4, 0],
+          [5, 0],
+          [6, 0],
+          [7, 2]
+        ]
+      ]
+    },
+    {
+      "id": 7,
+      "pairs": [
+        [0, 4],
+        [1, 0],
+        [2, 1],
+        [3, 2],
+        [3, 3],
+        [7, 4]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 1],
+          [3, 2],
+          [4, 4],
+          [5, 4],
+          [6, 4],
+          [7, 4]
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [2, 1],
+          [3, 2],
+          [3, 3],
+          [4, 4],
+          [5, 4],
+          [6, 4],
+          [7, 4]
+        ],
+        [
+          [1, 0],
+          [2, 1],
+          [3, 2],
+          [4, 4]
+        ],
+        [
+          [0, 4],
+          [1, 0],
+          [1, 4],
+          [2, 1],
+          [3, 2],
+          [3, 3],
+          [7, 4]
+        ],
+        [
+          [1, 0],
+          [2, 1],
+          [3, 2],
+          [4, 4],
+          [5, 4],
+          [6, 4],
+          [7, 4]
+        ]
+      ]
+    },
+    {
+      "id": 8,
+      "pairs": [
+        [0, 0],
+        [0, 1],
+        [0, 2],
+        [1, 1],
+        [2, 2],
+        [2, 4],
+        [3, 4]
+      ],
+      "alternatives": [
+        [
+          [0, 1],
+          [1, 1],
+          [2, 4],
+          [3, 4]
+        ],
+        [
+          [0, 0],
+          [0, 1],
+          [0, 2],
+          [1, 0],
+          [1, 1],
+          [1, 2],
+          [2, 2],
+          [2, 4],
+          [3, 2],
+          [3, 4]
+        ],
+        [
+          [0, 2],
+          [1, 1],
+          [2, 3],
+          [3, 4]
+        ],
+        [
+          [0, 2],
+          [1, 1],
+          [1, 2],
+          [2, 3],
+          [3, 3],
+          [3, 4]
+        ],
+        [
+          [0, 2],
+          [1, 2],
+          [2, 4],
+          [3, 4]
+        ]
+      ]
+    },
+    {
+      "id": 9,
+      "pairs": [
+        [0, 3],
+        [1, 4],
+        [2, 5],
+        [3, 5],
+        [4, 6],
+        [6, 7],
+        [7, 2]
+      ],
+      "alternatives": [
+        [
+          [0, 3],
+          [1, 3],
+          [2, 5],
+          [3, 5],
+          [4, 5],
+          [5, 7],
+          [6, 7],
+          [7, 7]
+        ],
+        [
+          [0, 3],
+          [0, 4],
+          [1, 3],
+          [1, 4],
+          [2, 5],
+          [2, 6],
+          [3, 5],
+          [3, 6],
+          [4, 5],
+          [4, 6],
+          [5, 0],
+          [5, 2],
+          [5, 7],
+          [6, 0],
+          [6, 2],
+          [6, 7],
+          [7, 0],
+          [7, 2],
+          [7, 7]
+        ],
+        [
+          [1, 4],
+          [2, 3],
+          [3, 5],
+          [4, 6],
+          [6, 7]
+        ],
+        [
+          [0, 3],
+          [1, 3],
+          [1, 4],
+          [2, 5],
+          [3, 5],
+          [4, 5],
+          [4, 6],
+          [6, 7],
+          [7, 2]
+        ],
+        [
+          [0, 3],
+          [1, 3],
+          [1, 4],
+          [2, 5],
+          [3, 5],
+          [4, 5],
+          [4, 6],
+          [5, 0],
+          [6, 0],
+          [6, 7],
+          [7, 0]
+        ]
+      ]
+    },
+    {
+      "id": 10,
+      "pairs": [
+        [0, 3],
+        [2, 2],
+        [3, 2]
+      ],
+      "alternatives": [
+        [
+          [0, 3],
+          [1, 3],
+          [2, 2],
+          [3, 2]
+        ],
+        [
+          [0, 3],
+          [1, 3],
+          [2, 0],
+          [2, 2],
+          [3, 0],
+          [3, 2]
+        ],
+        [
+          [0, 3],
+          [2, 2],
+          [3, 0]
+        ],
+        [
+          [0, 3],
+          [1, 0],
+          [1, 3],
+          [2, 0],
+          [2, 2],
+          [3, 0],
+          [3, 2]
+        ],
+        [
+          [0, 3],
+          [1, 0],
+          [1, 3],
+          [2, 2],
+          [3, 2]
+        ]
+      ]
+    },
+    {
+      "id": 11,
+      "pairs": [
+        [0, 5],
+        [1, 6],
+        [2, 7],
+        [3, 2]
+      ],
+      "alternatives": [
+        [
+          [0, 5],
+          [1, 5],
+          [2, 7],
+          [3, 2],
+          [4, 2]
+        ],
+        [
+          [0, 5],
+          [0, 6],
+          [1, 5],
+          [1, 6],
+          [2, 7],
+          [3, 2],
+          [3, 7],
+          [4, 2],
+          [4, 7]
+        ],
+        [
+          [0, 5],
+          [1, 6],
+          [2, 7],
+          [3, 2],
+          [4, 4]
+        ],
+        [
+          [0, 5],
+          [1, 5],
+          [1, 6],
+          [2, 7],
+          [3, 2],
+          [4, 2]
+        ]
+      ]
+    },
+    {
+      "id": 12,
+      "pairs": [
+        [0, 1],
+        [1, 0],
+        [1, 3],
+        [2, 3]
+      ],
+      "alternatives": [
+        [
+          [0, 1],
+          [1, 3],
+          [2, 3]
+        ],
+        [
+          [0, 1],
+          [1, 0],
+          [1, 3],
+          [2, 0],
+          [2, 3]
+        ],
+        [
+          [0, 1],
+          [1, 3],
+          [2, 0]
+        ],
+        [
+          [0, 1],
+          [1, 3],
+          [2, 0],
+          [2, 3]
+        ]
+      ]
+    },
+    {
+      "id": 13,
+      "pairs": [
+        [0, 4],
+        [1, 5],
+        [4, 7],
+        [5, 0],
+        [5, 4],
+        [6, 1],
+        [7, 2],
+        [8, 3]
+      ],
+      "alternatives": [
+        [
+          [0, 6],
+          [1, 6],
+          [2, 6],
+          [3, 6],
+          [4, 6],
+          [5, 0],
+          [6, 1],
+          [7, 1],
+          [8, 3]
+        ],
+        [
+          [0, 4],
+          [0, 5],
+          [0, 6],
+          [0, 7],
+          [1, 4],
+          [1, 5],
+          [1, 6],
+          [1, 7],
+          [2, 4],
+          [2, 5],
+          [2, 6],
+          [2, 7],
+          [3, 4],
+          [3, 5],
+          [3, 6],
+          [3, 7],
+          [4, 4],
+          [4, 5],
+          [4, 6],
+          [4, 7],
+          [5, 0],
+          [5, 1],
+          [6, 1],
+          [6, 2],
+          [7, 1],
+          [7, 2],
+          [8, 3]
+        ],
+        [
+          [0, 6],
+          [1, 5],
+          [2, 7],
+          [5, 0],
+          [6, 1],
+          [7, 2],
+          [8, 3]
+        ],
+        [
+          [0, 4],
+          [1, 4],
+          [1, 5],
+          [2, 4],
+          [3, 4],
+          [4, 4],
+          [4, 7],
+          [5, 0],
+          [5, 4],
+          [6, 1],
+          [7, 1],
+          [7, 2],
+          [8, 3]
+        ],
+        [
+          [0, 6],
+          [1, 5],
+          [1, 6],
+          [2, 6],
+          [2, 7],
+          [3, 6],
+          [4, 6],
+          [5, 0],
+          [6, 1],
+          [7, 1],
+          [7, 2],
+          [8, 3]
+        ]
+      ]
+    },
+    {
+      "id": 14,
+      "pairs": [
+        [0, 3],
+        [3, 5],
+        [4, 5],
+        [5, 6]
+      ],
+      "alternatives": [
+        [
+          [0, 1],
+          [1, 1],
+          [2, 1],
+          [3, 1],
+          [4, 5],
+          [5, 5]
+        ],
+        [
+          [0, 3],
+          [0, 4],
+          [1, 3],
+          [1, 4],
+          [2, 3],
+          [2, 4],
+          [3, 3],
+          [3, 4],
+          [4, 5],
+          [4, 6],
+          [5, 5],
+          [5, 6]
+        ],
+        [
+          [0, 1],
+          [2, 3],
+          [3, 4],
+          [4, 5],
+          [5, 6]
+        ],
+        [
+          [0, 3],
+          [1, 3],
+          [2, 3],
+          [3, 3],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [5, 6]
+        ],
+        [
+          [0, 1],
+          [1, 1],
+          [2, 1],
+          [3, 1],
+          [3, 4],
+          [4, 5],
+          [5, 5],
+          [5, 6]
+        ]
+      ]
+    },
+    {
+      "id": 15,
+      "pairs": [
+        [0, 0],
+        [1, 1],
+        [1, 3],
+        [3, 7],
+        [4, 11],
+        [9, 12]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 1],
+          [2, 7],
+          [3, 7],
+          [4, 12],
+          [5, 12],
+          [6, 12],
+          [7, 12],
+          [8, 12],
+          [9, 12]
+        ],
+        [
+          [0, 0],
+          [1, 2],
+          [1, 3],
+          [2, 7],
+          [3, 7],
+          [4, 1],
+          [4, 9],
+          [4, 11],
+          [4, 12],
+          [5, 1],
+          [5, 9],
+          [5, 11],
+          [5, 12],
+          [6, 1],
+          [6, 9],
+          [6, 11],
+          [6, 12],
+          [7, 1],
+          [7, 9],
+          [7, 11],
+          [7, 12],
+          [8, 1],
+          [8, 9],
+          [8, 11],
+          [8, 12],
+          [9, 1],
+          [9, 9],
+          [9, 11],
+          [9, 12]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [3, 7],
+          [4, 5],
+          [9, 12]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [1, 3],
+          [3, 7],
+          [4, 11],
+          [5, 11],
+          [6, 11],
+          [7, 11],
+          [8, 11],
+          [9, 11],
+          [9, 12]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [1, 3],
+          [3, 7],
+          [4, 5],
+          [5, 5],
+          [6, 5],
+          [7, 5],
+          [7, 10],
+          [8, 5],
+          [9, 5],
+          [9, 12]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [3, 7],
+          [4, 5],
+          [5, 5],
+          [6, 5],
+          [7, 5],
+          [7, 9],
+          [8, 5],
+          [9, 5],
+          [9, 12]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [4, 5],
+          [5, 5],
+          [6, 5],
+          [7, 5],
+          [8, 5],
+          [9, 5]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [2, 7],
+          [3, 7],
+          [4, 5],
+          [5, 5],
+          [6, 5],
+          [7, 5],
+          [8, 5],
+          [9, 5]
+        ]
+      ]
+    },
+    {
+      "id": 16,
+      "pairs": [
+        [0, 3],
+        [1, 2]
+      ],
+      "alternatives": [
+        [
+          [1, 3],
+          [2, 3]
+        ],
+        [
+          [0, 2],
+          [0, 3],
+          [1, 0],
+          [1, 2],
+          [1, 3],
+          [2, 0],
+          [2, 2],
+          [2, 3]
+        ],
+        [
+          [0, 3],
+          [1, 2],
+          [2, 2]
+        ],
+        [
+          [0, 2],
+          [0, 3],
+          [1, 2],
+          [1, 3],
+          [2, 2],
+          [2, 3]
+        ]
+      ]
+    },
+    {
+      "id": 17,
+      "pairs": [
+        [0, 0],
+        [0, 4],
+        [1, 1],
+        [2, 2],
+        [2, 4]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 4]
+        ],
+        [
+          [0, 0],
+          [0, 4],
+          [1, 0],
+          [1, 4],
+          [2, 1],
+          [2, 4]
+        ],
+        [
+          [0, 0],
+          [1, 1],
+          [2, 4]
+        ],
+        [
+          [0, 0],
+          [0, 4],
+          [1, 0],
+          [1, 1],
+          [1, 4],
+          [2, 2],
+          [2, 4]
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [2, 4]
+        ]
+      ]
+    },
+    {
+      "id": 18,
+      "pairs": [
+        [0, 0],
+        [2, 1]
+      ],
+      "alternatives": [
+        [
+          [2, 0],
+          [3, 0]
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [2, 1],
+          [3, 1]
+        ],
+        [[0, 0]],
+        [
+          [0, 0],
+          [1, 0],
+          [2, 1],
+          [3, 0],
+          [3, 1]
+        ]
+      ]
+    },
+    {
+      "id": 19,
+      "pairs": [
+        [0, 0],
+        [0, 3],
+        [2, 6],
+        [3, 0]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 6],
+          [3, 5],
+          [4, 5]
+        ],
+        [
+          [2, 6],
+          [3, 0],
+          [3, 5],
+          [4, 0],
+          [4, 5]
+        ],
+        [
+          [0, 0],
+          [2, 6]
+        ],
+        [
+          [0, 0],
+          [0, 3],
+          [1, 0],
+          [1, 3],
+          [2, 6],
+          [3, 0],
+          [4, 0]
+        ],
+        [
+          [0, 0],
+          [0, 3],
+          [0, 5],
+          [1, 0],
+          [1, 3],
+          [1, 5],
+          [2, 6],
+          [3, 0],
+          [4, 0]
+        ],
+        [
+          [0, 0],
+          [0, 1],
+          [1, 0],
+          [1, 1],
+          [2, 6],
+          [3, 3],
+          [4, 3]
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [2, 6]
+        ]
+      ]
+    },
+    {
+      "id": 20,
+      "pairs": [
+        [3, 1],
+        [4, 1],
+        [5, 2],
+        [6, 3],
+        [8, 5],
+        [9, 6]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [3, 1],
+          [3, 2],
+          [4, 1],
+          [4, 2],
+          [5, 1],
+          [5, 2],
+          [6, 4],
+          [7, 5],
+          [8, 6],
+          [9, 6]
+        ],
+        [
+          [3, 1],
+          [3, 2],
+          [4, 1],
+          [4, 2],
+          [5, 1],
+          [5, 2],
+          [6, 3],
+          [8, 5],
+          [8, 6],
+          [9, 5],
+          [9, 6]
+        ],
+        [
+          [0, 3],
+          [4, 1],
+          [5, 2],
+          [6, 4],
+          [8, 5],
+          [9, 6]
+        ],
+        [
+          [3, 1],
+          [4, 1],
+          [5, 1],
+          [5, 2],
+          [6, 3],
+          [8, 5],
+          [8, 6],
+          [9, 6]
+        ],
+        [
+          [0, 3],
+          [3, 1],
+          [4, 1],
+          [5, 1],
+          [5, 2],
+          [6, 4],
+          [8, 5],
+          [8, 6],
+          [9, 6]
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [3, 1],
+          [4, 1],
+          [5, 1],
+          [6, 4],
+          [7, 5],
+          [8, 6],
+          [9, 6]
+        ]
+      ]
+    },
+    {
+      "id": 21,
+      "pairs": [
+        [0, 0],
+        [2, 3],
+        [2, 4],
+        [3, 5],
+        [4, 7]
+      ],
+      "alternatives": [
+        [
+          [0, 2],
+          [1, 4],
+          [2, 4],
+          [3, 5],
+          [4, 5]
+        ],
+        [
+          [0, 0],
+          [1, 3],
+          [1, 4],
+          [2, 3],
+          [2, 4],
+          [3, 5],
+          [3, 7],
+          [4, 5],
+          [4, 7]
+        ],
+        [
+          [0, 2],
+          [2, 4],
+          [3, 5],
+          [4, 7]
+        ],
+        [
+          [0, 0],
+          [1, 3],
+          [1, 4],
+          [2, 3],
+          [2, 4],
+          [3, 5],
+          [4, 5],
+          [4, 7]
+        ],
+        [
+          [0, 2],
+          [1, 4],
+          [2, 4],
+          [3, 5],
+          [4, 5],
+          [4, 7]
+        ]
+      ]
+    },
+    {
+      "id": 22,
+      "pairs": [
+        [0, 4],
+        [1, 5],
+        [2, 6],
+        [3, 8],
+        [4, 0],
+        [5, 0],
+        [6, 3],
+        [7, 1],
+        [8, 6],
+        [9, 7],
+        [10, 8]
+      ],
+      "alternatives": [
+        [
+          [0, 4],
+          [1, 5],
+          [2, 6],
+          [3, 8],
+          [4, 0],
+          [6, 3],
+          [9, 1],
+          [10, 1]
+        ],
+        [
+          [0, 4],
+          [1, 5],
+          [2, 6],
+          [3, 8],
+          [4, 0],
+          [5, 0],
+          [6, 3],
+          [7, 1],
+          [8, 6],
+          [9, 7],
+          [9, 8],
+          [10, 7],
+          [10, 8]
+        ],
+        [
+          [0, 4],
+          [1, 5],
+          [2, 6],
+          [3, 8],
+          [4, 0],
+          [6, 3],
+          [9, 7],
+          [10, 1]
+        ],
+        [
+          [0, 4],
+          [1, 5],
+          [2, 6],
+          [3, 8],
+          [4, 0],
+          [5, 0],
+          [6, 3],
+          [7, 1],
+          [8, 6],
+          [9, 7],
+          [9, 8],
+          [10, 8]
+        ],
+        [
+          [0, 4],
+          [1, 5],
+          [2, 6],
+          [3, 8],
+          [4, 0],
+          [6, 3],
+          [9, 1],
+          [9, 7],
+          [10, 1]
+        ]
+      ]
+    },
+    {
+      "id": 23,
+      "pairs": [
+        [0, 0],
+        [2, 4],
+        [3, 0],
+        [4, 1],
+        [4, 3],
+        [5, 1]
+      ],
+      "alternatives": [
+        [
+          [2, 0],
+          [3, 0],
+          [4, 1],
+          [5, 4]
+        ],
+        [
+          [0, 0],
+          [2, 0],
+          [2, 4],
+          [3, 0],
+          [3, 4],
+          [4, 1],
+          [4, 3],
+          [5, 1]
+        ],
+        [
+          [0, 0],
+          [3, 5],
+          [4, 1],
+          [5, 4]
+        ],
+        [
+          [0, 0],
+          [2, 0],
+          [2, 4],
+          [3, 0],
+          [4, 1],
+          [4, 3],
+          [5, 1]
+        ],
+        [
+          [0, 0],
+          [2, 5],
+          [3, 5],
+          [4, 1],
+          [5, 4]
+        ]
+      ]
+    },
+    {
+      "id": 24,
+      "pairs": [
+        [0, 0],
+        [0, 2],
+        [1, 3],
+        [2, 4],
+        [3, 4],
+        [4, 8],
+        [5, 0],
+        [6, 6],
+        [7, 1]
+      ],
+      "alternatives": [
+        [
+          [0, 2],
+          [1, 3],
+          [2, 4],
+          [3, 4],
+          [4, 8],
+          [5, 6],
+          [6, 6],
+          [7, 6]
+        ],
+        [
+          [0, 0],
+          [0, 2],
+          [1, 3],
+          [2, 4],
+          [3, 4],
+          [4, 8],
+          [5, 0],
+          [5, 1],
+          [5, 6],
+          [6, 0],
+          [6, 1],
+          [6, 6],
+          [7, 0],
+          [7, 1],
+          [7, 6]
+        ],
+        [
+          [0, 2],
+          [1, 3],
+          [3, 4],
+          [4, 8],
+          [6, 6],
+          [7, 1]
+        ],
+        [
+          [0, 0],
+          [0, 2],
+          [1, 3],
+          [2, 4],
+          [3, 4],
+          [4, 8],
+          [5, 0],
+          [5, 6],
+          [6, 6],
+          [7, 1],
+          [7, 6]
+        ],
+        [
+          [0, 2],
+          [1, 3],
+          [2, 4],
+          [3, 4],
+          [4, 8],
+          [5, 6],
+          [6, 6],
+          [7, 1],
+          [7, 6]
+        ]
+      ]
+    },
+    {
+      "id": 25,
+      "pairs": [
+        [0, 3],
+        [1, 0],
+        [2, 1],
+        [3, 2],
+        [4, 4]
+      ],
+      "alternatives": [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 2],
+          [3, 2],
+          [4, 2]
+        ],
+        [
+          [0, 0],
+          [0, 3],
+          [1, 0],
+          [1, 3],
+          [2, 1],
+          [2, 2],
+          [2, 4],
+          [3, 1],
+          [3, 2],
+          [3, 4],
+          [4, 1],
+          [4, 2],
+          [4, 4]
+        ],
+        [
+          [0, 0],
+          [0, 3],
+          [1, 0],
+          [2, 1],
+          [2, 2],
+          [3, 2],
+          [4, 2],
+          [4, 4]
+        ]
+      ]
+    },
+    {
+      "id": 26,
+      "pairs": [
+        [0, 2],
+        [0, 5],
+        [1, 5]
+      ],
+      "alternatives": [
+        [[0, 5]],
+        [
+          [0, 2],
+          [0, 5],
+          [1, 5],
+          [2, 5]
+        ],
+        [
+          [0, 5],
+          [1, 2]
+        ],
+        [
+          [0, 5],
+          [1, 2],
+          [2, 2]
+        ]
+      ]
+    },
+    {
+      "id": 27,
+      "pairs": [
+        [0, 0],
+        [5, 2]
+      ],
+      "alternatives": [
+        [
+          [1, 2],
+          [5, 3]
+        ]
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "id": 0,
+      "translation": {
+        "parts": [
+          {
+            "text": "你为我",
+            "from": 0,
+            "to": 2
+          },
+          {
+            "text": "而",
+            "from": 3,
+            "to": 3
+          },
+          {
+            "text": "改变",
+            "from": 4,
+            "to": 5
+          }
+        ],
+        "score": 0.6666666666666666
+      }
+    },
+    {
+      "id": 1,
+      "translation": {
+        "parts": [
+          {
+            "text": "而我",
+            "from": 0,
+            "to": 2
+          },
+          {
+            "text": "却感觉非常",
+            "from": 3,
+            "to": 5
+          },
+          {
+            "text": "温暖",
+            "from": 6,
+            "to": 8
+          }
+        ],
+        "score": 0.8135593220338982
+      }
+    },
+    {
+      "id": 2,
+      "translation": {
+        "parts": [
+          {
+            "text": "一起",
+            "from": 0,
+            "to": 1
+          },
+          {
+            "text": "铭刻",
+            "from": 3,
+            "to": 4
+          },
+          {
+            "text": "下",
+            "from": 6,
+            "to": 6
+          }
+        ],
+        "score": 0.7499999999999999
+      }
+    },
+    {
+      "id": 3,
+      "translation": {
+        "parts": [
+          {
+            "text": "所以",
+            "from": 0,
+            "to": 0
+          },
+          {
+            "text": "啊不必",
+            "from": 1,
+            "to": 4
+          },
+          {
+            "text": "恐惧",
+            "from": 5,
+            "to": 5
+          }
+        ],
+        "score": 0.75
+      }
+    },
+    {
+      "id": 4,
+      "translation": {
+        "parts": [
+          {
+            "text": "告诉",
+            "from": 0,
+            "to": 0
+          },
+          {
+            "text": "我",
+            "from": 1,
+            "to": 1
+          },
+          {
+            "text": "何",
+            "from": 2,
+            "to": 2
+          },
+          {
+            "text": "为",
+            "from": 3,
+            "to": 3
+          },
+          {
+            "text": "事实吧",
+            "from": 4,
+            "to": 4
+          }
+        ],
+        "score": 0.9333333333333333
+      }
+    },
+    {
+      "id": 5,
+      "translation": {
+        "parts": [
+          {
+            "text": "我",
+            "from": 0,
+            "to": 0
+          },
+          {
+            "text": "不愿",
+            "from": 1,
+            "to": 1
+          },
+          {
+            "text": "让",
+            "from": 2,
+            "to": 2
+          },
+          {
+            "text": "你的",
+            "from": 3,
+            "to": 3
+          },
+          {
+            "text": "善意",
+            "from": 4,
+            "to": 4
+          },
+          {
+            "text": "终",
+            "from": 5,
+            "to": 5
+          },
+          {
+            "text": "化作",
+            "from": 6,
+            "to": 7
+          },
+          {
+            "text": "一场空",
+            "from": 8,
+            "to": 8
+          }
+        ],
+        "score": 0.923076923076923
+      }
+    },
+    {
+      "id": 6,
+      "translation": {
+        "parts": [
+          {
+            "text": "描绘",
+            "from": 6,
+            "to": 7
+          },
+          {
+            "text": "自己",
+            "from": 0,
+            "to": 1
+          },
+          {
+            "text": "的",
+            "from": 2,
+            "to": 2
+          },
+          {
+            "text": "未来",
+            "from": 3,
+            "to": 4
+          }
+        ],
+        "score": 0.6666666666666666
+      }
+    },
+    {
+      "id": 7,
+      "translation": {
+        "parts": [
+          {
+            "text": "是",
+            "from": 2,
+            "to": 2
+          },
+          {
+            "text": "十分",
+            "from": 3,
+            "to": 5
+          },
+          {
+            "text": "困难的",
+            "from": 6,
+            "to": 8
+          },
+          {
+            "text": "事情",
+            "from": 0,
+            "to": 14
+          }
+        ],
+        "score": 0.7692307692307693
+      }
+    },
+    {
+      "id": 8,
+      "translation": {
+        "parts": [
+          {
+            "text": "就",
+            "from": 0,
+            "to": 3
+          },
+          {
+            "text": "这样",
+            "from": 0,
+            "to": 6
+          },
+          {
+            "text": "放弃",
+            "from": 0,
+            "to": 8
+          },
+          {
+            "text": "也没关系",
+            "from": 7,
+            "to": 9
+          }
+        ],
+        "score": 0.9411764705882353
+      }
+    },
+    {
+      "id": 9,
+      "translation": {
+        "parts": [
+          {
+            "text": "认真去体会",
+            "from": 11,
+            "to": 11
+          },
+          {
+            "text": "一生",
+            "from": 0,
+            "to": 1
+          },
+          {
+            "text": "只有",
+            "from": 2,
+            "to": 2
+          },
+          {
+            "text": "一次",
+            "from": 3,
+            "to": 4
+          },
+          {
+            "text": "的",
+            "from": 5,
+            "to": 5
+          },
+          {
+            "text": "相逢",
+            "from": 9,
+            "to": 10
+          }
+        ],
+        "score": 0.8279569892473119
+      }
+    },
+    {
+      "id": 10,
+      "translation": {
+        "parts": [
+          {
+            "text": "认真去体会",
+            "from": 3,
+            "to": 6
+          },
+          {
+            "text": "一切",
+            "from": 0,
+            "to": 2
+          }
+        ],
+        "score": 0.7272727272727273
+      }
+    },
+    {
+      "id": 11,
+      "translation": {
+        "parts": [
+          {
+            "text": "幸福 悲伤 ",
+            "from": 6,
+            "to": 7
+          },
+          {
+            "text": "这些初始",
+            "from": 0,
+            "to": 2
+          },
+          {
+            "text": "的",
+            "from": 3,
+            "to": 3
+          },
+          {
+            "text": "经历",
+            "from": 4,
+            "to": 5
+          }
+        ],
+        "score": 0.7088607594936709
+      }
+    },
+    {
+      "id": 12,
+      "translation": {
+        "parts": [
+          {
+            "text": "我",
+            "from": 2,
+            "to": 3
+          },
+          {
+            "text": "绝对",
+            "from": 0,
+            "to": 1
+          },
+          {
+            "text": "不会忘记",
+            "from": 2,
+            "to": 5
+          }
+        ],
+        "score": 0.8333333333333333
+      }
+    },
+    {
+      "id": 13,
+      "translation": {
+        "parts": [
+          {
+            "text": "那",
+            "from": 6,
+            "to": 7
+          },
+          {
+            "text": "时候",
+            "from": 8,
+            "to": 8
+          },
+          {
+            "text": "的",
+            "from": 9,
+            "to": 9
+          },
+          {
+            "text": "我",
+            "from": 10,
+            "to": 10
+          },
+          {
+            "text": "真的",
+            "from": 0,
+            "to": 7
+          },
+          {
+            "text": "很",
+            "from": 1,
+            "to": 1
+          },
+          {
+            "text": "固执啊",
+            "from": 5,
+            "to": 5
+          }
+        ],
+        "score": 0.7974683544303799
+      }
+    },
+    {
+      "id": 14,
+      "translation": {
+        "parts": [
+          {
+            "text": "就像一直阴云的",
+            "from": 0,
+            "to": 4
+          },
+          {
+            "text": "天空里",
+            "from": 5,
+            "to": 7
+          }
+        ],
+        "score": 0.6666666666666666
+      }
+    },
+    {
+      "id": 15,
+      "translation": {
+        "parts": [
+          {
+            "text": "景色",
+            "from": 0,
+            "to": 1
+          },
+          {
+            "text": "完全变了 一切都有了色彩 变得靓丽起来",
+            "from": 2,
+            "to": 13
+          }
+        ],
+        "score": 0.8125000000000001
+      }
+    },
+    {
+      "id": 16,
+      "translation": {
+        "parts": [
+          {
+            "text": "让我倍感",
+            "from": 3,
+            "to": 4
+          },
+          {
+            "text": "温暖",
+            "from": 0,
+            "to": 2
+          }
+        ],
+        "score": 0.6666666666666666
+      }
+    },
+    {
+      "id": 17,
+      "translation": {
+        "parts": [
+          {
+            "text": "是",
+            "from": 0,
+            "to": 1
+          },
+          {
+            "text": "很",
+            "from": 2,
+            "to": 2
+          },
+          {
+            "text": "重要",
+            "from": 3,
+            "to": 4
+          },
+          {
+            "text": "的事情",
+            "from": 0,
+            "to": 4
+          }
+        ],
+        "score": 0.923076923076923
+      }
+    },
+    {
+      "id": 18,
+      "translation": {
+        "parts": [
+          {
+            "text": "手牵着",
+            "from": 0,
+            "to": 1
+          },
+          {
+            "text": "手",
+            "from": 2,
+            "to": 3
+          }
+        ],
+        "score": 0.8
+      }
+    },
+    {
+      "id": 19,
+      "translation": {
+        "parts": [
+          {
+            "text": "感受",
+            "from": 0,
+            "to": 4
+          },
+          {
+            "text": "彼此间流转的幸福",
+            "from": 5,
+            "to": 10
+          }
+        ],
+        "score": 0.6666666666666666
+      }
+    },
+    {
+      "id": 20,
+      "translation": {
+        "parts": [
+          {
+            "text": "直面",
+            "from": 0,
+            "to": 2
+          },
+          {
+            "text": "死亡，",
+            "from": 3,
+            "to": 4
+          },
+          {
+            "text": "我选择",
+            "from": 5,
+            "to": 5
+          },
+          {
+            "text": "了",
+            "from": 6,
+            "to": 6
+          },
+          {
+            "text": "抗争",
+            "from": 7,
+            "to": 8
+          }
+        ],
+        "score": 0.9473684210526316
+      }
+    },
+    {
+      "id": 21,
+      "translation": {
+        "parts": [
+          {
+            "text": "是",
+            "from": 0,
+            "to": 0
+          },
+          {
+            "text": "未曾察觉内心的",
+            "from": 1,
+            "to": 2
+          },
+          {
+            "text": "阴影吗？",
+            "from": 3,
+            "to": 3
+          }
+        ],
+        "score": 0.7058823529411764
+      }
+    },
+    {
+      "id": 22,
+      "translation": {
+        "parts": [
+          {
+            "text": "每次",
+            "from": 4,
+            "to": 5
+          },
+          {
+            "text": "醒来 ",
+            "from": 7,
+            "to": 7
+          },
+          {
+            "text": "我",
+            "from": 6,
+            "to": 6
+          },
+          {
+            "text": "都会",
+            "from": 0,
+            "to": 0
+          },
+          {
+            "text": "看看",
+            "from": 1,
+            "to": 1
+          },
+          {
+            "text": "自己",
+            "from": 2,
+            "to": 8
+          },
+          {
+            "text": "的",
+            "from": 9,
+            "to": 9
+          },
+          {
+            "text": "伤疤",
+            "from": 3,
+            "to": 10
+          }
+        ],
+        "score": 1
+      }
+    },
+    {
+      "id": 23,
+      "translation": {
+        "parts": [
+          {
+            "text": "时钟",
+            "from": 0,
+            "to": 3
+          },
+          {
+            "text": "滴答 ",
+            "from": 4,
+            "to": 5
+          },
+          {
+            "text": "传",
+            "from": 4,
+            "to": 4
+          },
+          {
+            "text": "入耳中",
+            "from": 2,
+            "to": 2
+          }
+        ],
+        "score": 0.8536585365853658
+      }
+    },
+    {
+      "id": 24,
+      "translation": {
+        "parts": [
+          {
+            "text": "即使",
+            "from": 0,
+            "to": 5
+          },
+          {
+            "text": "要",
+            "from": 7,
+            "to": 7
+          },
+          {
+            "text": "我",
+            "from": 0,
+            "to": 0
+          },
+          {
+            "text": "撒",
+            "from": 1,
+            "to": 1
+          },
+          {
+            "text": "无数",
+            "from": 2,
+            "to": 3
+          },
+          {
+            "text": "个必要",
+            "from": 6,
+            "to": 6
+          },
+          {
+            "text": "的谎",
+            "from": 4,
+            "to": 4
+          }
+        ],
+        "score": 0.9090909090909091
+      }
+    },
+    {
+      "id": 25,
+      "translation": {
+        "parts": [
+          {
+            "text": "这",
+            "from": 1,
+            "to": 1
+          },
+          {
+            "text": "就是",
+            "from": 2,
+            "to": 2
+          },
+          {
+            "text": "魔法",
+            "from": 3,
+            "to": 3
+          },
+          {
+            "text": "吗？",
+            "from": 0,
+            "to": 0
+          }
+        ],
+        "score": 1
+      }
+    },
+    {
+      "id": 26
+    },
+    {
+      "id": 27
+    }
+  ]
+}

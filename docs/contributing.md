@@ -71,7 +71,10 @@ pnpm format           # Prettier
 pnpm build:native     # 仅构建 Rust 原生模块（加 `--dev` 为 debug 构建）
 pnpm test            # Node、Web 与发行脚本测试
 pnpm test:native     # Rust 工作区测试
+pnpm test:alignment  # 原生歌词对齐及主进程、歌词应用回归
 ```
+
+`pnpm build:native` 同时构建 NAPI 模块和独立的歌词对齐工作进程，不需要 Python 环境。真实模型回归和性能验证需准备模型目录，命令及验证范围见[原生对齐验证](/native#对齐验证)。
 
 ## 维护文档站
 
@@ -93,7 +96,7 @@ electron/main/      主进程：窗口、IPC、原生模块、服务
 electron/preload/   预加载：通过 contextBridge 暴露 window.api
 src/                渲染层：Vue 3 单页应用
 windows/            桌面歌词 / 灵动岛 / 任务栏歌词等独立窗口
-native/             Rust 原生模块（NAPI-RS）
+native/             Rust NAPI 模块与独立歌词对齐工作进程
 shared/             跨进程共享的类型与默认配置
 ```
 

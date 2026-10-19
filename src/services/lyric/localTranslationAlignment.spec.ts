@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseLyric, toEnhancedLRC } from "lyric-kit";
 import type { LyricInput, LyricLine } from "@shared/types/lyrics";
-import { alignTranslation } from "@shared/utils/lyricAlignment";
+import { alignTranslation } from "@shared/testFixtures/legacyLyricAlignment";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyLocalAlignment, collectLocalAlignmentLines } from "./localAlignment";

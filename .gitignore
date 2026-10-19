@@ -22,6 +22,7 @@ skills-lock.json
 native/*/*.node
 native/*/*.tmp
 native/*/*.swp
+native/lyric-alignment/bin/
 # native/*/index.d.ts
 package-lock.json
 

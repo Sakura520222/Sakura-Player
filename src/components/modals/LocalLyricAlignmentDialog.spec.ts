@@ -167,7 +167,7 @@ describe("算法对齐环境界面", () => {
       .trigger("click");
     expect(uninstall).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).not.toContain("cancelInstall");
-    env.status.value = { ...env.status.value, phase: "downloading-python", installed: false };
+    env.status.value = { ...env.status.value, phase: "downloading-model", installed: false };
     env.installing.value = true;
     await wrapper.vm.$nextTick();
     await wrapper

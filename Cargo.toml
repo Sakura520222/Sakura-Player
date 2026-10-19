@@ -6,6 +6,7 @@ members = [
   "./native/taskbar-lyric",
   "./native/taskbar-thumbnail",
   "./native/opencc",
+  "./native/lyric-alignment",
 ]
 resolver = "3"
 

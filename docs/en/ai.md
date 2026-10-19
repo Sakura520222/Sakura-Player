@@ -7,10 +7,10 @@ Sakura Player's **AI Lyric Translation** generates translations, romanization, a
 | Feature                                      | Entry point                                               | Purpose                                                                                      | Setup                                                                             |
 | -------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | AI Lyric Translation                         | Language icon to the right of the full-player lyrics      | Generate translation and romanization, mapped to existing lyric timings                      | An active AI model                                                                |
-| [Local lyric alignment](/en/lyric-alignment) | Algorithmic lyric alignment beside the full-player lyrics | Map existing translation and romanization to word-timed primary lyrics while preserving text | Romanization works immediately; translation needs the dedicated local environment |
+| [Local lyric alignment](/en/lyric-alignment) | Algorithmic lyric alignment beside the full-player lyrics | Map existing translation and romanization to word-timed primary lyrics while preserving text | Romanization works immediately; download or verify the model once for translation |
 | [MCP interface](/en/mcp)                     | Settings → AI Integration → MCP                           | Let an external AI client search the library, inspect the queue, and control playback        | Enable MCP and configure its URL and connection key in the client                 |
 
-AI Lyric Translation uses your configured model service. Local alignment uses algorithms and models on your device, while MCP exposes playback tools to an external client. They are configured independently; lyric translation does not require MCP.
+AI Lyric Translation uses your configured model service. Local alignment runs in the bundled Rust worker without Python or a model API key, while MCP exposes playback tools to an external client. They are configured independently; lyric translation does not require MCP.
 
 ## Configure an AI model
 
@@ -105,7 +105,7 @@ Applying updates the current lyrics without writing music tags or lyric files au
 
 **Preview changes** compares the selected save targets. For an LRC using Save As, the destination is chosen during saving, so its existing content has not been compared in the preview. Complete saving is independent of the line selections and filters used for copying.
 
-To preserve timed translation fragments, save the auxiliary tracks in **Music tags** or an eligible **TTML file**. LRC retains primary word timings but exports translation line by line; cross-word romanization ranges use a player extension tag. Other players may display the results differently depending on their support for auxiliary tracks and extensions.
+Auxiliary tracks in **Music tags** or an eligible **TTML file** preserve timed translation fragments. LRC retains primary word timings and ordinary line-by-line translation, with Sakura extension tags preserving timed translation and cross-word romanization ranges for reloading in this player. Other players may display the results differently depending on their support for auxiliary tracks and extensions.
 
 ## Data and credentials
 
@@ -115,7 +115,7 @@ To preserve timed translation fragments, save the auxiliary tracks in **Music ta
 - The main process encrypts API keys in local operating-system secure storage. Settings exposes only whether a key is saved. Saving or reusing keys is refused when secure storage is unavailable, including the Linux `basic_text` backend.
 - Requests go directly from your device to the configured service. Its operator determines retention, quotas, and billing; testing and generation can both consume usage.
 
-For existing text that you want to process without calling your configured text model, use [local lyric alignment](/en/lyric-alignment). Its translation environment needs an initial resource download, then alignment runs offline on your device.
+For existing text that you want to process without calling your configured text model, use [local lyric alignment](/en/lyric-alignment). Romanization needs no model download; translation runs offline after downloading or verifying the model once.
 
 ## Troubleshooting
 

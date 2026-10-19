@@ -29,7 +29,7 @@
 
 ## 相对上游的新增功能
 
-以下按 Sakura Player **v1.2.0-beta.4** 与上游 **2026-10-18 的 `dev`（[`aa460b50`](https://github.com/SPlayer-Dev/SPlayer-Next/commit/aa460b502639167c82d4fb7e06ce10f9f744d11b)）** 的代码差异整理，功能归属以上述基线为准
+以下按 Sakura Player **v1.2.0** 与上游 **2026-10-18 的 `dev`（[`aa460b50`](https://github.com/SPlayer-Dev/SPlayer-Next/commit/aa460b502639167c82d4fb7e06ce10f9f744d11b)）** 的代码差异整理，功能归属以上述基线为准
 
 ### 二开新增功能
 
@@ -38,13 +38,13 @@
 | [歌曲高潮查询与跳转](https://sakura-player.pyabunny.com/playback.html#歌曲高潮) | 查询网易云副歌与酷狗高潮标注，进度条显示金色区间，火焰按钮一键跳转；支持多段标注、普通 / 浮动 / 全屏布局，以及本地、QQ 音乐和流媒体歌曲的元数据匹配                                            |
 | [AI 歌词翻译与生成](https://sakura-player.pyabunny.com/ai.html)                 | 自选翻译、音译、逐字翻译与逐字音译；支持简中、繁中、英、日、韩译文，提供补齐缺失与从头完整生成两种模式，并保留未选择的辅助轨道                                                                 |
 | AI 模型调用与续译                                                               | 在上游已有模型配置的基础上，新增 OpenAI Compatible / Anthropic 实际文本调用、连接测试、流式预览与取消，以及 OpenAI 兼容服务的思考等级设置；失败或取消后可在当前弹窗会话内继续生成              |
-| [本地歌词智能对齐](https://sakura-player.pyabunny.com/lyric-alignment.html)     | 无需模型 API Key，将已有翻译、音译映射到主歌词逐字时间轴；支持重新对齐、逐行预览和勾选应用。日语音译开箱即用，翻译对齐提供专用环境和模型的安装、后台下载、取消、重试与卸载，准备完成后离线运行 |
+| [本地歌词智能对齐](https://sakura-player.pyabunny.com/lyric-alignment.html)     | 原生 Rust 将已有翻译、音译映射到主歌词逐字时间轴，无需 Python 或模型 API Key；支持重新对齐、逐行预览和勾选应用。音译开箱即用，翻译模型支持后台下载、校验、取消、重试与移除，准备完成后离线运行 |
 | [完整歌词保存](https://sakura-player.pyabunny.com/lyrics.html#复制、分享与保存) | 在复制工具中新增整首歌词保存，可写入本地独立音频标签、导出 LRC 或保存符合条件的 TTML；音乐标签保留原歌词格式与辅助轨道，支持跨词音译范围的保存与恢复                                           |
 | 保存前差异预览                                                                  | 按音乐标签、LRC、TTML 目标查看写入前后的歌词差异，显示增删行、格式变化和已确定的目标路径                                                                                                       |
 | 喜欢列表一键复制                                                                | 将「我喜欢的音乐」中当前筛选、排序后的整份列表复制为「歌名 - 歌手」，顺序与页面一致                                                                                                            |
 | 暂停时隐藏灵动岛                                                                | 新增可选的暂停自动收起与恢复播放后重新显示，保留窗口位置                                                                                                                                       |
 
-AI 生成和本地对齐处理已有歌词文本，沿用主歌词时间轴，不识别音频或重新打轴；应用结果后仍需显式保存。LRC 中的译文按行导出，完整逐字译文需保存到音乐标签或符合条件的 TTML。歌曲高潮依赖联网查询平台已有标注，插件来源歌曲暂不参与
+AI 生成和本地对齐处理已有歌词文本，沿用主歌词时间轴，不识别音频或重新打轴；应用结果后仍需显式保存。音乐标签和符合条件的 TTML 可保存逐字辅助轨道；LRC 通过 Sakura 扩展标签保留逐字译文及跨词音译范围，其他播放器的支持可能不同。歌曲高潮依赖联网查询平台已有标注，插件来源歌曲暂不参与
 
 ### 二开体验与配套改进
 
@@ -81,7 +81,7 @@ FFmpeg / Rust 解码、CUE 分轨、本地曲库与歌单、听歌统计、在�
 | 插件与外部控制 | 插件音源搜索、解析、元数据扩展和播放控制；可选 HTTP / WebSocket API，以及提供搜索与队列工具的独立 MCP 服务 | [插件](https://sakura-player.pyabunny.com/plugins/) · [HTTP API](https://sakura-player.pyabunny.com/api.html) · [MCP](https://sakura-player.pyabunny.com/mcp.html) |
 | 外观与数据管理 | 封面取色、Light / Dark / Auto、多语言字体、布局与歌词样式、歌曲缓存、设置备份与恢复                        | [数据与备份](https://sakura-player.pyabunny.com/data-management.html)                                                                                              |
 
-AI 歌词功能支持 OpenAI Compatible 与 Anthropic 协议，使用你配置的模型服务处理已有主歌词，不识别音频或重建原文时间轴。本地日语音译对齐开箱即用；本地翻译对齐首次需下载专用 Python 环境与模型，之后离线运行。应用歌词结果后仍需显式保存。
+AI 歌词功能支持 OpenAI Compatible 与 Anthropic 协议，使用你配置的模型服务处理已有主歌词，不识别音频或重建原文时间轴。算法智能对齐由原生 Rust 工作进程执行，日语音译与中文拼音对齐开箱即用；翻译对齐首次只需下载模型，之后离线运行，无需安装 Python。应用歌词结果后仍需显式保存。
 
 听歌识曲需要联网匹配，采集能力因平台而异：系统声音采集由 Windows / Linux 原生模块提供，麦克风可在原生采集不可用时使用浏览器采集路径。设置备份仅包含配置，不包含音乐库、歌单、历史或原音频。
 

@@ -51,7 +51,7 @@ features:
     details: 内置插件系统与外部 API（HTTP + WebSocket），可编写脚本扩展音源，或通过接口远程控制播放。
   - icon: 🔤
     title: 本地歌词对齐
-    details: 通过日语读音匹配与跨语言语义对齐，将已有翻译、音译关联到主歌词时间轴，在本机预览候选并选择应用。
+    details: 原生 Rust 将已有翻译、音译关联到主歌词时间轴，无需 Python 或 API Key。音译开箱即用，翻译准备模型后离线运行，支持预览和选择应用。
     link: /lyric-alignment
     linkText: 了解本地对齐
   - icon: 🔌
