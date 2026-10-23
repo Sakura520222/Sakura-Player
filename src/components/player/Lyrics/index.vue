@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import type { LyricLine } from "@shared/types/lyrics";
 import { useSettingsStore } from "@/stores/settings";
-import AMLLLyrics from "./AMLLLyrics.vue";
-import DefaultLyrics from "./DefaultLyrics.vue";
-import LyricCredit from "./LyricCredit.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +19,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: "seek", timeMs: number): void;
+  (e: "ready"): void;
 }>();
 
 const settings = useSettingsStore();
@@ -77,6 +75,7 @@ defineExpose({
     :show-word-romanization="settings.lyric.showWordRomanization"
     :bg-always-below="settings.lyric.bgAlwaysBelow"
     @seek="emit('seek', $event)"
+    @ready="emit('ready')"
   >
     <template #bottom>
       <slot name="bottom">
@@ -108,6 +107,7 @@ defineExpose({
     :show-romanization="settings.lyric.showRomanization"
     :show-word-romanization="settings.lyric.showWordRomanization"
     @seek="emit('seek', $event)"
+    @ready="emit('ready')"
   >
     <template #bottom>
       <slot name="bottom">

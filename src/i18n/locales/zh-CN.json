@@ -941,6 +941,7 @@
       "theme": "主题与颜色",
       "appearanceStyle": "外观风格",
       "layout": "布局",
+      "softwareAnimations": "过渡与动画",
       "font": "字体",
       "playerBar": "播放栏",
       "nowPlaying": "播放页",
@@ -1805,12 +1806,20 @@
       "floating": "灵动悬浮"
     },
     "routeTransition": {
-      "label": "页面切换动效",
+      "label": "页面切换",
       "description": "切换页面时的过渡动画效果",
       "none": "无",
       "fade": "淡入淡出",
       "slide": "滑动",
       "zoom": "缩放"
+    },
+    "reduceMotion": {
+      "label": "减弱动画",
+      "description": "减少界面动态效果，降低性能消耗"
+    },
+    "seamlessTransition": {
+      "label": "共享元素过渡",
+      "description": "支持两个页面之间的元素无缝过渡"
     },
     "sidebarCollapsed": {
       "label": "折叠侧边栏",

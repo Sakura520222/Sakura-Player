@@ -9,12 +9,41 @@ vi.mock("./device", () => ({ getAnonymousToken: () => "", getDeviceId: () => "de
 
 import { eapiReqDecrypt } from "./crypto";
 import { createRequest } from "./request";
+import { HOST_OS_KEY, HOST_OS_VERSION, OS_MAP } from "./config";
 
 describe("平台请求协议与解析", () => {
   beforeEach(() => {
     api.fetch.mockReset().mockResolvedValue(new Response('{"code":200}'));
     api.v3.mockReset().mockResolvedValue("v3-fresh-token");
     api.web.mockReset().mockResolvedValue({ status: 200, body: { code: 200 }, cookie: [] });
+  });
+
+  it("默认客户端请求使用宿主系统标识与真实版本", async () => {
+    await createRequest("/api/login/qr/check", {}, { crypto: "eapi" });
+    const [, init] = api.fetch.mock.calls[0];
+    const decrypted = eapiReqDecrypt(new URLSearchParams(init.body).get("params")!);
+    expect(decrypted?.data).toMatchObject({
+      header: { os: OS_MAP[HOST_OS_KEY].os, osver: HOST_OS_VERSION },
+    });
+  });
+
+  it.each(["android", "iphone", "osx"] as const)(
+    "显式指定 %s 的接口保留协议要求的客户端标识",
+    async (os) => {
+      await createRequest("/api/song", {}, { crypto: "eapi", cookie: { os } });
+      const [, init] = api.fetch.mock.calls[0];
+      const decrypted = eapiReqDecrypt(new URLSearchParams(init.body).get("params")!);
+      expect(decrypted?.data).toMatchObject({
+        header: { os, osver: OS_MAP[os].osver, appver: OS_MAP[os].appver },
+      });
+    },
+  );
+
+  it("调用方显式系统版本优先于宿主版本", async () => {
+    await createRequest("/api/song", {}, { crypto: "eapi", cookie: { osver: "custom-version" } });
+    const [, init] = api.fetch.mock.calls[0];
+    const decrypted = eapiReqDecrypt(new URLSearchParams(init.body).get("params")!);
+    expect(decrypted?.data).toMatchObject({ header: { osver: "custom-version" } });
   });
 
   it("网页配置路由到公共请求层，不再经过客户端凭据和自动重试", async () => {

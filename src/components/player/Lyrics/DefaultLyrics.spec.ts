@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LyricLine } from "@shared/types/lyrics";
 import { nextTick } from "vue";
@@ -18,7 +18,7 @@ import DefaultLyrics from "./DefaultLyrics.vue";
 import Lyrics from "./index.vue";
 
 vi.mock("./LyricCredit.vue", () => ({ default: { template: "<span />" } }));
-vi.mock("./AMLLLyrics.vue", () => ({ default: { template: "<div />" } }));
+
 vi.mock("@/stores/settings", async () => {
   const { reactive } = await import("vue");
   const settings = reactive({
@@ -32,6 +32,11 @@ vi.mock("@/stores/settings", async () => {
   });
   return { useSettingsStore: () => settings };
 });
+
+const lyricGlobals = {
+  components: { DefaultLyrics },
+  stubs: { AMLLLyrics: true, LyricCredit: true },
+};
 
 const makeLine = (word: string): LyricLine => ({
   startTime: 1000,
@@ -55,6 +60,35 @@ describe("默认歌词引擎显示与配置", () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it("辅助歌词初始化完成并经过两帧布局后向播放器报告就绪", async () => {
+    let callbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        callbacks.push(callback);
+        return callbacks.length;
+      }),
+    );
+    const wrapper = mount(Lyrics, {
+      props: { lyricLines: [makeLine("正文")] },
+      global: lyricGlobals,
+    });
+    try {
+      await flushPromises();
+      expect(wrapper.emitted("ready")).toBeUndefined();
+      for (let frame = 0; frame < 2; frame++) {
+        const pending = callbacks;
+        callbacks = [];
+        for (const callback of pending) callback(performance.now());
+        await flushPromises();
+      }
+      expect(wrapper.emitted("ready")).toEqual([[]]);
+      expect(wrapper.get(".lp-sub").text()).toBe("译文");
+    } finally {
+      wrapper.unmount();
+    }
+  });
 
   it.each([false, true])(
     "范围音译跨对应主词显示，强调开关 %s 及保存重读保留独立高亮",
@@ -391,7 +425,10 @@ describe("默认歌词引擎显示与配置", () => {
 
   it("应用歌词设置直接驱动默认引擎的水平对齐", async () => {
     const settings = useSettingsStore();
-    const wrapper = mount(Lyrics, { props: { lyricLines: [makeLine("正文")] } });
+    const wrapper = mount(Lyrics, {
+      props: { lyricLines: [makeLine("正文")] },
+      global: lyricGlobals,
+    });
     try {
       const root = wrapper.get(".lp-root");
       expect(root.classes().filter((value) => value.startsWith("lp-align-"))).toEqual([]);
@@ -409,6 +446,7 @@ describe("默认歌词引擎显示与配置", () => {
   it("初始化和动态切换水平对齐保留原歌词 DOM，auto 恢复声部布局", async () => {
     const wrapper = mount(DefaultLyrics, {
       props: { lyricLines: [makeLine("正文")], alignment: "center" },
+      global: lyricGlobals,
     });
     try {
       const original = wrapper.get(".lp-line").element;
@@ -425,7 +463,10 @@ describe("默认歌词引擎显示与配置", () => {
   });
 
   it("冻结时缓冲歌词更换，恢复后使用最新歌词和对齐配置", async () => {
-    const wrapper = mount(DefaultLyrics, { props: { lyricLines: [makeLine("旧歌词")] } });
+    const wrapper = mount(DefaultLyrics, {
+      props: { lyricLines: [makeLine("旧歌词")] },
+      global: lyricGlobals,
+    });
     try {
       wrapper.vm.freeze();
       await wrapper.setProps({ lyricLines: [makeLine("新歌词")], alignment: "right" });

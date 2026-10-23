@@ -941,6 +941,7 @@
       "theme": "Theme",
       "appearanceStyle": "Appearance Style",
       "layout": "Layout",
+      "softwareAnimations": "Transitions & Animations",
       "font": "Fonts",
       "playerBar": "Player Bar",
       "nowPlaying": "Now Playing",
@@ -1811,6 +1812,14 @@
       "fade": "Fade",
       "slide": "Slide",
       "zoom": "Zoom"
+    },
+    "reduceMotion": {
+      "label": "Reduce Motion",
+      "description": "Reduce interface motion and resource usage"
+    },
+    "seamlessTransition": {
+      "label": "Shared Element Transitions",
+      "description": "Seamlessly transition elements between two pages"
     },
     "sidebarCollapsed": {
       "label": "Collapse Sidebar",

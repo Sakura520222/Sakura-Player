@@ -198,6 +198,7 @@ const handleMoreMenu = async (key: string): Promise<void> => {
           :search-query="searchQuery"
           :show-size="false"
           source="local"
+          sort-key="liked.local"
           enable-sort
         />
       </div>
@@ -235,6 +236,7 @@ const handleMoreMenu = async (key: string): Promise<void> => {
           :collection-id="user.likedPlaylistId ?? undefined"
           :playback-context="playbackContext"
           collection-type="playlist"
+          sort-key="liked.online"
           enable-sort
         />
       </div>

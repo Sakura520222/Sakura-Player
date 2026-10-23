@@ -107,6 +107,8 @@ export const useSettingsStore = defineStore(
     const appearance = reactive<AppearanceSettings>({
       layoutMode: "default",
       routeTransition: "fade",
+      seamlessTransition: false,
+      reduceMotion: false,
       sidebarCollapsed: false,
       sidebarPlaylistCover: false,
       sidebarNavGroups: DEFAULT_SIDEBAR_NAV_GROUPS.map((group) => ({
@@ -123,6 +125,11 @@ export const useSettingsStore = defineStore(
       fontFamily: "",
       showPerformanceMonitor: false,
     });
+
+    const systemMotion = usePreferredReducedMotion();
+    const reducedMotion = computed(
+      () => appearance.reduceMotion || systemMotion.value === "reduce",
+    );
 
     /** 播放器 */
     const player = reactive<PlayerSettings>({
@@ -353,6 +360,7 @@ export const useSettingsStore = defineStore(
     return {
       locale,
       appearance,
+      reducedMotion,
       player,
       preset,
       lyric,
