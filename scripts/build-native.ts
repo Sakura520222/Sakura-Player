@@ -1,7 +1,14 @@
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import path from "node:path";
 import process from "node:process";
 import { chmodSync, copyFileSync, mkdirSync } from "node:fs";
-import path from "node:path";
+
+/** NAPI CLI 入口，避免 Windows 下通过 shell 启动 .cmd 触发参数转义告警 */
+const napiCliEntry = path.join(
+  path.dirname(createRequire(import.meta.url).resolve("@napi-rs/cli/package.json")),
+  "dist/cli.js",
+);
 
 interface NativeModule {
   name: string;
@@ -158,10 +165,13 @@ for (const mod of modules) {
   const buildType = options.isDev ? "debug" : "release";
   console.log(`[BuildNative] 构建 ${mod.name} (${buildType})`);
 
+  /**
+   * 直接通过当前 Node 进程启动 NAPI CLI，并保留构建重试
+   * @returns 原生构建进程的退出结果
+   */
   const spawnNapiBuild = () =>
-    spawnSync("napi", ["build", ...napiArgs], {
+    spawnSync(process.execPath, [napiCliEntry, "build", ...napiArgs], {
       stdio: "inherit",
-      shell: process.platform === "win32",
       cwd,
     });
 

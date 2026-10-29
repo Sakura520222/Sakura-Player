@@ -27,6 +27,8 @@ interface UseHotkeyRecorderOptions {
   onCancel?: () => void;
   /** 清除回调（Backspace） */
   onClear?: () => void;
+  /** 录入状态变化 */
+  onRecordingChange?: (recording: boolean) => void;
 }
 
 /** 录入态当前显示文案（实时反馈用户已按下的 modifier） */
@@ -39,12 +41,28 @@ const buildLivePreview = (event: KeyboardEvent, isMac: boolean): string => {
   return isMac ? parts.join("") : parts.join(" + ");
 };
 
+/**
+ * 捕获快捷键组合并通知全局快捷键暂停或恢复
+ * @param options - 平台、修饰键要求和录入回调
+ * @returns 录入状态与启动、取消操作
+ */
 export const useHotkeyRecorder = (options: UseHotkeyRecorderOptions) => {
-  const { isMac, requireModifier = false, onConfirm, onCancel, onClear } = options;
+  const {
+    isMac,
+    requireModifier = false,
+    onConfirm,
+    onCancel,
+    onClear,
+    onRecordingChange,
+  } = options;
 
   const isRecording = ref(false);
   const current = ref<string>("");
 
+  /**
+   * 处理清除、取消与完整快捷键组合
+   * @param event - 录入期间捕获的按键事件
+   */
   const handleKeyDown = (event: KeyboardEvent): void => {
     if (!isRecording.value) return;
     event.preventDefault();
@@ -56,6 +74,21 @@ export const useHotkeyRecorder = (options: UseHotkeyRecorderOptions) => {
       current.value = "";
       cleanup();
       onClear?.();
+      return;
+    }
+
+    // Esc（无修饰键）取消录入，带修饰键时仍作为可绑定按键
+    if (
+      event.code === "Escape" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.shiftKey
+    ) {
+      isRecording.value = false;
+      current.value = "";
+      cleanup();
+      onCancel?.();
       return;
     }
 
@@ -86,17 +119,21 @@ export const useHotkeyRecorder = (options: UseHotkeyRecorderOptions) => {
     if (isRecording.value) cancel();
   };
 
+  /** 释放录入监听并通知恢复全局快捷键 */
   const cleanup = (): void => {
     window.removeEventListener("keydown", handleKeyDown, { capture: true });
     window.removeEventListener("blur", handleBlur);
+    onRecordingChange?.(false);
   };
 
+  /** 开始录入并通知释放全局快捷键占用 */
   const start = (): void => {
     if (isRecording.value) return;
     isRecording.value = true;
     current.value = "";
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     window.addEventListener("blur", handleBlur);
+    onRecordingChange?.(true);
   };
 
   const cancel = (): void => {

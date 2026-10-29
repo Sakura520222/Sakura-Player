@@ -4,8 +4,8 @@ Thank you for contributing to Sakura Player. This page covers the local environm
 
 ## Requirements
 
-- **Node.js** >= 22.19.0
-- **pnpm** >= 10
+- **Node.js** >= 24.0.0
+- **pnpm** >= 12
 - **Rust toolchain** for [native modules](/en/native)
 
 Prefer the pnpm version declared by `packageManager` in `package.json`; CI currently uses Node.js 24. On Windows, use Git Bash and MSVC C/C++ build tools. Linux dependencies match CI:

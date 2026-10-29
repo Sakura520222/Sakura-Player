@@ -924,6 +924,7 @@
       "update": "Update",
       "language": "Language",
       "playControl": "Playback Control",
+      "playBehavior": "Playback Behavior",
       "playbackTransition": "Playback Transition",
       "audioSource": "Audio Source",
       "scrobble": "Scrobble",
@@ -1030,10 +1031,16 @@
       "description": "Restore playback position on startup"
     },
     "searchPlayBehavior": {
-      "label": "Search Playback Behavior",
-      "description": "Playback strategy when double-clicking a track on the search page",
+      "label": "Search Playback",
+      "description": "Configure what double-clicking a track on the search page does",
       "current": "Play Current Track Only",
       "all": "Play All Results"
+    },
+    "songListPlayBehavior": {
+      "label": "Song Play Button Behavior",
+      "description": "Configure the play button at the start of each song row",
+      "current": "Play Current Track Only",
+      "all": "Play Whole List"
     },
     "showLyricInBar": {
       "label": "Show Lyric While Playing",
@@ -1804,6 +1811,12 @@
       "default": "Classic",
       "sidebarFull": "Immersive Sidebar",
       "floating": "Dynamic Floating"
+    },
+    "songListStyle": {
+      "label": "Song List Style",
+      "description": "Display density of song lists",
+      "comfortable": "Comfortable",
+      "compact": "Compact"
     },
     "routeTransition": {
       "label": "Page Transition",

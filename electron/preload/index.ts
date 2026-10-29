@@ -882,6 +882,11 @@ const api = {
     reset: (id?: HotkeyActionId) => ipcRenderer.invoke("hotkey:reset", id),
     setGlobalEnabled: (enabled: boolean) => ipcRenderer.invoke("hotkey:setGlobalEnabled", enabled),
     probe: (accelerator: string) => ipcRenderer.invoke("hotkey:probe", accelerator),
+    /**
+     * 通知主进程暂停或恢复全局快捷键注册
+     * @param recording - 是否正在录入快捷键
+     */
+    setRecording: (recording: boolean) => ipcRenderer.invoke("hotkey:setRecording", recording),
     getConflicts: () => ipcRenderer.invoke("hotkey:getConflicts"),
     onTrigger: (callback: (id: HotkeyActionId) => void) =>
       subscribe<HotkeyActionId>("hotkey:trigger", callback),

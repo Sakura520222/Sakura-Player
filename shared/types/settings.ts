@@ -379,13 +379,15 @@ export interface DownloadSettings {
   lyricFileFormat: DownloadLyricFormat;
 }
 
-/** 主窗口几何 */
+/** 主窗口几何（旧版持久化数据，仅供迁移到 Electron 内置窗口状态） */
 export interface MainWindowState {
   width: number;
   height: number;
   x: number | null;
   y: number | null;
   maximized: boolean;
+  /** 已迁移旧版最大化状态，后续恢复交给 Electron */
+  nativeStateMigrated?: boolean;
 }
 
 /** 桌面歌词窗口几何 */

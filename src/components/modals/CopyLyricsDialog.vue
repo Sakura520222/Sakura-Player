@@ -36,6 +36,7 @@ const displayLyrics = computed(() =>
     .filter((line) => !line.isBG)
     .map((line, index) => ({
       index,
+      language: line.language,
       text: line.words.map((word) => word.word).join(""),
       translation: line.translatedLyric || "",
       romaji: line.romanLyric || line.words.map((word) => word.romanWord ?? "").join(""),
@@ -383,11 +384,20 @@ const handleExport = async (): Promise<void> => {
         .filter((line) => pickedSet.value.has(line.index))
         .map((line) => ({
           text: line.text,
+          language: line.language,
           translation: showTranslation.value && line.translation ? line.translation : undefined,
           romaji: showRomaji.value && line.romaji ? line.romaji : undefined,
           duet: line.duet,
         })),
       fallbackColor: theme.coverColor,
+      fonts: {
+        global: settings.appearance.fontFamily,
+        lyric: settings.lyric.fontFamily,
+        chinese: settings.lyric.fontFamilyChinese,
+        japanese: settings.lyric.fontFamilyJapanese,
+        korean: settings.lyric.fontFamilyKorean,
+        latin: settings.lyric.fontFamilyLatin,
+      },
     });
     const artist = track.artists.map((item) => item.name).join(", ");
     const suffixName = t("player.copyLyric.fileSuffix");

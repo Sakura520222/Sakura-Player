@@ -28,9 +28,115 @@ const MODIFIER_TOKENS = new Set([
   "cmdorctrl",
 ]);
 
+/** Electron 支持的具名按键 token（不区分大小写） */
+const NAMED_KEY_TOKENS = new Set([
+  "space",
+  "spacebar",
+  "tab",
+  "capslock",
+  "numlock",
+  "scrolllock",
+  "backspace",
+  "delete",
+  "del",
+  "insert",
+  "return",
+  "enter",
+  "up",
+  "down",
+  "left",
+  "right",
+  "home",
+  "end",
+  "pageup",
+  "pagedown",
+  "escape",
+  "esc",
+  "volumeup",
+  "volumedown",
+  "volumemute",
+  "medianexttrack",
+  "mediaprevioustrack",
+  "mediastop",
+  "mediaplaypause",
+  "printscreen",
+  "plus",
+]);
+
+/** Electron 支持的符号按键 token */
+const PUNCTUATION_TOKENS = new Set([
+  ")",
+  "!",
+  "@",
+  "#",
+  "$",
+  "%",
+  "^",
+  "&",
+  "*",
+  "(",
+  ":",
+  ";",
+  "+",
+  "=",
+  "<",
+  ",",
+  "_",
+  "-",
+  ">",
+  ".",
+  "?",
+  "/",
+  "~",
+  "`",
+  "{",
+  "]",
+  "[",
+  "|",
+  "\\",
+  "}",
+  '"',
+  "'",
+]);
+
+/** 小键盘 Accelerator token → event.code */
+const NUMPAD_TO_CODE: Record<string, string> = {
+  num0: "Numpad0",
+  num1: "Numpad1",
+  num2: "Numpad2",
+  num3: "Numpad3",
+  num4: "Numpad4",
+  num5: "Numpad5",
+  num6: "Numpad6",
+  num7: "Numpad7",
+  num8: "Numpad8",
+  num9: "Numpad9",
+  numdec: "NumpadDecimal",
+  numadd: "NumpadAdd",
+  numsub: "NumpadSubtract",
+  nummult: "NumpadMultiply",
+  numdiv: "NumpadDivide",
+};
+
+/** event.code → 小键盘 Accelerator token */
+const CODE_TO_NUMPAD: Record<string, string> = Object.fromEntries(
+  Object.entries(NUMPAD_TO_CODE).map(([token, code]) => [code, token]),
+);
+
+/** 小键盘符号键的展示文案 */
+const NUMPAD_LABELS: Record<string, string> = {
+  numdec: "Num.",
+  numadd: "Num+",
+  numsub: "Num-",
+  nummult: "Num*",
+  numdiv: "Num/",
+};
+
 /**
  * 把 Accelerator 中的 key token（最后一段非 modifier）规范成 KeyboardEvent.code 形式
  * Electron Accelerator 用的是 key 字符（如 "A"、"Right"），需要映射到 code
+ * @param token - 加速键中的按键名称
+ * @returns 对应的物理键码
  */
 const keyToCode = (token: string): string => {
   const t = token.trim();
@@ -39,6 +145,9 @@ const keyToCode = (token: string): string => {
   if (/^[A-Za-z]$/.test(t)) return `Key${t.toUpperCase()}`;
   // 数字
   if (/^[0-9]$/.test(t)) return `Digit${t}`;
+  // 小键盘
+  const numpad = NUMPAD_TO_CODE[t.toLowerCase()];
+  if (numpad) return numpad;
   // 方向键
   const arrow: Record<string, string> = {
     left: "ArrowLeft",
@@ -88,8 +197,8 @@ const keyToCode = (token: string): string => {
 
 /**
  * 解析 Accelerator 字符串
- * @param accel 加速键字符串，如 "CommandOrControl+Shift+R"
- * @param isMac 当前平台是否为 macOS（用于展开 CommandOrControl）
+ * @param accel - 加速键字符串，如 "CommandOrControl+Shift+R"
+ * @param isMac - 当前平台是否为 macOS（用于展开 CommandOrControl）
  */
 export const parseAccelerator = (accel: string, isMac: boolean): ParsedAccelerator | null => {
   if (!accel) return null;
@@ -147,7 +256,8 @@ export const parseAccelerator = (accel: string, isMac: boolean): ParsedAccelerat
 
 /**
  * 规范化 Accelerator：固定 modifier 顺序、统一大小写
- * 顺序：CommandOrControl > Cmd > Ctrl > Alt > Shift > Key
+ * @param accel - 待规范化的加速键
+ * @returns 按固定修饰键顺序拼接的加速键
  */
 export const normalizeAccelerator = (accel: string): string => {
   if (!accel) return "";
@@ -155,13 +265,20 @@ export const normalizeAccelerator = (accel: string): string => {
     .split("+")
     .map((t) => t.trim())
     .filter(Boolean);
-  const mods = { cmdOrCtrl: false, cmd: false, ctrl: false, alt: false, shift: false };
+  const mods = {
+    cmdOrCtrl: false,
+    cmd: false,
+    super: false,
+    ctrl: false,
+    alt: false,
+    shift: false,
+  };
   let key = "";
   for (const t of tokens) {
     const lower = t.toLowerCase();
     if (lower === "commandorcontrol" || lower === "cmdorctrl") mods.cmdOrCtrl = true;
-    else if (lower === "cmd" || lower === "command" || lower === "meta" || lower === "super")
-      mods.cmd = true;
+    else if (lower === "cmd" || lower === "command") mods.cmd = true;
+    else if (lower === "meta" || lower === "super") mods.super = true;
     else if (lower === "ctrl" || lower === "control") mods.ctrl = true;
     else if (lower === "alt" || lower === "option") mods.alt = true;
     else if (lower === "shift") mods.shift = true;
@@ -173,6 +290,7 @@ export const normalizeAccelerator = (accel: string): string => {
   const parts: string[] = [];
   if (mods.cmdOrCtrl) parts.push("CommandOrControl");
   if (mods.cmd) parts.push("Cmd");
+  if (mods.super) parts.push("Super");
   if (mods.ctrl) parts.push("Ctrl");
   if (mods.alt) parts.push("Alt");
   if (mods.shift) parts.push("Shift");
@@ -180,19 +298,54 @@ export const normalizeAccelerator = (accel: string): string => {
   return parts.join("+");
 };
 
-/** 直接对已解析结构与事件比较，避免热路径重复解析字符串 */
+/**
+ * 判断 accelerator 是否在 Electron 支持的按键集合内
+ * @param accel - 加速键字符串
+ * @returns 是否受支持
+ */
+export const isSupportedAccelerator = (accel: string): boolean => {
+  if (!accel) return false;
+  const tokens = accel
+    .split("+")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) return false;
+
+  let key = "";
+  for (const token of tokens) {
+    if (MODIFIER_TOKENS.has(token.toLowerCase())) continue;
+    key = token;
+  }
+  if (!key) return false;
+
+  const lower = key.toLowerCase();
+  if (/^[a-z0-9]$/.test(lower)) return true;
+  if (/^f([1-9]|1[0-9]|2[0-4])$/.test(lower)) return true;
+  if (/^num[0-9]$/.test(lower)) return true;
+  if (["numdec", "numadd", "numsub", "nummult", "numdiv"].includes(lower)) return true;
+  if (NAMED_KEY_TOKENS.has(lower)) return true;
+  return PUNCTUATION_TOKENS.has(key);
+};
+
+/**
+ * 直接比较已解析结构与事件，避免热路径重复解析字符串
+ * @param event - 当前键盘事件
+ * @param parsed - 预解析的加速键
+ * @returns 是否匹配该快捷键
+ */
 export const matchParsed = (event: KeyboardEvent, parsed: ParsedAccelerator): boolean => {
   if (event.ctrlKey !== parsed.ctrl) return false;
   if (event.metaKey !== parsed.meta) return false;
   if (event.altKey !== parsed.alt) return false;
   if (event.shiftKey !== parsed.shift) return false;
-  return event.code === parsed.code;
+  // 小键盘回车与主回车共用 Return，避免全局与应用内行为不一致
+  return event.code === parsed.code || (parsed.code === "Enter" && event.code === "NumpadEnter");
 };
 
 /**
  * 把 Accelerator 渲染为人类可读字符串
- * @param accel Accelerator 字符串
- * @param isMac 当前平台是否 macOS（决定符号样式）
+ * @param accel - Accelerator 字符串
+ * @param isMac - 当前平台是否 macOS（决定符号样式）
  */
 export const formatAccelerator = (accel: string | null, isMac: boolean): string => {
   if (!accel) return "";
@@ -220,6 +373,10 @@ export const formatAccelerator = (accel: string | null, isMac: boolean): string 
       out.push(isMac ? "↵" : "Enter");
     } else if (lower === "space" || lower === "spacebar") {
       out.push("Space");
+    } else if (/^num[0-9]$/.test(lower)) {
+      out.push(`Num${lower.slice(3)}`);
+    } else if (lower in NUMPAD_LABELS) {
+      out.push(NUMPAD_LABELS[lower]);
     } else if (/^[a-z]$/.test(lower)) {
       out.push(lower.toUpperCase());
     } else {
@@ -231,8 +388,8 @@ export const formatAccelerator = (accel: string | null, isMac: boolean): string 
 
 /**
  * 从 KeyboardEvent 反推为 Accelerator 字符串
- * @param event 键盘事件
- * @param isMac 平台
+ * @param event - 键盘事件
+ * @param isMac - 平台
  * @returns null 表示当前事件不构成有效组合（如只按了 modifier 单键）
  */
 export const eventToAccelerator = (event: KeyboardEvent, isMac: boolean): string | null => {
@@ -250,12 +407,19 @@ export const eventToAccelerator = (event: KeyboardEvent, isMac: boolean): string
     event.code === "OSRight";
   if (isModifierKey) return null;
 
-  // 按 code 反向算 token
+  /**
+   * 将物理键码转换为 Electron 按键名称
+   * @param code - 键盘事件的物理键码
+   * @returns 加速键使用的按键名称
+   */
   const codeToToken = (code: string): string => {
     if (code.startsWith("Key")) return code.slice(3); // KeyA → A
     if (code.startsWith("Digit")) return code.slice(5);
     if (code.startsWith("Arrow")) return code.slice(5); // ArrowLeft → Left
     if (code.startsWith("F") && /^F[0-9]+$/.test(code)) return code; // F1
+    const numpad = CODE_TO_NUMPAD[code];
+    if (numpad) return numpad;
+    if (code === "NumpadEnter") return "Return";
     const map: Record<string, string> = {
       Space: "Space",
       Enter: "Return",
@@ -289,7 +453,7 @@ export const eventToAccelerator = (event: KeyboardEvent, isMac: boolean): string
   const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
   const otherCmdLike = isMac ? event.ctrlKey : event.metaKey;
   if (cmdOrCtrl) parts.push("CommandOrControl");
-  if (otherCmdLike) parts.push(isMac ? "Ctrl" : "Cmd");
+  if (otherCmdLike) parts.push(isMac ? "Ctrl" : "Super");
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
   parts.push(codeToToken(event.code));

@@ -106,6 +106,7 @@ export const useSettingsStore = defineStore(
     /** 外观 */
     const appearance = reactive<AppearanceSettings>({
       layoutMode: "default",
+      songListStyle: "comfortable",
       routeTransition: "fade",
       seamlessTransition: false,
       reduceMotion: false,
@@ -164,6 +165,7 @@ export const useSettingsStore = defineStore(
       transitionMode: "none",
       transitionPreference: "standard",
       searchPlayBehavior: "current",
+      songListPlayBehavior: "current",
     });
 
     /** 强迫症设置 */

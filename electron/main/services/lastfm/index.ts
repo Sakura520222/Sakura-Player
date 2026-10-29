@@ -8,6 +8,8 @@ import type { LastfmStatus, LastfmConnectResult } from "@shared/types/lastfm";
 
 /** 当前会话（内存态） */
 let session: credentials.LastfmCredentials | null = null;
+/** 用户连接或断开后，不再接纳旧初始化结果 */
+let sessionRevision = 0;
 /** 是否有授权轮询在进行 */
 let connecting = false;
 /** 取消授权标志 */
@@ -20,8 +22,10 @@ const cfg = () => store.get("lastfm");
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 启动初始化：载入本地凭证并接线 scrobbler 回调 */
-export const init = (): void => {
-  session = credentials.load();
+export const init = async (): Promise<void> => {
+  const revision = sessionRevision;
+  const saved = await credentials.load();
+  if (revision === sessionRevision) session = saved;
   if (session) lastfmLog.info(`已载入 Last.fm 凭证: ${session.username}`);
   scrobbler.setHandlers({
     onNowPlaying: (track) => {
@@ -115,6 +119,7 @@ export const connect = async (): Promise<LastfmConnectResult> => {
   if (connecting) return { connected: false, reason: "error" };
   connecting = true;
   cancelFlag = false;
+  const revision = ++sessionRevision;
   try {
     const token = await client.getToken();
     await shell.openExternal(client.getAuthUrl(token));
@@ -125,8 +130,12 @@ export const connect = async (): Promise<LastfmConnectResult> => {
       if (cancelFlag) return { connected: false, reason: "canceled" };
       try {
         const result = await client.getSession(token);
+        if (cancelFlag || revision !== sessionRevision)
+          return { connected: false, reason: "canceled" };
+        await credentials.save(result.name, result.key);
+        if (cancelFlag || revision !== sessionRevision)
+          return { connected: false, reason: "canceled" };
         session = { username: result.name, sessionKey: result.key };
-        credentials.save(result.name, result.key);
         lastfmLog.info(`已连接 Last.fm: ${result.name}`);
         return { connected: true, username: result.name };
       } catch (err) {
@@ -146,6 +155,8 @@ export const connect = async (): Promise<LastfmConnectResult> => {
 
 /** 断开并清除凭证 */
 export const disconnect = (): void => {
+  sessionRevision++;
+  cancelFlag = true;
   session = null;
   credentials.clear();
   scrobbler.reset();

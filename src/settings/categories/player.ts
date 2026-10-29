@@ -27,16 +27,6 @@ const playerCategory: SettingCategory = {
           defaultValue: false,
         },
         {
-          key: "searchPlayBehavior",
-          type: "select",
-          binding: { store: "settings", path: "player.searchPlayBehavior" },
-          options: [
-            { value: "current", labelKey: "settings.searchPlayBehavior.current" },
-            { value: "all", labelKey: "settings.searchPlayBehavior.all" },
-          ],
-          defaultValue: "current",
-        },
-        {
           key: "showSongHighlight",
           type: "switch",
           binding: { store: "settings", path: "player.showSongHighlight" },
@@ -66,6 +56,31 @@ const playerCategory: SettingCategory = {
           binding: { store: "settings", path: "system.player.loudnessNormalization" },
           defaultValue: false,
           tag: { text: "Beta" },
+        },
+      ],
+    },
+    {
+      id: "playBehavior",
+      items: [
+        {
+          key: "searchPlayBehavior",
+          type: "select",
+          binding: { store: "settings", path: "player.searchPlayBehavior" },
+          options: [
+            { value: "current", labelKey: "settings.searchPlayBehavior.current" },
+            { value: "all", labelKey: "settings.searchPlayBehavior.all" },
+          ],
+          defaultValue: "current",
+        },
+        {
+          key: "songListPlayBehavior",
+          type: "select",
+          binding: { store: "settings", path: "player.songListPlayBehavior" },
+          options: [
+            { value: "current", labelKey: "settings.songListPlayBehavior.current" },
+            { value: "all", labelKey: "settings.songListPlayBehavior.all" },
+          ],
+          defaultValue: "current",
         },
       ],
     },

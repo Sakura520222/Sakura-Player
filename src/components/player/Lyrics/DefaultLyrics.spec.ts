@@ -34,7 +34,6 @@ vi.mock("@/stores/settings", async () => {
 });
 
 const lyricGlobals = {
-  components: { DefaultLyrics },
   stubs: { AMLLLyrics: true, LyricCredit: true },
 };
 
@@ -430,6 +429,7 @@ describe("默认歌词引擎显示与配置", () => {
       global: lyricGlobals,
     });
     try {
+      await flushPromises();
       const root = wrapper.get(".lp-root");
       expect(root.classes().filter((value) => value.startsWith("lp-align-"))).toEqual([]);
       settings.lyric.alignment = "center";

@@ -32,6 +32,7 @@ const onSeekDragEnd = (value: number): void => {
   <div class="relative min-w-0">
     <SSlider
       :model-value="status.position"
+      :glow="status.transitioning"
       :min="0"
       :max="status.duration"
       :step="100"

@@ -14,12 +14,12 @@ import { requestAi } from "./request";
  * @param onDelta - 可选文本增量回调
  * @returns 统一文本结果
  */
-export const completeAi = (
+export const completeAi = async (
   request: AiCompletionRequest,
   signal: AbortSignal,
   onDelta?: (text: string) => void,
 ): Promise<AiCompletionResult> =>
-  requestAi(resolveAiConnection(request.modelId), request, signal, onDelta);
+  requestAi(await resolveAiConnection(request.modelId), request, signal, onDelta);
 
 /**
  * 通过一次小规模真实生成验证地址、认证与模型可用性，不保存表单
@@ -32,7 +32,7 @@ export const testAiConnection = async (
   signal: AbortSignal,
 ): Promise<AiConnectionTestResult> => {
   if (!config || typeof config !== "object") throw new Error("AI 模型测试配置无效");
-  const connection = resolveAiConnection(undefined, config);
+  const connection = await resolveAiConnection(undefined, config);
   const start = performance.now();
   const result = await requestAi(
     connection,

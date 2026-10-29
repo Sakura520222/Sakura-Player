@@ -31,7 +31,7 @@ const setupNavigation = async () => {
     const ready = Promise.resolve().then(update);
     return { ready, finished: completed.promise, skipTransition: completed.resolve };
   });
-  Object.assign(scope, { startViewTransition: start });
+  Object.assign(document, { startViewTransition: start });
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -58,6 +58,7 @@ afterEach(async () => {
   dispose?.();
   dispose = undefined;
   await flushPromises();
+  delete (document as Partial<Document>).startViewTransition;
   document.body.innerHTML = "";
   vi.restoreAllMocks();
 });
@@ -67,15 +68,22 @@ describe("封面共享过渡回归", () => {
     "%s 进入和返回时匹配原始导航，结束后清理状态",
     async (target) => {
       const { router, scope, start } = await setupNavigation();
+      (scope.querySelector("[data-cover-key]") as HTMLElement).style.borderRadius = "16px";
       captureCover(album, "cover");
       await router.push(target);
       await flushPromises();
       expect(getCoverPreview(target)?.title).toBe(album.title);
       expect(coverTransitionActive.value).toBe(true);
+      expect(document.documentElement.style.getPropertyValue("--cover-transition-radius")).toBe(
+        "16px",
+      );
+      expect(document.documentElement.getAttribute("data-cover-transition")).toBe("enter");
       expect(scope.querySelector("[data-cover-hero][data-cover-shared]")).not.toBeNull();
       start.mock.results[0].value.skipTransition();
       await flushPromises();
       expect(coverTransitionActive.value).toBe(false);
+      expect(document.documentElement.hasAttribute("data-cover-transition")).toBe(false);
+      expect(document.documentElement.style.getPropertyValue("--cover-transition-radius")).toBe("");
       expect(scope.querySelector("[data-cover-shared]")).toBeNull();
       await router.push("/");
       await flushPromises();
@@ -102,11 +110,11 @@ describe("封面共享过渡回归", () => {
   });
 
   it.each(["关闭动画", "缺少原生 API"])("%s 时继续普通导航", async (condition) => {
-    const { router, scope, start } = await setupNavigation();
+    const { router, start } = await setupNavigation();
     if (condition === "关闭动画") {
       dispose?.();
       dispose = undefined;
-    } else Object.assign(scope, { startViewTransition: undefined });
+    } else Object.assign(document, { startViewTransition: undefined });
     const timer = vi.spyOn(window, "setTimeout");
     captureCover(album, "cover");
     if (condition === "关闭动画") expect(timer).not.toHaveBeenCalled();

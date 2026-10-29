@@ -6,6 +6,7 @@ import { writeFileSync as atomicWriteSync } from "atomically";
 import { configDir } from "@main/utils/paths";
 import { ipcLog } from "@main/utils/logger";
 import { isLinux } from "@main/utils/config";
+import { decryptSecret, encryptSecret, isSecureStorageAvailable } from "@main/utils/secureStorage";
 import { normalizeModelInput } from "./validation";
 import type {
   AiModelConfig,
@@ -57,18 +58,23 @@ const writePersisted = (state: PersistedAiModelState): void => {
 };
 
 /** basic_text 使用固定口令，不能作为保存或复用密钥的安全后端 */
-const ensureSecureStorage = (): void => {
+const ensureSecureStorage = async (): Promise<void> => {
   if (
-    !safeStorage.isEncryptionAvailable() ||
+    !(await isSecureStorageAvailable()) ||
     (isLinux && safeStorage.getSelectedStorageBackend() === "basic_text")
   ) {
     throw new Error("系统安全存储不可用，无法保存 API Key");
   }
 };
 
-const encryptApiKey = (apiKey: string): string => {
-  ensureSecureStorage();
-  return safeStorage.encryptString(apiKey).toString("base64");
+/**
+ * 加密模型密钥，拒绝不安全的系统存储后端
+ * @param apiKey - 待保存的密钥
+ * @returns Base64 编码的密文
+ */
+const encryptApiKey = async (apiKey: string): Promise<string> => {
+  await ensureSecureStorage();
+  return (await encryptSecret(apiKey)).toString("base64");
 };
 
 /**
@@ -104,7 +110,10 @@ export interface AiConnection {
  * @param draft - 只用于本次请求的临时表单
  * @returns 仅供主进程内部使用的连接配置
  */
-export const resolveAiConnection = (modelId?: string, draft?: AiModelSaveInput): AiConnection => {
+export const resolveAiConnection = async (
+  modelId?: string,
+  draft?: AiModelSaveInput,
+): Promise<AiConnection> => {
   const state = readPersisted();
   const id = draft ? draft.id : (modelId ?? state.activeModelId);
   const saved = id ? state.models.find((item) => item.id === id) : undefined;
@@ -113,11 +122,27 @@ export const resolveAiConnection = (modelId?: string, draft?: AiModelSaveInput):
   const config = normalizeModelInput(draft ?? saved!);
   let apiKey = draft?.apiKey?.trim();
   if (!apiKey && saved?.encryptedApiKey) {
-    ensureSecureStorage();
+    await ensureSecureStorage();
+    let decrypted: { plainText: string; needsReEncrypt: boolean };
     try {
-      apiKey = safeStorage.decryptString(Buffer.from(saved.encryptedApiKey, "base64"));
+      decrypted = await decryptSecret(Buffer.from(saved.encryptedApiKey, "base64"));
     } catch {
       throw new Error("无法解密 AI 模型密钥，请重新填写 API Key");
+    }
+    apiKey = decrypted.plainText;
+    if (decrypted.needsReEncrypt) {
+      try {
+        const encryptedApiKey = (await encryptSecret(apiKey)).toString("base64");
+        // 加密期间可能编辑、删除或切换模型，只更新仍持有原密文的配置
+        const latest = readPersisted();
+        const current = latest.models.find((item) => item.id === saved.id);
+        if (current?.encryptedApiKey === saved.encryptedApiKey) {
+          current.encryptedApiKey = encryptedApiKey;
+          writePersisted(latest);
+        }
+      } catch {
+        // 轮换回写失败不影响本次调用，下次读取时继续尝试
+      }
     }
   }
   if (!apiKey) throw new Error("请填写 API Key");
@@ -141,16 +166,17 @@ export const listAiModels = (): AiModelState => toPublicState(readPersisted());
  * @param input - 模型配置输入
  * @returns 保存后的模型配置状态
  */
-export const saveAiModel = (input: AiModelSaveInput): AiModelState => {
-  const state = readPersisted();
+export const saveAiModel = async (input: AiModelSaveInput): Promise<AiModelState> => {
   const normalized = normalizeModelInput(input);
+  const newApiKey = input.apiKey?.trim();
+  const newEncryptedApiKey = newApiKey ? await encryptApiKey(newApiKey) : undefined;
+  if (!newApiKey) await ensureSecureStorage();
+  // 等待系统加密后再读取最新配置，避免并发保存覆盖其他模型
+  const state = readPersisted();
   const existing = input.id ? state.models.find((item) => item.id === input.id) : undefined;
   if (input.id && !existing) throw new Error("AI 模型配置不存在");
-  if (!input.apiKey?.trim()) ensureSecureStorage();
 
-  const encryptedApiKey = input.apiKey?.trim()
-    ? encryptApiKey(input.apiKey.trim())
-    : (existing?.encryptedApiKey ?? "");
+  const encryptedApiKey = newEncryptedApiKey ?? existing?.encryptedApiKey ?? "";
   if (!encryptedApiKey) throw new Error("请填写 API Key");
 
   const saved: PersistedAiModel = {

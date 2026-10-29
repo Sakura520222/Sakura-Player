@@ -4,8 +4,8 @@
 
 ## 环境要求
 
-- **Node.js** >= 22.19.0
-- **pnpm** >= 10
+- **Node.js** >= 24.0.0
+- **pnpm** >= 12
 - **Rust 工具链**（构建原生模块所需，见 [原生模块](/native)）
 
 优先使用 `package.json` 的 `packageManager` 指定的 pnpm 版本；当前 CI 使用 Node.js 24。Windows 使用 Git Bash，并准备 MSVC C/C++ 构建工具。Linux 的构建依赖与 CI 保持一致：

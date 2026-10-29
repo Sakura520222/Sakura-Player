@@ -4,6 +4,7 @@ import type {
   HotkeyBindingsMap,
   HotkeyConfig,
   HotkeyConflict,
+  HotkeyProbeResult,
 } from "@shared/types/hotkey";
 
 /**
@@ -54,8 +55,12 @@ export const useHotkeyStore = defineStore("hotkey", () => {
     applyConfig(await window.api.hotkey.setGlobalEnabled(enabled));
   };
 
-  /** 探测某 accelerator 在系统层是否可注册 */
-  const probe = async (accelerator: string): Promise<boolean> => {
+  /**
+   * 探测快捷键在系统层的注册状态
+   * @param accelerator - 待注册的加速键
+   * @returns 可注册、无效或已占用的状态
+   */
+  const probe = async (accelerator: string): Promise<HotkeyProbeResult> => {
     return window.api.hotkey.probe(accelerator);
   };
 
