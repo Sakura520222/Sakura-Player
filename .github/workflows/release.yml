@@ -45,9 +45,29 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      # Beta 由 beta.yml 从 Nightly 晋升打 tag，版本号以 tag 为准；正式版仍要求与 package.json 一致
       - name: Verify tag and version
         id: verify
-        run: node .github/scripts/release-metadata.cjs
+        shell: bash
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          case "$VERSION" in
+            *-beta.*)
+              ;;
+            *-*)
+              echo "不支持的预发布版本格式: $VERSION"
+              exit 1
+              ;;
+            *)
+              if [ "$(node -p "require('./package.json').version")" != "$VERSION" ]; then
+                echo "标签 $RELEASE_TAG 与 package.json 版本不一致"
+                exit 1
+              fi
+              ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$([[ "$VERSION" == *-beta.* ]] && echo beta || echo latest)" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   # 各平台/架构在对应的原生 runner 上独立构建
   build:
@@ -101,6 +121,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+
+      # Beta 晋升 tag 的 package.json 版本可能落后，构建版本号以 tag 为准写入
+      - name: Sync package version
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.metadata.outputs.version }}
+        run: npm pkg set version="$APP_VERSION"
 
       # Linux: 安装系统构建/打包依赖
       - name: 安装系统依赖 (Linux)

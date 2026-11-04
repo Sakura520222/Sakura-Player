@@ -4,13 +4,14 @@ import type { SSelectOption } from "@/components/ui/SSelect.vue";
 import type { DropdownMenuItem } from "@/components/ui/SDropdownMenu.vue";
 import type { ContentScope } from "@/types/collection";
 import { SIDEBAR_GROUP_MY_PLAYLISTS, SIDEBAR_GROUP_SUBSCRIBED } from "@/types/settings";
-import { SIDEBAR_NAV_META, applySavedOrder } from "@/components/layout/sidebarNav";
+import { SIDEBAR_NAV_META, applySavedOrder, isNavFeatureOff } from "@/utils/sidebarNav";
 import { useSettingsStore } from "@/stores/settings";
 import { useStatusStore } from "@/stores/status";
 import { usePlaylistStore } from "@/stores/playlist";
 import { useUserStore } from "@/stores/user";
 import { useDownloadStore } from "@/stores/download";
 import { useHeartMode } from "@/composables/useHeartMode";
+import { useResponsiveLayout } from "@/composables/useResponsiveLayout";
 import { useSettingsDialog } from "@/settings/useSettingsDialog";
 import * as player from "@/core/player";
 import IconLucideListMusic from "~icons/lucide/list-music";
@@ -31,6 +32,7 @@ const playlistStore = usePlaylistStore();
 const userStore = useUserStore();
 const downloadStore = useDownloadStore();
 const { enterHeartMode } = useHeartMode();
+const { sidebarCollapsed } = useResponsiveLayout();
 const settingsDialog = useSettingsDialog();
 
 /** 心动模式 */
@@ -182,9 +184,7 @@ const navItems = computed<SMenuItem[]>(() => {
     for (const key of group.keys) {
       if (hidden.has(key)) continue;
       const entry = SIDEBAR_NAV_META[key];
-      if (!entry) continue;
-      if (key === "/download" && !systemSettings.download.enabled) continue;
-      if (key === "/streaming" && !systemSettings.streaming.enabled) continue;
+      if (!entry || isNavFeatureOff(entry, systemSettings)) continue;
       const item: SMenuItem = { key, label: t(entry.labelKey), icon: markRaw(entry.icon) };
       if (key === "/liked") item.trailing = renderHeartModeTrailing;
       if (key === "/download" && downloadStore.activeCount > 0)
@@ -248,7 +248,7 @@ const contextMenuItems = computed<DropdownMenuItem[]>(() => {
   const target = contextTargetKey.value;
   const entry = SIDEBAR_NAV_META[target];
   // 歌单项（/collection/ 前缀）与可隐藏导航项均支持右键隐藏
-  const hideable = entry ? entry.hideable : target.startsWith("/collection/");
+  const hideable = entry ? !entry.pinned : target.startsWith("/collection/");
   return [
     {
       key: "hide",
@@ -346,21 +346,19 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col h-full">
-    <SideBarLogo :collapsed="appearance.sidebarCollapsed" />
+    <SideBarLogo :collapsed="sidebarCollapsed" />
     <SContextMenu :items="contextMenuItems" @select="onContextMenuSelect">
       <div
         class="flex-1 min-h-0 pb-3 overflow-y-auto transition-[padding] duration-300"
         :class="
-          appearance.sidebarCollapsed
-            ? 'px-2 [&::-webkit-scrollbar]:hidden'
-            : 'px-3 [scrollbar-gutter:stable]'
+          sidebarCollapsed ? 'px-2 [&::-webkit-scrollbar]:hidden' : 'px-3 [scrollbar-gutter:stable]'
         "
         @contextmenu.capture="onMenuContextMenu"
       >
         <SMenu
           :items="menuItems"
           :model-value="activeKey"
-          :collapsed="appearance.sidebarCollapsed"
+          :collapsed="sidebarCollapsed"
           @select="onSelect"
         />
       </div>

@@ -105,6 +105,7 @@ defineExpose({
     :enable-emphasize-effect="settings.lyric.enableEmphasizeEffect"
     :enable-scale="settings.lyric.enableScale"
     :bg-always-below="settings.lyric.bgAlwaysBelow"
+    :enable-balanced-wrap="settings.lyric.enableBalancedWrap"
     :show-translation="settings.lyric.showTranslation"
     :show-word-translation="settings.lyric.showWordTranslation"
     :show-ruby="settings.lyric.showRuby"

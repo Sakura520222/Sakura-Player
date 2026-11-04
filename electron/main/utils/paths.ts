@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import type { AutoMixComponentId } from "@shared/types/automix";
 
 /**
  * 便携模式使用独立目录，避免与同目录的上游便携版共享配置、数据库和登录状态。
@@ -38,3 +39,16 @@ export const pluginsDir = path.join(dataRoot, "plugins");
 
 /** 原生歌词对齐专用模型目录 */
 export const lyricAlignmentRuntimeDir = path.join(dataRoot, "runtimes", "lyric-alignment");
+
+/** 用户手动下载的模型和独立推理运行时 */
+export const modelsDir = path.join(dataRoot, "models");
+
+/** AutoMix 各组件独立的安装目录，升级某组件只改它的目录，其余组件已安装的文件继续有效 */
+export const automixDirs: Record<AutoMixComponentId, string> = {
+  beat: path.join(modelsDir, "automix-v2", "beat"),
+  demucs: path.join(modelsDir, "automix-v2", "demucs"),
+  runtime: path.join(modelsDir, "automix-v2", "runtime"),
+};
+
+/** 有界分离窗口缓存，首次分析时回收上一会话 */
+export const automixCacheDir = path.join(defaultCacheDir, "automix");

@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { useSettingsStore } from "@/stores/settings";
 import { useMediaStore } from "@/stores/media";
 import { useThemeStore } from "@/stores/theme";
-import { useSettingsStore } from "@/stores/settings";
 import { saveTrackTags } from "@/core/player";
 import { useCopyText } from "@/composables/useCopyText";
 import { toast } from "@/composables/useToast";
@@ -402,9 +402,13 @@ const handleExport = async (): Promise<void> => {
     const artist = track.artists.map((item) => item.name).join(", ");
     const suffixName = t("player.copyLyric.fileSuffix");
     const fileName = `${track.title} - ${artist} - ${suffixName}.png`.replace(/[\\/:*?"<>|]/g, " ");
-    const res = await window.api.system.saveFile(await blob.arrayBuffer(), fileName);
-    if (res.success && res.path) toast.success(t("player.copyLyric.saved"));
-    else if (!res.success) toast.error(t("player.copyLyric.exportFailed"));
+    const res = await window.api.system.saveFile(
+      await blob.arrayBuffer(),
+      fileName,
+      t("player.copyLyric.saveDialogTitle"),
+    );
+    if (res.success) toast.success(t("player.copyLyric.saved"));
+    else if (!res.canceled) toast.error(t("player.copyLyric.exportFailed"));
   } catch {
     toast.error(t("player.copyLyric.exportFailed"));
   } finally {

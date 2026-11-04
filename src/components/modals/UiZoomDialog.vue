@@ -7,10 +7,7 @@ const { t } = useI18n();
 /** 当前缩放百分比 */
 const percent = ref(100);
 
-/**
- * 保存并应用有效的窗口缩放，清空输入时保留当前值
- * @param value - 缩放百分比或空值
- */
+/** 写入并应用缩放：config:set 触发主进程 applyMainWindowZoom */
 const apply = (value: number | null): void => {
   if (value == null) return;
   percent.value = value;

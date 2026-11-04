@@ -112,7 +112,7 @@ const shapeBottomRadius = computed(() => Math.max(14, Math.round(coverRadius.val
 const subFontSize = computed(() => Math.max(11, Math.round(fontSize.value * 0.65)));
 const subRowHeight = computed(() => Math.round(subFontSize.value * 1.2));
 
-const { track, lyric, primaryIndex } = useNowPlayingSync({
+const { track, lyric, wordTimed, primaryIndex } = useNowPlayingSync({
   pickIndex: pickAdvanceOnEndIndex,
   logTag: "dynamic-island",
 });
@@ -712,6 +712,7 @@ onBeforeUnmount(() => {
                     :font-weight="config.fontWeight"
                     :word-by-word="
                       config.wordByWord &&
+                      wordTimed &&
                       !mainTextTruncated &&
                       (playbackVisible || visibilityAnimating)
                     "
@@ -726,7 +727,9 @@ onBeforeUnmount(() => {
                     :line="alignedSubLine"
                     :font-size="subFontSize"
                     :font-weight="config.fontWeight"
-                    :word-by-word="config.wordByWord && (playbackVisible || visibilityAnimating)"
+                    :word-by-word="
+                      config.wordByWord && wordTimed && (playbackVisible || visibilityAnimating)
+                    "
                   />
                   <template v-else>{{ fittedSubText }}</template>
                 </div>

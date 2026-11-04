@@ -25,6 +25,13 @@ const zhTheme: DefaultTheme.Config = {
       ],
     },
     {
+      text: "播放过渡",
+      items: [
+        { text: "交叉过渡", link: "/crossfade" },
+        { text: "AutoMix", link: "/automix" },
+      ],
+    },
+    {
       text: "关于",
       items: [
         { text: "用户协议", link: "/agreement" },
@@ -77,6 +84,13 @@ const zhTheme: DefaultTheme.Config = {
         { text: "外部 API（HTTP）", link: "/api" },
         { text: "WebSocket API", link: "/socket" },
         { text: "MCP 接口", link: "/mcp" },
+      ],
+    },
+    {
+      text: "播放过渡",
+      items: [
+        { text: "交叉过渡", link: "/crossfade" },
+        { text: "AutoMix", link: "/automix" },
       ],
     },
     {
@@ -231,6 +245,7 @@ export default defineConfig({
     plugins: llmstxt({ workDir: "en" }) as unknown as NonNullable<UserConfig["vite"]>["plugins"],
   },
   title: "Sakura Player",
+  markdown: { math: true },
   srcExclude: ["superpowers/**"],
   head: [
     ["link", { rel: "icon", href: `${base}favicon.png` }],

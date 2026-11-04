@@ -101,6 +101,8 @@ const props = withDefaults(
     showRuby?: boolean;
     /** 是否始终将背景行置于主行下方 @default false */
     bgAlwaysBelow?: boolean;
+    /** 是否对超长行做平衡换行 @default true */
+    enableBalancedWrap?: boolean;
     /** 是否启用滚动预滚优化 @default true */
     enableScrollPreroll?: boolean;
     /** 挂载时的初始播放时间（毫秒）@default 0 */
@@ -128,6 +130,7 @@ const props = withDefaults(
     showWordRomanization: true,
     showRuby: DEFAULTS.showRuby,
     bgAlwaysBelow: DEFAULTS.bgAlwaysBelow,
+    enableBalancedWrap: DEFAULTS.enableBalancedWrap,
     enableScrollPreroll: DEFAULTS.enableScrollPreroll,
     initialTime: 0,
   },
@@ -393,6 +396,11 @@ watch(
 watch(
   () => props.bgAlwaysBelow,
   (v) => renderer?.setConfig({ bgAlwaysBelow: v }),
+);
+
+watch(
+  () => props.enableBalancedWrap,
+  (v) => renderer?.setConfig({ enableBalancedWrap: v }),
 );
 
 watch(

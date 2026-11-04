@@ -76,6 +76,7 @@ const mergeManifests = (docs) => {
   return merged;
 };
 
+// 停发 Alpha 后仍生成 alpha 清单，让旧版 Alpha 通道客户端继续收到 Beta 与正式版
 const ALIAS_CHANNELS_MAP = {
   latest: ["beta", "alpha"],
   beta: ["alpha"],
@@ -84,14 +85,13 @@ const ALIAS_CHANNELS_MAP = {
 const VALIDATE_CHANNELS_MAP = {
   latest: ["latest", "beta", "alpha"],
   beta: ["beta", "alpha"],
-  alpha: ["alpha"],
   nightly: ["nightly"],
 };
 
 /**
  * 为更不稳定的订阅通道创建清单别名
  * @param {string} outDir - 发布资源目录
- * @param {"latest" | "beta" | "alpha" | "nightly"} channel - 发布通道
+ * @param {"latest" | "beta" | "nightly"} channel - 发布通道
  */
 const createChannelAliases = (outDir, channel) => {
   const aliases = ALIAS_CHANNELS_MAP[channel] ?? [];
@@ -108,7 +108,7 @@ const createChannelAliases = (outDir, channel) => {
  * 校验清单结构和引用资源
  * @param {string} outDir - 发布资源目录
  * @param {string} version - 应用版本
- * @param {"latest" | "beta" | "alpha" | "nightly"} channel - 发布通道
+ * @param {"latest" | "beta" | "nightly"} channel - 发布通道
  */
 const validateManifests = (outDir, version, channel) => {
   const channels = VALIDATE_CHANNELS_MAP[channel] ?? [channel];

@@ -28,7 +28,7 @@ describe("下载页初始通道", () => {
     wrapper.unmount();
   });
 
-  it("自动选择 Beta 后仍可手动切换空的 Stable 和 Alpha 通道", async () => {
+  it("自动选择 Beta 后仍可手动切换空的 Stable 通道，Alpha 已停发不可选", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: true, json: async () => [beta, alpha] }),
@@ -37,8 +37,7 @@ describe("下载页初始通道", () => {
     await flushPromises();
     await wrapper.find("select").setValue("stable");
     expect(wrapper.find(".dl-ver-empty").exists()).toBe(true);
-    await wrapper.find("select").setValue("alpha");
-    expect(wrapper.find(".dl-ver").text()).toBe(alpha.tag_name);
+    expect(wrapper.find('option[value="alpha"]').exists()).toBe(false);
     await wrapper.find("select").setValue("beta");
     expect(wrapper.find(".dl-ver").text()).toBe(beta.tag_name);
     wrapper.unmount();

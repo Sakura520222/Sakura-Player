@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   closeEndpoint: vi.fn(),
   serve: vi.fn(),
   closeServer: vi.fn(),
-  closeConnections: vi.fn(),
+  closeAllConnections: vi.fn(),
 }));
 
 vi.mock("@main/store", () => ({
@@ -41,7 +41,7 @@ describe("MCP 延迟启动", () => {
     mocks.serve.mockImplementation(() => {
       const server = Object.assign(new EventEmitter(), {
         close: mocks.closeServer,
-        closeAllConnections: mocks.closeConnections,
+        closeAllConnections: mocks.closeAllConnections,
       });
       queueMicrotask(() => server.emit("listening"));
       return server;
@@ -66,6 +66,7 @@ describe("MCP 延迟启动", () => {
     expect(mocks.createEndpoint).toHaveBeenCalledOnce();
     expect(mocks.serve).toHaveBeenCalledOnce();
     expect(mocks.closeServer).toHaveBeenCalledOnce();
+    expect(mocks.closeAllConnections).toHaveBeenCalledOnce();
     expect(mocks.closeEndpoint).toHaveBeenCalledOnce();
     expect(service.getMcpStatus().listening).toBe(false);
   });

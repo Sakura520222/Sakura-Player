@@ -116,7 +116,13 @@ describe("lyric loader", () => {
       embeddedLyric: content,
       embeddedLyricData: data,
     });
-    expect(media.activeLyric).toEqual({ source: "embedded", format: input.format });
+    // fixture 中除 srt 外各格式均携带逐字时间，activeLyric 会带上 wordTimed 标记
+    const WORD_TIMED_FORMATS = new Set(["yrc", "krc", "qrc", "lys", "ttml", "lrc", "ass"]);
+    expect(media.activeLyric).toEqual({
+      source: "embedded",
+      format: input.format,
+      wordTimed: WORD_TIMED_FORMATS.has(input.format),
+    });
     expect(media.lyricContent).toEqual(input);
     expect(media.parsedLyric.length).toBeGreaterThan(0);
   });

@@ -332,6 +332,8 @@ describe("当前歌曲 AI 译文应用", () => {
 
   it("补齐缺失行后保存重载，完整行的译文、逐字时间和未选音译均保持原样", () => {
     const media = load();
+    // 夹具歌词行跨到 14.5s，补足曲目时长避免 clampLastLineEnd 截短末行破坏逐字窗口
+    media.track!.duration = 30000;
     const source = Array.from({ length: 3 }, (_, index) => ({
       ...structuredClone(ALIGNMENT_LINES[0]),
       startTime: ALIGNMENT_LINES[0].startTime + index * 5000,

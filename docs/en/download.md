@@ -14,10 +14,9 @@ The list below fetches the latest release for the selected channel from GitHub. 
 | ----------- | -------------------------------- | ---------------------------------------- | ----------------- |
 | **Stable**  | Everyday use                     | Stable                                   | `1.2.0`           |
 | **Beta**    | Early feature access             | Beta, then Stable                        | `1.3.0-beta.1`    |
-| **Alpha**   | Development and testing          | Alpha, then Beta and Stable              | `1.4.0-alpha.1`   |
 | **Nightly** | Following the development branch | Separate rolling release and update feed | `nightly` release |
 
-Change the channel under **Settings → About → Update**. Saved choices are preserved; otherwise the installed version supplies the default. Nightly has a separate update source. The selector above lists only Stable, Beta, and Alpha.
+Beta is promoted from Nightly every week, and Nightly is built every day. The Alpha channel is discontinued; legacy Alpha clients still receive Beta and Stable updates through manifest aliases. Change the channel under **Settings → About → Update**. Saved choices are preserved; otherwise the installed version supplies the default. Nightly has a separate update source. The selector above lists only Stable and Beta.
 
 Changing channels starts a fresh check and invalidates downloaded installers from the previous channel. The updater does not automatically downgrade. If the more stable channel has a lower version, download and install it manually.
 

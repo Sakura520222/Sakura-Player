@@ -33,6 +33,7 @@ import { AiModelApi } from "@shared/types/ai";
 import { LyricAlignmentApi } from "@shared/types/lyricAlignment";
 import { PlaylistApi } from "@shared/types/playlist";
 import { OpenccApi } from "@shared/types/opencc";
+import type { AutoMixApi } from "@shared/types/automix";
 
 declare global {
   interface Window {
@@ -40,6 +41,7 @@ declare global {
     api: {
       config: ConfigApi;
       player: PlayerApi;
+      automix: AutoMixApi;
       system: {
         installType: "nsis" | "portable" | "appx" | "dmg" | "appimage";
         platform: NodeJS.Platform;
@@ -63,7 +65,8 @@ declare global {
         saveFile: (
           data: ArrayBuffer,
           fileName: string,
-        ) => Promise<{ success: boolean; path?: string; error?: string }>;
+          title: string,
+        ) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
         relaunch: () => Promise<void>;
         testNetworkProxy: () => Promise<boolean>;
         onProtocolUrl: (callback: (url: string) => void) => () => void;

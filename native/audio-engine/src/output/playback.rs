@@ -124,6 +124,11 @@ impl PlaybackHandle {
         self.transition.set_speed_ratio(ratio);
     }
 
+    /// 平滑撤回 AutoMix，继续输出原曲
+    pub fn cancel_transition(&self) {
+        self.transition.cancel();
+    }
+
     pub fn play(&self) {
         match self.stream.play() {
             Ok(()) => self.playing.store(true, Ordering::Release),

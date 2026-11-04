@@ -1,4 +1,3 @@
-/* eslint-disable vue/one-component-per-file -- 界面测试需要多个控件桩 */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, ref, type PropType } from "vue";
