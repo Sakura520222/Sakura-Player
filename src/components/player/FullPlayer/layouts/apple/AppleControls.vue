@@ -4,7 +4,6 @@ import { useStatusStore } from "@/stores/status";
 import { useMediaStore } from "@/stores/media";
 import { useFavorite } from "@/composables/useFavorite";
 import { useTimeFormat } from "@/composables/useTimeFormat";
-import { useProgressLyric } from "@/composables/useProgressLyric";
 import * as player from "@/core/player";
 import { volumeGainToPosition, volumePositionToGain } from "@/utils/volume";
 import { getValidArtists } from "@shared/utils/track";
@@ -23,10 +22,8 @@ const { t } = useI18n();
 const status = useStatusStore();
 const media = useMediaStore();
 const fav = useFavorite();
-const { isPlaying, isLoading, position, duration, repeatMode, shuffleMode, heartMode, fmMode } =
-  storeToRefs(status);
+const { isPlaying, isLoading, repeatMode, shuffleMode, heartMode, fmMode } = storeToRefs(status);
 const { timeDisplay, toggleTimeFormat } = useTimeFormat();
-const { snapToNearestLyric } = useProgressLyric();
 
 /** 加载中的歌曲使用队列当前项兜底 */
 const displayTrack = computed(() => media.track ?? status.currentTrack);
@@ -58,10 +55,6 @@ const goToArtist = (artist: Artist): void => {
 const quality = computed(() => media.detail?.quality ?? displayTrack.value?.quality);
 
 const volumePosition = computed(() => volumeGainToPosition(status.volume));
-
-const onSeekDragEnd = (value: number): void => {
-  player.seek(snapToNearestLyric(value));
-};
 
 const {
   open: pickerOpen,
@@ -138,18 +131,7 @@ const { items: menuItems, handleSelect: onMenuSelect } = useTrackMenu(toRef(medi
     </div>
     <!-- 进度与音质 -->
     <div>
-      <SSlider
-        :model-value="position"
-        :glow="status.transitioning"
-        :min="0"
-        :max="duration"
-        :step="100"
-        :track-height="8"
-        :hover-track-height="20"
-        hide-thumb
-        cover
-        @drag-end="onSeekDragEnd"
-      />
+      <PlayerProgress cover :track-height="8" :hover-track-height="20" hide-thumb />
       <div
         class="mt-1.5 h-[1.5em] grid grid-cols-[1fr_auto_1fr] items-center text-[max(1.5vh,13px)] font-medium tabular-nums"
       >

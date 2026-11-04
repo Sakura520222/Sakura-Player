@@ -10,6 +10,8 @@ withDefaults(
     cover?: boolean;
     thumbSize?: number;
     trackHeight?: number;
+    hoverTrackHeight?: number;
+    hideThumb?: boolean;
   }>(),
   { cover: false, thumbSize: 12, trackHeight: 3 },
 );
@@ -37,15 +39,19 @@ const onSeekDragEnd = (value: number): void => {
       :max="status.duration"
       :step="100"
       :track-height="trackHeight"
+      :hover-track-height="hoverTrackHeight"
       :thumb-size="thumbSize"
       :always-show-thumb="false"
+      :hide-thumb="hideThumb"
       :show-popover="settings.player.showProgressTooltip"
       :cover="cover"
       @drag-end="onSeekDragEnd"
     >
       <template #popover="{ value }">{{ formatTooltip(value) }}</template>
     </SSlider>
-    <template v-if="highlight.enabled && status.duration > 0">
+    <template
+      v-if="highlight.enabled && settings.player.showSongHighlightMarks && status.duration > 0"
+    >
       <span
         v-for="segment in highlight.segments"
         :key="`range:${segment.startMs}`"

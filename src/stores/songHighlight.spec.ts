@@ -9,7 +9,9 @@ import zhCN from "@/i18n/locales/zh-CN.json";
 const state = vi.hoisted(() => ({
   media: { track: null as Track | null },
   status: { position: 0, duration: 269000, trackLoading: false },
-  settings: { player: { showSongHighlight: true, showProgressTooltip: true } },
+  settings: {
+    player: { showSongHighlight: true, showSongHighlightMarks: true, showProgressTooltip: true },
+  },
   fetch: vi.fn(),
   seek: vi.fn(),
   snap: vi.fn((value: number) => value + 50),
@@ -118,6 +120,21 @@ describe("当前歌曲高潮状态", () => {
     expect(button.get("button").attributes("aria-label")).toContain("酷狗");
     await button.get("button").trigger("click");
     expect(state.seek).toHaveBeenLastCalledWith(84170);
+  });
+
+  it("关闭进度条高潮标记后区间不渲染，跳转按钮仍可用", async () => {
+    const settings = useSettingsStore();
+    settings.player.showSongHighlightMarks = false;
+    try {
+      const progress = mountControl(PlayerProgress);
+      const button = mountControl(SongHighlightButton);
+      await flushPromises();
+      expect(state.fetch).toHaveBeenCalledTimes(1);
+      expect(progress.find("span").exists()).toBe(false);
+      expect(button.get("button").attributes("aria-label")).toContain("1:24");
+    } finally {
+      settings.player.showSongHighlightMarks = true;
+    }
   });
 
   it("快速切歌立即清空标注，旧歌曲响应不覆盖新歌曲", async () => {

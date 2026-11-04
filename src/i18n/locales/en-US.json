@@ -2487,6 +2487,10 @@
       "label": "Find Song Highlights",
       "description": "Automatically query NetEase and Kugou for highlights and enable progress markers and one-click seeking; local and streaming tracks are matched by title, artist and duration"
     },
+    "showSongHighlightMarks": {
+      "label": "Highlight marks on progress bar",
+      "description": "Show highlight sections as amber segments on the progress bar; the toolbar seek button remains available when off"
+    },
     "showWordTranslation": {
       "label": "Word-timed translation",
       "description": "Highlight aligned translation with the original words. Disable to display plain line translation."

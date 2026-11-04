@@ -280,6 +280,8 @@ export interface PlayerSettings {
   showProgressTooltip: boolean;
   /** 自动查询并标记当前歌曲的高潮 */
   showSongHighlight: boolean;
+  /** 在进度条上以琥珀色段落显示高潮区间 */
+  showSongHighlightMarks: boolean;
   /** 进度条悬浮时显示歌词 */
   showProgressLyric: boolean;
   /** 进度调节吸附最近歌词 */

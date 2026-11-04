@@ -7,7 +7,6 @@ import { useFavorite } from "@/composables/useFavorite";
 import { useDownload, buildDownloadQualityItems } from "@/composables/useDownload";
 import { usePlaylistPicker } from "@/composables/usePlaylistPicker";
 import { useTimeFormat } from "@/composables/useTimeFormat";
-import { useProgressLyric } from "@/composables/useProgressLyric";
 import * as player from "@/core/player";
 import { setPlayerExpanded } from "@/services/playerTransition";
 import { useFullPlayer } from "../../context";
@@ -18,12 +17,10 @@ const settings = useSettingsStore();
 const fav = useFavorite();
 const { enqueue: enqueueDownload } = useDownload();
 const { t } = useI18n();
-const { isPlaying, isLoading, position, duration, repeatMode, shuffleMode, heartMode, fmMode } =
-  storeToRefs(status);
+const { isPlaying, isLoading, repeatMode, shuffleMode, heartMode, fmMode } = storeToRefs(status);
 const { immersive, onBarEnter, onBarLeave } = useFullPlayer();
 
 const { timeDisplay, toggleTimeFormat } = useTimeFormat();
-const { snapToNearestLyric } = useProgressLyric();
 
 /** 加载中的歌曲使用队列当前项兜底 */
 const displayTrack = computed(() => media.track ?? status.currentTrack);
@@ -44,10 +41,6 @@ const downloadQualityItems = computed(() =>
 const onDownloadSelect = (key: string): void => {
   if (!displayTrack.value) return;
   void enqueueDownload(displayTrack.value, key ? { quality: key as QualityLevel } : {});
-};
-
-const onSeekDragEnd = (value: number): void => {
-  player.seek(snapToNearestLyric(value));
 };
 
 const {
@@ -202,17 +195,7 @@ const showComments = (): void => {
         >
           {{ timeDisplay[0] }}
         </span>
-        <SSlider
-          :model-value="position"
-          :glow="status.transitioning"
-          :min="0"
-          :max="duration"
-          :step="100"
-          :always-show-thumb="false"
-          cover
-          class="flex-1"
-          @drag-end="onSeekDragEnd"
-        />
+        <PlayerProgress cover class="flex-1" />
         <span
           class="text-xs text-cover/50 tabular-nums min-w-9 text-center cursor-pointer px-1.5 py-0.5 rounded-md transition-colors hover:bg-cover/10"
           @click="toggleTimeFormat"

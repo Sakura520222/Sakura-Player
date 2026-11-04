@@ -2487,6 +2487,10 @@
       "label": "获取歌曲高潮",
       "description": "自动查询网易云和酷狗的高潮标注，在进度条显示并支持一键跳转；本地和流媒体歌曲会按歌名、歌手与时长匹配"
     },
+    "showSongHighlightMarks": {
+      "label": "进度条高潮标记",
+      "description": "在播放进度条上以琥珀色段落显示高潮区间，关闭后仍可使用工具栏跳转按钮"
+    },
     "showWordTranslation": {
       "label": "逐字翻译高亮",
       "description": "译文包含字词对齐时间时，随主歌词逐字高亮；关闭后整行显示"

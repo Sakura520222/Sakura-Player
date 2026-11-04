@@ -32,6 +32,14 @@ const playerCategory: SettingCategory = {
           type: "switch",
           binding: { store: "settings", path: "player.showSongHighlight" },
           defaultValue: true,
+          children: [
+            {
+              key: "showSongHighlightMarks",
+              type: "switch",
+              binding: { store: "settings", path: "player.showSongHighlightMarks" },
+              defaultValue: true,
+            },
+          ],
         },
         {
           key: "fadeEnabled",
