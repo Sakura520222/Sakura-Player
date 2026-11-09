@@ -12,29 +12,10 @@ index e49d5963bf26ec46440e29a4503a71a49076dd33..9095fa773fffe1e353100de895c94a11
    startTime: number;
    /** 句子的结束时间（毫秒） */
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 3fdb27b807c584cf09a0fa0e44c54179c2d32daa..6f8e93acb91a5a191f97564124c556d6d0412f55 100644
+index a23b2b8fa651dfc27eeae3d88015680ef3e2fee8..8892a1204f6a90cc80651b2699466cb14231abd8 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -317,7 +317,7 @@ const makeAtom = (word, romanWord, obscene, startTime, endTime, emptyBeat) => ({
- 	...emptyBeat !== void 0 ? { emptyBeat } : {}
- });
- /**
--* 将歌词单词重新分组：CJK 字符逐字拆分，并通过 Intl.Segmenter 按语言词边界合并
-+* 将歌词单词重新分组，保留带注音或音译的原词边界
- * @param words - 原始歌词单词数组
- * @returns 分组后的单词或单词组数组
- */
-@@ -328,7 +328,8 @@ const chunkAndSplitLyricWords = (words) => {
- 		const romanWord = w.romanWord ?? "";
- 		const obscene = w.obscene ?? false;
- 		const emptyBeat = w.emptyBeat;
--		if (content.length === 0 || (w.ruby?.length ?? 0) > 0) {
-+		// 带音译的原词不能按空格复制，否则每个片段都会显示整段音译
-+		if (content.length === 0 || (w.ruby?.length ?? 0) > 0 || (romanWord.trim().length > 0 && /\s/.test(content))) {
- 			atoms.push({ ...w });
- 			continue;
- 		}
-@@ -1307,7 +1308,15 @@ const measureAndApplyWordMasks = (wordMeasurements, fadeRatio, lines) => {
+@@ -1308,7 +1308,15 @@ const measureAndApplyWordMasks = (wordMeasurements, fadeRatio, lines) => {
  };
  //#endregion
  //#region src/engine/line-builder.ts
@@ -51,7 +32,7 @@ index 3fdb27b807c584cf09a0fa0e44c54179c2d32daa..6f8e93acb91a5a191f97564124c556d6
  const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
  	if (isStatic) {
  		mainDiv.appendChild(document.createTextNode(line.words.map((w) => w.word).join("")));
-@@ -1317,6 +1326,45 @@ const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
+@@ -1318,6 +1326,45 @@ const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
  			animTargets: []
  		};
  	}

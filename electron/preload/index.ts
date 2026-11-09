@@ -562,14 +562,19 @@ const api = {
   },
   lyrics: {
     // 按 id 直取某平台歌词
-    matchById: (platform: string, id: string) =>
-      ipcRenderer.invoke("lyrics:matchById", platform, id),
+    matchById: (platform: string, id: string, track?: unknown) =>
+      ipcRenderer.invoke("lyrics:matchById", platform, id, track),
     // 按 Track 元数据在某平台模糊搜索歌词
     matchByQuery: (platform: string, track: unknown) =>
       ipcRenderer.invoke("lyrics:matchByQuery", platform, track),
+    // 清除验证不通过的模糊匹配映射
+    forgetMatch: (track: unknown, platform: string) =>
+      ipcRenderer.invoke("lyrics:forgetMatch", track, platform),
     // 获取 AMLL TTML DB 的 TTML
     fetchTTMLOverlay: (track: unknown, platform: string) =>
       ipcRenderer.invoke("lyrics:fetchTTMLOverlay", track, platform),
+    // 按元数据搜索 AMLL TTML DB
+    searchTTML: (track: unknown) => ipcRenderer.invoke("lyrics:searchTTML", track),
     // 在本地 TTML 歌词库目录中按元信息匹配
     matchLocalTTML: (track: unknown) => ipcRenderer.invoke("lyrics:matchLocalTTML", track),
     // 选择本地 TTML 歌词库目录
@@ -648,6 +653,11 @@ const api = {
     // 订阅当前曲目歌词偏移变化
     onLyricOffsetChange: (callback: (data: unknown) => void) =>
       subscribe("nowPlaying:lyric-offset-change", callback),
+  },
+  motionCover: {
+    // 解析曲目的动态封面
+    resolve: (track: unknown, source: string): Promise<string | null> =>
+      ipcRenderer.invoke("motionCover:resolve", track, source),
   },
   theme: {
     // 弹出文件选择框
