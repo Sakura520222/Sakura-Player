@@ -396,20 +396,31 @@ describe("统一模型请求", () => {
   );
 
   it("请求超时与用户取消有不同错误语义", async () => {
-    const timeout = new AbortController();
-    vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeout.signal);
+    vi.useFakeTimers();
     vi.mocked(fetchWithProxy).mockImplementation(
       (_url, init) =>
         new Promise((_resolve, reject) => {
-          init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason), {
-            once: true,
-          });
+          init!.signal!.addEventListener(
+            "abort",
+            () => {
+              reject(init!.signal!.reason || new Error("Aborted"));
+            },
+            {
+              once: true,
+            },
+          );
         }),
     );
     const task = requestAi(connection, { messages: [message] }, new AbortController().signal);
-    const rejected = expect(task).rejects.toThrow("超时");
-    timeout.abort();
-    await rejected;
+
+    // 预先等待 promise 拒绝
+    const promise = expect(task).rejects.toThrow("超时");
+
+    // 触发内部 ActivityTimeout
+    await vi.advanceTimersByTimeAsync(120_000 + 100);
+
+    await promise;
+    vi.useRealTimers();
   });
 
   it.each(["json", "html", "oversized"])("拒绝无效响应：%s", async (kind) => {

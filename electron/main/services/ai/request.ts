@@ -9,6 +9,36 @@ import { readResponseText } from "./body";
 const MAX_RESPONSE_LENGTH = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 120_000;
 const MAX_ERROR_LENGTH = 8192;
+
+class ActivityTimeout {
+  private timer: NodeJS.Timeout | null = null;
+  private controller = new AbortController();
+  constructor(
+    public timeoutMs: number,
+    parentSignal?: AbortSignal,
+  ) {
+    parentSignal?.addEventListener("abort", () => this.controller.abort(parentSignal.reason), {
+      once: true,
+    });
+    this.reset();
+  }
+  get signal() {
+    return this.controller.signal;
+  }
+  reset() {
+    if (this.timer) clearTimeout(this.timer);
+    if (this.controller.signal.aborted) return;
+    this.timer = setTimeout(() => {
+      this.controller.abort(new Error("AI 请求超时，请稍后重试"));
+    }, this.timeoutMs);
+  }
+  clear() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+}
 const parameterErrorSchema = z.object({
   message: z.string(),
   param: z.string().nullish(),
@@ -81,8 +111,8 @@ export const requestAi = async (
   if (anthropic && options.temperature !== undefined && options.temperature > 1) {
     throw new Error("Anthropic 的 temperature 必须介于 0 和 1 之间");
   }
-  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-  const requestSignal = AbortSignal.any([signal, timeout]);
+  const activityTimeout = new ActivityTimeout(REQUEST_TIMEOUT_MS, signal);
+  const requestSignal = activityTimeout.signal;
   const body: Record<string, unknown> = {
     model: connection.model,
     messages: anthropic
@@ -110,6 +140,7 @@ export const requestAi = async (
   const texts: string[] = [];
   let textLength = 0;
   const append = (text: string): void => {
+    activityTimeout.reset();
     requestSignal.throwIfAborted();
     textLength += text.length;
     if (textLength > MAX_RESPONSE_LENGTH) throw new Error("AI 响应超过大小限制");
@@ -130,8 +161,10 @@ export const requestAi = async (
   };
 
   try {
+    activityTimeout.reset();
     requestSignal.throwIfAborted();
     while (true) {
+      activityTimeout.reset();
       requestSignal.throwIfAborted();
       response = await fetchWithProxy(
         `${connection.baseUrl}/${anthropic ? "messages" : "chat/completions"}`,
@@ -159,7 +192,9 @@ export const requestAi = async (
       let rejectedReasoning = false;
       try {
         const value: unknown = JSON.parse(
-          await readResponseText(response.body, requestSignal, MAX_ERROR_LENGTH),
+          await readResponseText(response.body, requestSignal, MAX_ERROR_LENGTH, () =>
+            activityTimeout.reset(),
+          ),
         );
         const payload =
           value && typeof value === "object" && "error" in value ? value.error : value;
@@ -199,7 +234,9 @@ export const requestAi = async (
     if (!response.body) throw new Error("AI 服务返回了空响应");
 
     if (!onDelta) {
-      const json = await readResponseText(response.body, requestSignal, MAX_RESPONSE_LENGTH);
+      const json = await readResponseText(response.body, requestSignal, MAX_RESPONSE_LENGTH, () =>
+        activityTimeout.reset(),
+      );
       const value: unknown = JSON.parse(json);
       if (anthropic) {
         const result = anthropicSchema.parse(value);
@@ -227,7 +264,9 @@ export const requestAi = async (
       }
       let completed = false;
       let started = false;
-      for await (const event of readSse(response.body, requestSignal)) {
+      for await (const event of readSse(response.body, requestSignal, () =>
+        activityTimeout.reset(),
+      )) {
         requestSignal.throwIfAborted();
         if (!event.data.trim()) continue;
         if (!anthropic && event.data.trim() === "[DONE]") {
@@ -297,7 +336,7 @@ export const requestAi = async (
     return { text: texts.join(""), model, finishReason, usage };
   } catch (error) {
     if (signal.aborted) signal.throwIfAborted();
-    if (timeout.aborted) throw new Error("AI 请求超时，请稍后重试");
+    if (activityTimeout.signal.aborted) throw new Error("AI 请求超时，请稍后重试");
     if (error instanceof z.ZodError) throw new Error("AI 服务响应结构无效，请检查接口协议兼容性");
     if (error instanceof SyntaxError)
       throw new Error("AI 服务返回了无法解析的 JSON，请检查接口服务");
@@ -311,6 +350,7 @@ export const requestAi = async (
     const message = error instanceof Error ? error.message : "AI 请求失败，请稍后重试";
     throw new Error(message.replaceAll(connection.apiKey, "[REDACTED]").slice(0, 500));
   } finally {
+    activityTimeout.clear();
     await response?.body?.cancel().catch(() => {});
   }
 };

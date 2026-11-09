@@ -4,11 +4,13 @@ const MAX_EVENT_LENGTH = 1024 * 1024;
  * 逐行解析 SSE，兼容分片 UTF-8、CRLF、注释和多行 data
  * @param body - 服务端响应流
  * @param signal - 取消信号
+ * @param onActivity - 活动重置回调
  * @returns SSE 事件迭代器
  */
 export async function* readSse(
   body: ReadableStream<Uint8Array>,
   signal: AbortSignal,
+  onActivity?: () => void,
 ): AsyncGenerator<{ event: string; data: string }> {
   const reader = body.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -23,6 +25,7 @@ export async function* readSse(
     let eof = false;
     while (!eof) {
       const chunk = await reader.read();
+      onActivity?.();
       signal.throwIfAborted();
       eof = chunk.done;
       buffer += eof ? decoder.decode() : decoder.decode(chunk.value, { stream: true });
