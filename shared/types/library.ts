@@ -39,6 +39,8 @@ export interface ScanProgress {
 
 /** 音乐库 API */
 export interface LibraryApi {
+  /** 按本地曲目 ID 读取专辑大封面，不改变播放状态 */
+  getAlbumCover: (trackId: string) => Promise<IpcResponse<string | null>>;
   /**
    * 开始扫描
    * @param incremental 是否增量扫描（跳过未变化的文件）

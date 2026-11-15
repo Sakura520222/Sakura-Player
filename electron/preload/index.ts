@@ -26,7 +26,7 @@ import type {
   StreamingSyncState,
 } from "@shared/types/streaming";
 import type { RecognitionConfig, RecognitionEvent } from "@shared/types/recognition";
-import type { PlayEventInput, FavoriteEventInput } from "@shared/types/stats";
+import type { PlayEventInput, FavoriteEventInput, AlbumListeningTrack } from "@shared/types/stats";
 import type { TagEditRequest } from "@shared/types/tagEditor";
 import type { LyricSaveFilesRequest } from "@shared/types/lyrics";
 import type { UpdateEvent } from "@shared/types/update";
@@ -307,6 +307,12 @@ const api = {
     getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   },
   library: {
+    /**
+     * 读取专辑大封面
+     * @param trackId - 本地曲目 ID
+     * @returns JPEG 数据地址
+     */
+    getAlbumCover: (trackId: string) => ipcRenderer.invoke("library:getAlbumCover", trackId),
     // 开始扫描（默认增量）
     scan: (incremental?: boolean) => ipcRenderer.invoke("library:scan", incremental),
     // 取消扫描
@@ -919,6 +925,13 @@ const api = {
     onEvent: (callback: (event: UpdateEvent) => void) => subscribe("update:event", callback),
   },
   stats: {
+    /**
+     * 读取专辑听歌手记
+     * @param tracks - 专辑内曲目的轻量身份
+     * @returns 累计次数与首次收听时间
+     */
+    getAlbumListeningStats: (tracks: AlbumListeningTrack[]) =>
+      ipcRenderer.invoke("stats:getAlbumListeningStats", tracks),
     // 记录一次播放
     recordPlay: (event: PlayEventInput) => ipcRenderer.send("stats:recordPlay", event),
     // 记录一次收藏变更

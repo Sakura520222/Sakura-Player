@@ -328,6 +328,43 @@ fn writing_year_replaces_legacy_year_key() {
     assert_eq!(read_tags(&init.path).unwrap().year, Some(2025));
 }
 
+/// 读取大封面时保持比例、限制解码输出尺寸且不修改音频文件
+#[test]
+fn read_album_cover_preserves_ratio_and_source() {
+    let path = temp_wav("album-large-cover.wav");
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgb8(1600, 800)
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    write_tags(&TagWriteRequest {
+        path: path.to_string_lossy().into_owned(),
+        cover: Some(png.into_inner()),
+        ..Default::default()
+    })
+    .unwrap();
+    let original = std::fs::read(&path).unwrap();
+    let cover = read_cover(&path.to_string_lossy()).unwrap().unwrap();
+    let image = image::load_from_memory(&cover).unwrap();
+    assert_eq!((image.width(), image.height()), (1200, 600));
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+}
+
+/// 无内嵌图片时沿用本地文件夹封面，完全无图时返回空
+#[test]
+fn read_album_cover_uses_folder_art() {
+    let dir = std::env::temp_dir().join(format!("splayer-album-cover-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("track.wav");
+    make_wav(&path);
+    assert!(read_cover(&path.to_string_lossy()).unwrap().is_none());
+    let art = dir.join("cover.jpg");
+    image::DynamicImage::new_rgb8(800, 800).save(&art).unwrap();
+    let cover = read_cover(&path.to_string_lossy()).unwrap().unwrap();
+    let image = image::load_from_memory(&cover).unwrap();
+    assert_eq!((image.width(), image.height()), (800, 800));
+    std::fs::remove_file(art).unwrap();
+}
+
 #[test]
 fn cover_replace_sets_picture() {
     let path = temp_wav("cover.wav");

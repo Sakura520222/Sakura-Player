@@ -9,12 +9,16 @@ import {
   getPlayHistoryHourly,
   getTopAlbums,
   getTopArtists,
+  getAlbumListeningStats,
 } from "@main/database/playStats";
 import { getLibraryStats } from "@main/database";
-import type { PlayEventInput, FavoriteEventInput } from "@shared/types/stats";
+import type { PlayEventInput, FavoriteEventInput, AlbumListeningTrack } from "@shared/types/stats";
 
 /** 播放统计 IPC */
 export const registerStatsIpc = (): void => {
+  ipcMain.handle("stats:getAlbumListeningStats", (_event, tracks: AlbumListeningTrack[]) =>
+    getAlbumListeningStats(tracks),
+  );
   ipcMain.on("stats:recordPlay", (_event, payload: PlayEventInput) => {
     insertPlayEvent(payload);
   });

@@ -6,6 +6,8 @@ import { getDb, isDbOpen } from "./index";
 import { libraryLog } from "@main/utils/logger";
 import type { Artist, Track } from "@shared/types/player";
 import type {
+  AlbumListeningTrack,
+  AlbumListeningStats,
   PlayEventInput,
   FavoriteEventInput,
   PlayStatsSummary,
@@ -15,6 +17,36 @@ import type {
   TopAlbum,
   TopArtist,
 } from "@shared/types/stats";
+
+/**
+ * 按专辑曲目身份聚合听歌手记，不向渲染进程加载历史快照
+ * @param tracks - 专辑中的曲目身份
+ * @returns 累计收听次数与首次收听时间
+ */
+export const getAlbumListeningStats = (tracks: AlbumListeningTrack[]): AlbumListeningStats => {
+  if (!tracks.length) return { playCount: 0, firstPlayedAt: null };
+  return getDb()
+    .prepare(
+      `
+    WITH identities AS (
+      SELECT DISTINCT json_extract(value, '$.id') AS id,
+        json_extract(value, '$.source') AS source,
+        COALESCE(json_extract(value, '$.serverId'), '') AS serverId,
+        COALESCE(json_extract(value, '$.serverRevision'), 0) AS revision
+      FROM json_each(?)
+    )
+    SELECT COUNT(*) AS playCount, MIN(history.started_at) AS firstPlayedAt
+    FROM identities
+    JOIN play_history AS history ON history.track_id = identities.id
+      AND history.source = identities.source
+      AND (history.source != 'streaming' OR (
+        COALESCE(json_extract(history.track_json, '$.serverId'), '') = identities.serverId
+        AND COALESCE(json_extract(history.track_json, '$.serverRevision'), 0) = identities.revision
+      ))
+  `,
+    )
+    .get(JSON.stringify(tracks)) as AlbumListeningStats;
+};
 
 /** 写入一条播放记录 */
 export const insertPlayEvent = (event: PlayEventInput): void => {

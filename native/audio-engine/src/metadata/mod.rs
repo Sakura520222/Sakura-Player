@@ -14,7 +14,7 @@ mod tag_fields;
 pub use cover::{
     cover_thumb_path, extract_cover_thumbnail, make_thumbnail_jpeg, read_attached_pic,
 };
-pub use editor::{read_tags, write_tags, TagWriteRequest};
+pub use editor::{read_cover, read_tags, write_tags, TagWriteRequest};
 pub use lyrics::{extract_embedded_lyric, find_all_external_lyrics, ExternalLyric};
 
 /// 音频元数据（包含封面路径和歌词）

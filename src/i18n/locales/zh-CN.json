@@ -2533,6 +2533,15 @@
     }
   },
   "collection": {
+    "albumCase": {
+      "title": "专辑盒",
+      "open": "打开专辑盒",
+      "interaction": "点击开合专辑盒，拖拽旋转，中键或 Home 键复位，方向键调整角度",
+      "listeningNotes": "听歌手记",
+      "playCount": "收听次数",
+      "firstPlayed": "首次收听",
+      "notPlayed": "尚未收听"
+    },
     "disc": "CD {disc}",
     "totalDuration": "约 {time}",
     "unknownAlbum": "未知专辑",

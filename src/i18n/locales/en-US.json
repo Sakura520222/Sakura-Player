@@ -2533,6 +2533,15 @@
     }
   },
   "collection": {
+    "albumCase": {
+      "title": "Album case",
+      "open": "Open album case",
+      "interaction": "Click to open or close, drag to rotate, middle-click or press Home to reset, use arrow keys to rotate",
+      "listeningNotes": "Listening notes",
+      "playCount": "Play count",
+      "firstPlayed": "First played",
+      "notPlayed": "Not played yet"
+    },
     "disc": "Disc {disc}",
     "totalDuration": "About {time}",
     "unknownAlbum": "Unknown Album",

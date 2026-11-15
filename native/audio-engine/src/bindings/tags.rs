@@ -68,6 +68,18 @@ pub async fn make_image_thumbnail(data: Buffer, max_size: u32) -> Result<Buffer>
     Ok(thumb.into())
 }
 
+/// 读取本地专辑大封面，在阻塞线程完成图片缩放
+/// @param path - 本地音频文件路径
+/// @returns JPEG 图片字节，无封面时为空
+#[napi]
+pub async fn read_track_cover(path: String) -> Result<Option<Buffer>> {
+    let cover = tokio::task::spawn_blocking(move || metadata::read_cover(&path))
+        .await
+        .map_err(|e| Error::from_reason(format!("读取封面任务失败: {e}")))?
+        .into_napi()?;
+    Ok(cover.map(Into::into))
+}
+
 /// 读取文件的可编辑标签（异步，阻塞 IO 在 tokio 阻塞线程执行）
 #[napi]
 pub async fn read_track_tags(path: String) -> Result<JsTrackTags> {

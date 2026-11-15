@@ -30,6 +30,21 @@ import type { TagEditRequest, TagWriteOutcome } from "@shared/types/tagEditor";
 
 /** 注册音乐库相关 IPC */
 export const registerLibraryIpc = (): void => {
+  ipcMain.handle("library:getAlbumCover", async (_event, trackId: string) => {
+    try {
+      const track = getTracksByIds([trackId])[0];
+      const path = track?.cueAudioPath || track?.path;
+      if (!path) return { success: true, data: null };
+      const cover = await getEngine().readTrackCover(path);
+      return {
+        success: true,
+        data: cover ? `data:image/jpeg;base64,${cover.toString("base64")}` : null,
+      };
+    } catch (error) {
+      libraryLog.warn("读取专辑大封面失败:", error);
+      return { success: false, error: ErrorCode.TAG_READ_FAILED };
+    }
+  });
   // 开始扫描（全量或增量）
   ipcMain.handle("library:scan", (_event, incremental?: boolean) => {
     try {

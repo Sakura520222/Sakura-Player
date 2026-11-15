@@ -48,6 +48,8 @@ let loadAbort: AbortController | null = null;
 const collapsed = ref(false);
 /** 简介弹窗 */
 const descriptionOpen = ref(false);
+/** 专辑盒只在用户打开时挂载，关闭后释放图片与立体图层 */
+const albumCaseOpen = ref(false);
 
 /** 滚动超过阈值折叠 */
 const handleListScroll = (event: Event) => {
@@ -61,6 +63,7 @@ const handleListScroll = (event: Event) => {
 
 /** 加载当前服务器的合集详情，并作废上一轮请求 */
 const loadCollection = async (): Promise<void> => {
+  albumCaseOpen.value = false;
   collapsed.value = false;
   loadAbort?.abort();
   const myAbort = new AbortController();
@@ -263,7 +266,19 @@ onBeforeUnmount(() => {
           :alt="header.title"
           data-cover-hero
           class="rounded-xl shrink-0 transition-[width,height] duration-300"
-          :class="collapsed ? 'size-20' : 'size-40'"
+          :class="[
+            collapsed ? 'size-20' : 'size-40',
+            type === 'album' &&
+              collection &&
+              'cursor-pointer hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+          ]"
+          :role="type === 'album' ? 'button' : undefined"
+          :tabindex="type === 'album' && collection ? 0 : undefined"
+          :aria-label="type === 'album' ? t('collection.albumCase.open') : undefined"
+          :aria-haspopup="type === 'album' ? 'dialog' : undefined"
+          @click="type === 'album' && collection && (albumCaseOpen = true)"
+          @keydown.enter.prevent="type === 'album' && collection && (albumCaseOpen = true)"
+          @keydown.space.prevent="type === 'album' && collection && (albumCaseOpen = true)"
         />
         <!-- 信息 -->
         <div class="flex-1 flex flex-col min-w-0">
@@ -468,6 +483,11 @@ onBeforeUnmount(() => {
       </div>
     </Transition>
     <!-- 简介全文 -->
+    <AlbumCaseDialog
+      v-if="type === 'album' && collection"
+      v-model:open="albumCaseOpen"
+      :collection="collection"
+    />
     <SDialog
       v-model:open="descriptionOpen"
       :title="t('collection.introduction', { type: typeLabel })"

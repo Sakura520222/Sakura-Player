@@ -102,8 +102,19 @@ export interface TopArtist {
   playCount: number;
 }
 
+/** 专辑内曲目的轻量身份，串流来源同时隔离服务器与媒体版本 */
+export type AlbumListeningTrack = Pick<Track, "id" | "source" | "serverId" | "serverRevision">;
+
+/** 专辑听歌手记，仅返回聚合结果 */
+export interface AlbumListeningStats {
+  playCount: number;
+  firstPlayedAt: number | null;
+}
+
 /** preload 暴露的统计 API */
 export interface StatsApi {
+  /** 读取专辑内曲目的累计收听次数与首次收听时间 */
+  getAlbumListeningStats: (tracks: AlbumListeningTrack[]) => Promise<AlbumListeningStats>;
   /** 记录一次播放 */
   recordPlay: (event: PlayEventInput) => void;
   /** 记录一次收藏变更 */

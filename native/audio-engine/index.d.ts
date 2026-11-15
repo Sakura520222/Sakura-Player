@@ -459,6 +459,13 @@ export interface JsTrackTags {
  */
 export declare function makeImageThumbnail(data: Buffer, maxSize: number): Promise<Buffer>
 
+/**
+ * 读取本地专辑大封面，在阻塞线程完成图片缩放
+ * @param path - 本地音频文件路径
+ * @returns JPEG 图片字节，无封面时为空
+ */
+export declare function readTrackCover(path: string): Promise<Buffer | null>
+
 /** 读取文件的可编辑标签（异步，阻塞 IO 在 tokio 阻塞线程执行） */
 export declare function readTrackTags(path: string): Promise<JsTrackTags>
 

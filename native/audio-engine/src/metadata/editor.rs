@@ -75,6 +75,36 @@ fn open_tagged(path: &Path) -> Result<TaggedFile> {
         .context("解析音频文件失败")
 }
 
+/// 读取专辑大封面，优先内嵌正面图片，无图时沿用同目录封面规则
+/// @param path - 本地音频文件路径
+/// @returns 限制到 1200px 的 JPEG，不保留音频解码器或图片缓存
+pub fn read_cover(path: &str) -> Result<Option<Vec<u8>>> {
+    let tagged = open_tagged(Path::new(path))?;
+    let picture = tagged
+        .tags()
+        .iter()
+        .flat_map(|tag| tag.pictures())
+        .find(|pic| pic.pic_type() == PictureType::CoverFront)
+        .or_else(|| tagged.tags().iter().find_map(|tag| tag.pictures().first()));
+    let bytes = if let Some(picture) = picture {
+        std::borrow::Cow::Borrowed(picture.data())
+    } else if let Some(cover) = super::folder_cover::find_folder_cover(path) {
+        std::borrow::Cow::Owned(fs::read(cover)?)
+    } else {
+        return Ok(None);
+    };
+    let image = image::load_from_memory(&bytes)?;
+    let image = if image.width() > 1200 || image.height() > 1200 {
+        image.resize(1200, 1200, image::imageops::FilterType::Lanczos3)
+    } else {
+        image
+    };
+    let mut output = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, 92)
+        .encode_image(&image.to_rgb8())?;
+    Ok(Some(output))
+}
+
 /// 读取文件的全部可编辑标签
 pub fn read_tags(path: &str) -> Result<TrackTags> {
     let tagged = open_tagged(Path::new(path))?;

@@ -15,6 +15,8 @@ declare module 'vue' {
     AboutSettings: typeof import('./src/components/settings/custom/AboutSettings.vue')['default']
     AiLyricTranslationDialog: typeof import('./src/components/modals/AiLyricTranslationDialog.vue')['default']
     AiModelConfig: typeof import('./src/components/settings/custom/AiModelConfig.vue')['default']
+    AlbumCase: typeof import('./src/components/collection/AlbumCase.vue')['default']
+    AlbumCaseDialog: typeof import('./src/components/collection/AlbumCaseDialog.vue')['default']
     AmllDbServerConfig: typeof import('./src/components/settings/custom/AmllDbServerConfig.vue')['default']
     AMLLLyrics: typeof import('./src/components/player/Lyrics/AMLLLyrics.vue')['default']
     AppBackground: typeof import('./src/components/AppBackground.vue')['default']
