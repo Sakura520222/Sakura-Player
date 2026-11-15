@@ -307,7 +307,7 @@ describe("默认歌词引擎显示与配置", () => {
   });
 
   it.each(["lrc", "ttml"] as const)(
-    "%s 整句音译不重复，并保留主词高亮和副行顺序",
+    "%s 整句音译仅显示一次并保留行高亮和副行顺序",
     async (format) => {
       const content =
         "[03:02.000]鼓動のせい ぱっちり目が覚めた\n[03:08.300]\n" +
@@ -350,29 +350,25 @@ describe("默认歌词引擎显示与配置", () => {
       normalizeLyricLines(lines);
       const wrapper = mount(DefaultLyrics, { props: { lyricLines: lines } });
       try {
-        expect(lines.map((line) => line.words[0].romanWord)).toEqual(romanization);
-        expect(wrapper.findAll(".lp-roman-word").map((row) => row.text())).toEqual(romanization);
-        expect(wrapper.findAll(".lp-word-text").map((row) => row.text())).toEqual(
+        expect(lines.map((line) => line.romanLyric)).toEqual(romanization);
+        expect(wrapper.findAll(".lp-main").map((row) => row.text())).toEqual(
           source.map((line) => line.words.map((word) => word.word).join("")),
         );
-        expect(wrapper.findAll(".lp-sub").map((row) => row.text())).toEqual(translation);
         for (const [index, row] of wrapper.findAll(".lp-line").entries()) {
           expect(row.text().split(romanization[index])).toHaveLength(2);
-          expect(row.findAll(".lp-word-roman")).toHaveLength(1);
-          const roman = row.get(".lp-roman-word").element;
-          const translated = row.get(".lp-sub").element;
-          expect(
-            roman.compareDocumentPosition(translated) & Node.DOCUMENT_POSITION_FOLLOWING,
-          ).toBeTruthy();
+          expect(row.findAll(".lp-sub").map((sub) => sub.text())).toEqual([
+            translation[index],
+            romanization[index],
+          ]);
         }
         wrapper.vm.setCurrentTime(185150);
         const frames = vi.mocked(requestAnimationFrame).mock.calls.map(([callback]) => callback);
         for (const frame of frames) frame(performance.now());
-        const activeLine = wrapper.get(".lp-line").element as HTMLElement;
-        expect(activeLine.style.getPropertyValue("--t")).toBe("185150");
-        expect(lines.map((line) => line.words[0])).toEqual(
-          source.map((line, index) => ({ ...line.words[0], romanWord: romanization[index] })),
-        );
+        expect(wrapper.get(".lp-line.active").text()).toContain(romanization[0]);
+        expect(wrapper.findAll(".lp-roman-word")).toHaveLength(0);
+        expect(
+          lines.map((line) => line.words.map(({ romanWord: _roman, ...word }) => word)),
+        ).toEqual(source.map((line) => line.words));
         await wrapper.setProps({ showWordRomanization: false });
         expect(wrapper.findAll(".lp-roman-word")).toHaveLength(0);
         expect(wrapper.findAll(".lp-sub").map((row) => row.text())).toEqual(

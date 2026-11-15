@@ -222,7 +222,7 @@ describe("逐字辅助歌词对齐与重载", () => {
     ).toEqual(source[0].words);
   });
 
-  it("单个原词保留对应的单词音译", () => {
+  it("普通 LRC 的整行音译保留为副行", () => {
     const input = {
       content: "[00:01]君\n[00:02]",
       format: "lrc" as const,
@@ -231,7 +231,8 @@ describe("逐字辅助歌词对齐与重载", () => {
     };
     const lines: LyricLine[] = parseLyric(input).lines;
     applyTimedAuxiliary(lines, input);
-    expect(lines[0].words[0].romanWord).toBe("kimi");
+    expect(lines[0].words[0].romanWord).toBeUndefined();
+    expect(lines[0].romanizationWords).toBeUndefined();
     expect(lines[0].romanLyric).toBe("kimi");
   });
 

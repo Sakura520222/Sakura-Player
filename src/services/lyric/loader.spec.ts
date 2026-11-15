@@ -20,7 +20,7 @@ vi.mock("@/services/lyric/preload", () => ({
 // Mock resolve 模块，保留真实 isBetterFormat 与其它纯函数
 const mockResolveOnlineByPreference = vi.fn();
 const mockResolveTTMLOverlay = vi.fn();
-const mockResolveLocalRepoLyric = vi.fn();
+const mockResolveUserLyric = vi.fn();
 const mockResolvePluginLyric = vi.fn();
 const mockResolveStreamingByPreference = vi.fn();
 
@@ -30,7 +30,7 @@ vi.mock("@/services/lyric/resolve", async (importOriginal) => {
     ...actual,
     resolveOnlineByPreference: (...args: unknown[]) => mockResolveOnlineByPreference(...args),
     resolveTTMLOverlay: (...args: unknown[]) => mockResolveTTMLOverlay(...args),
-    resolveLocalRepoLyric: (...args: unknown[]) => mockResolveLocalRepoLyric(...args),
+    resolveUserLyric: (...args: unknown[]) => mockResolveUserLyric(...args),
     resolvePluginLyric: (...args: unknown[]) => mockResolvePluginLyric(...args),
     resolveStreamingByPreference: (...args: unknown[]) => mockResolveStreamingByPreference(...args),
   };
@@ -90,7 +90,7 @@ describe("lyric loader", () => {
 
     mockResolveOnlineByPreference.mockResolvedValue(null);
     mockResolveTTMLOverlay.mockResolvedValue(null);
-    mockResolveLocalRepoLyric.mockResolvedValue(null);
+    mockResolveUserLyric.mockResolvedValue(null);
     mockResolvePluginLyric.mockResolvedValue(null);
     mockResolveStreamingByPreference.mockResolvedValue(null);
 
@@ -128,13 +128,13 @@ describe("lyric loader", () => {
   });
 
   it.each([true, false])("内嵌原格式和外部 LRC 按用户优先级选择：%s", async (preferOriginal) => {
-    const media = useMediaStore();
     const settings = useSettingsStore();
     settings.lyric.enableExcludeLyrics = false;
     settings.lyric.lyricFormatOrder = preferOriginal ? ["krc", "lrc"] : ["lrc", "krc"];
+    const media = useMediaStore();
     media.track = createTrack("with-lrc", "local");
     const { content, ...data } = LYRIC_SAVE_FIXTURES.find((item) => item.format === "krc")!;
-    mockWindowApi.player.readLyricFile.mockResolvedValue({
+    mockWindowApi.player.readLyricFile.mockResolvedValueOnce({
       success: true,
       data: "[00:01.234]外部 LRC",
     });
@@ -152,6 +152,25 @@ describe("lyric loader", () => {
     });
     expect(media.activeLyric?.source).toBe(preferOriginal ? "embedded" : "external");
     expect(media.activeLyric?.format).toBe(preferOriginal ? "krc" : "lrc");
+  });
+
+  it("预载命中手动选择的歌词时不触发 TTML 升级", async () => {
+    const media = useMediaStore();
+    const track = createTrack("song_pinned");
+    media.track = track;
+    const pinned = {
+      pinned: true,
+      source: { source: "online", format: "lrc", platform: "kugou" },
+      input: { content: "[00:01.00]手动选择的歌词" },
+    };
+    preloadedResult.hit = true;
+    preloadedResult.lyric = pinned;
+    mockResolveUserLyric.mockResolvedValue(pinned);
+
+    await loadForTrack(null);
+
+    expect(mockResolveTTMLOverlay).not.toHaveBeenCalled();
+    expect(media.activeLyric).toMatchObject({ platform: "kugou", format: "lrc" });
   });
 
   it("在线多平台并发查询时，先到达的候选歌词立即上屏展示", async () => {
@@ -338,7 +357,7 @@ describe("lyric loader", () => {
     const track = createTrack("song_6");
     media.track = track;
 
-    mockResolveLocalRepoLyric.mockResolvedValue({
+    mockResolveUserLyric.mockResolvedValue({
       source: { source: "external", format: "ttml" },
       input: {
         content: `<?xml version="1.0" encoding="utf-8"?><tt xmlns="http://www.w3.org/ns/ttml"><body><div><p begin="00:01.00" end="00:03.00"><span begin="00:01.00" end="00:03.00">本地TTML库歌词</span></p></div></body></tt>`,
@@ -600,5 +619,29 @@ describe("lyric loader", () => {
     });
     expect(media.activeLyric?.platform).toBe("netease");
     expect(media.parsedLyric[0].words[0].word).toContain("自身平台普通LRC歌词");
+  });
+  it("切回智能匹配：切换前的旧歌词不参与格式比较，新结果直接替换", async () => {
+    const settings = useSettingsStore();
+    const media = useMediaStore();
+    media.track = createTrack("song_back_to_auto");
+
+    mockResolveOnlineByPreference.mockResolvedValue({
+      source: { source: "online", format: "qrc", platform: "qqmusic" },
+      input: { content: "[1000,1000]QM优先QRC(1000,1000)" },
+    });
+    await loadForTrack(null);
+    settings.lyric.lyricSourcePreference = "qqmusic";
+    await vi.waitFor(() => expect(mockResolveOnlineByPreference).toHaveBeenCalledTimes(2));
+
+    mockResolveOnlineByPreference.mockResolvedValue({
+      source: { source: "online", format: "lrc", platform: "netease" },
+      input: { content: "[00:01.00]智能匹配LRC" },
+    });
+    settings.lyric.lyricSourcePreference = "auto";
+
+    await vi.waitFor(() => {
+      expect(media.activeLyric?.format).toBe("lrc");
+    });
+    expect(media.activeLyric?.platform).toBe("netease");
   });
 });
