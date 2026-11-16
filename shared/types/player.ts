@@ -1,5 +1,5 @@
 import type { PlaybackQueueSnapshot } from "./music";
-import type { LyricFormat, LyricStorageData } from "./lyrics";
+import type { LyricFormat, LyricInput, LyricStorageData } from "./lyrics";
 import type { Platform } from "./platform";
 import type { MusicSearchCandidate } from "./plugin";
 
@@ -385,7 +385,7 @@ export interface PlayerApi {
   /** 获取原始高清封面（base64 data URL） */
   getCoverRaw: () => Promise<IpcResponse<string | null>>;
   /** 读取外部歌词文件内容 */
-  readLyricFile: (filePath: string) => Promise<IpcResponse<string>>;
+  readLyricFile: (filePath: string) => Promise<IpcResponse<LyricInput>>;
   /** 重建音频输出设备 */
   reinit: () => Promise<IpcResponse>;
   /** 设置音量均衡 */

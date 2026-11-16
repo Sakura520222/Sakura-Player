@@ -107,8 +107,12 @@ fn real_model_preserves_translation_alignment() {
         },
     ];
     assert!(model
-        .align(&source, &["音乐".into(), "字词".into()], &phrases)
+        .align(
+            &source,
+            &["音乐".into(), "字词".into()],
+            &phrases,
+            |pairs| Some(pairs.clone())
+        )
         .unwrap()
-        .iter()
-        .all(Vec::is_empty));
+        .is_none());
 }

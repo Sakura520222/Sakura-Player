@@ -542,10 +542,21 @@
       "fileSuffix": "歌词分享",
       "exportFailed": "导出图片失败",
       "empty": "没有可复制的内容",
-      "saveFullLyrics": "保存完整歌词",
-      "musicTags": "音乐标签",
-      "lrcFile": "LRC 文件",
-      "ttmlFile": "TTML 文件",
+      "saveFullLyrics": "保存与导出歌词",
+      "musicTags": "嵌入 TTML 到音乐标签",
+      "lrcFile": "兼容格式",
+      "ttmlFile": "完整 TTML",
+      "compatibleFormat": "兼容歌词格式",
+      "clearTranslation": "清除当前翻译",
+      "clearRomanization": "清除当前音译",
+      "companionHint": "翻译和音译会按行另存为同名 .tr.lrc 和 .roma.lrc，保留逐字辅助时间和关联请选完整 TTML",
+      "formatHints": {
+        "lrc": "保留原文的行起点，同刻的歌词合并显示",
+        "enhanced-lrc": "A2 格式保留原词起点，由播放器推算词尾和空拍，需要支持 Enhanced LRC 的播放器",
+        "yrc": "网易云音乐逐字格式，保留原词起止时间",
+        "qrc": "QQ 音乐明文格式，保留原词起止时间",
+        "lys": "Lyricify Syllable 格式，保留原词起止时间和声部"
+      },
       "saveLyrics": "保存歌词",
       "preview": {
         "title": "预览更改",
@@ -558,12 +569,14 @@
         "autoFormat": "自动识别",
         "newLyrics": "新增歌词",
         "readFailed": "无法读取原有歌词，请重试",
-        "chooseOnSave": "保存时选择 LRC 路径。此处预览导出内容，尚未比较目标文件的原有内容。",
+        "chooseOnSave": "保存时选择文件位置。当前预览展示将要导出的歌词",
         "back": "返回",
         "targets": {
           "metadata": "音乐标签",
           "lrc": "LRC 文件",
-          "ttml": "TTML 文件"
+          "ttml": "TTML 文件",
+          "translation": "翻译文件",
+          "romanization": "音译文件"
         },
         "fields": {
           "lyrics": "歌词原文",
@@ -572,10 +585,9 @@
           "kana": "注音"
         }
       },
-      "saveLocalHint": "音乐标签保留当前歌词原文与原格式；LRC 单独导出到音乐文件同目录，覆盖已有歌词。",
-      "saveExportHint": "音乐标签仅支持本地独立歌曲，LRC 可选择位置另存为。",
-      "saveCompleteHint": "保存完整歌词、翻译和音译，保留逐字时间，不受上方勾选影响。",
-      "saveTtmlHint": "TTML 保存在已配置的本地歌词库，匹配到已有文件时覆盖。",
+      "saveCompleteHint": "TTML 保留原词、逐字翻译和音译时间。搬移歌词时请同时搬移同名 .sakura.json 关联文件",
+      "saveTtmlHint": "已配置本地 TTML 库，保存会更新匹配到的文件",
+      "saveTtmlAsHint": "本地独立歌曲保存为音频旁的同名文件，其他歌曲可另选位置",
       "saveSuccess": "已保存：{targets}",
       "saveFailed": "歌词保存失败",
       "saveFilesFailed": "歌词文件保存失败",
@@ -665,6 +677,8 @@
       "retry": "重新生成",
       "resume": "从失败处继续",
       "resumeCancelled": "继续生成",
+      "repairRomanization": "重做第 {line} 行音译",
+      "repairRomanizationHint": "如果第 {line} 行的已有音译有误，可以只重做这一行。应用后才会替换原音译",
       "resumeHint": "已保留校验通过的完整行，可继续处理剩余部分。关闭弹窗或更改歌词、语言、生成项目和方式会清除进度。",
       "cancel": "取消生成",
       "apply": "应用译文",
@@ -861,8 +875,9 @@
     "deleteFile": "删除文件",
     "deleteConfirmTitle": "删除下载文件",
     "deleteConfirmContent": "将从磁盘永久删除该歌曲文件，此操作不可恢复。确认删除？",
-    "tagWarning": "标签写入失败，文件已保存",
+    "tagWarning": "歌词或标签写入失败，音频已保存",
     "resolveFailed": "无法下载：{title}",
+    "lyricExportFailed": "{title} 的 {format} 歌词导出失败",
     "alreadyQueued": "该歌曲已在下载队列",
     "alreadyDownloaded": "该歌曲已下载",
     "started": "已加入下载：{title}",
@@ -2477,7 +2492,7 @@
     },
     "downloadLyricFormat": {
       "label": "歌词文件格式",
-      "description": "保存及内嵌到标签的歌词格式",
+      "description": "LRC 保留行时间，A2 保留原词起点。两者按行保存翻译和音译，完整逐字轨道请同时保存 TTML",
       "lrc": "LRC（逐行）",
       "enhanced": "增强 LRC（逐字）"
     },

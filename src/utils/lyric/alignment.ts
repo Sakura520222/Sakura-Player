@@ -1,4 +1,4 @@
-import type { LyricLine } from "@shared/types/lyrics";
+import type { AuxiliaryLyricSpan, LyricLine } from "@shared/types/lyrics";
 import { sequenceTranslationWords } from "@shared/utils/lyricTiming";
 import { alignRomanizationWords } from "./romanization";
 import type { AlignedTranslation } from "@/services/lyric/aiAlignment";
@@ -13,7 +13,7 @@ import {
 } from "@/services/lyric/aiGeneration";
 
 /**
- * 在原词语义范围内顺排译文，单个短语保留明确关联以区别于普通逐行文本
+ * 在原词语义范围内顺排译文，保留每个短语原有的词语关联
  * @param line - 原始逐字歌词
  * @param parts - 已校验的译文语义范围
  * @returns 保留语序的辅助时间片段
@@ -21,7 +21,7 @@ import {
 const createTranslationWords = (line: LyricLine, parts: AlignedTranslation["translation"]) =>
   sequenceTranslationWords(
     parts.map(({ text, from, to }) =>
-      line.words.slice(from, to + 1).reduce(
+      line.words.slice(from, to + 1).reduce<AuxiliaryLyricSpan>(
         (span, word) => {
           if (word.word.trim()) {
             span.startTime = Math.min(span.startTime, word.startTime);
@@ -33,7 +33,8 @@ const createTranslationWords = (line: LyricLine, parts: AlignedTranslation["tran
           word: text,
           startTime: line.words[from].startTime,
           endTime: line.words[to].endTime,
-          ...(parts.length === 1 ? { from, to } : {}),
+          from,
+          to,
         },
       ),
     ),
@@ -51,7 +52,7 @@ const createRomanizedWords = (
   parts: AlignedTranslation["romanization"],
   preserveSpacing = false,
 ) => {
-  const words = line.words.map((word) => ({ ...word }));
+  const words = line.words.map((word) => ({ ...word, romanWord: undefined }));
   const romanizationWords = parts.map((part, position) => {
     const words = line.words
       .slice(part.index, (part.to ?? part.index) + 1)
@@ -60,7 +61,8 @@ const createRomanizedWords = (
       word: part.text + (!preserveSpacing && position < parts.length - 1 ? " " : ""),
       startTime: Math.min(...words.map((word) => word.startTime)),
       endTime: Math.max(...words.map((word) => word.endTime)),
-      ...(part.to !== undefined && part.to !== part.index ? { from: part.index, to: part.to } : {}),
+      from: part.index,
+      to: part.to ?? part.index,
     };
   });
   return {
@@ -140,6 +142,7 @@ export const alignGeneratedLyrics = (
  * @param results - 覆盖整首有效歌词行的生成结果
  * @param options - 用户勾选的生成项目
  * @param mode - 补齐时保留已有内容，完整生成时重新生成所选轨道
+ * @param regenerateRomanization - 用户选择单独重新音译的失败行
  * @returns 完整新歌词；不完整、改写既有文本或格式无效时返回 null
  */
 export const applyGeneratedLyrics = (
@@ -147,11 +150,12 @@ export const applyGeneratedLyrics = (
   results: ReadonlyMap<number, GeneratedLyric>,
   options: GenerationOptions,
   mode: GenerationMode = "missing",
+  regenerateRomanization?: ReadonlySet<number>,
 ): LyricLine[] | null => {
   let validated: Map<number, GeneratedLyric>;
   let planned: Map<number, ReturnType<typeof createGenerationPlan>[number]>;
   try {
-    const source = createGenerationPlan(lines, options, mode);
+    const source = createGenerationPlan(lines, options, mode, regenerateRomanization);
     if (!source.length || source.length !== results.size) return null;
     planned = new Map(source.map((line) => [line.id, line]));
     const decoder = new GenerationDecoder(source, options);

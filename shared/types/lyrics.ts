@@ -2,7 +2,7 @@ import type { Platform } from "./platform";
 import type { Track } from "./player";
 import type {
   LyricFormat,
-  LyricInput,
+  LyricInput as BaseLyricInput,
   LyricLine as BaseLyricLine,
   LyricMetadata,
   LyricResult,
@@ -10,7 +10,7 @@ import type {
   LyricWord,
 } from "lyric-kit";
 
-export type { LyricFormat, LyricInput, LyricMetadata, LyricResult, LyricSpan, LyricWord };
+export type { LyricFormat, LyricMetadata, LyricResult, LyricSpan, LyricWord };
 
 /** 辅助片段保留原词范围，端点均为主歌词 words 的包含下标 */
 export interface AuxiliaryLyricSpan extends LyricSpan {
@@ -24,6 +24,26 @@ export type RomanizationSpan = AuxiliaryLyricSpan;
 export interface LyricLine extends BaseLyricLine {
   translationWords?: AuxiliaryLyricSpan[];
   romanizationWords?: RomanizationSpan[];
+  translationLanguage?: string;
+  romanizationLanguage?: string;
+}
+
+/** 独立辅助轨道，按主歌词行的解析顺序记录，空文本表示清除 */
+export interface LyricAuxiliaryLine {
+  text: string;
+  language?: string;
+  words?: AuxiliaryLyricSpan[];
+  wordCount: number;
+}
+
+export interface LyricAuxiliaryData {
+  translation?: LyricAuxiliaryLine[];
+  romanization?: LyricAuxiliaryLine[];
+}
+
+export interface LyricInput extends BaseLyricInput {
+  /** 播放器内部轨道及原词关联，不写入通用歌词正文 */
+  auxiliary?: LyricAuxiliaryData;
 }
 
 /** 默认格式优先级 */
@@ -108,12 +128,22 @@ export type LyricSearchResponse =
 
 /** TTML 抓取 IPC 响应 */
 export type LyricTTMLResponse = { ok: true; data: string | null } | { ok: false; error: string };
+export type LocalTtmlResponse =
+  { ok: true; data: LyricInput | null } | { ok: false; error: string };
 
-/** 歌词文件保存请求；TTML 仅在本地库已启用并配置目录时写入 */
+export const LYRIC_COMPATIBLE_FORMATS = ["lrc", "enhanced-lrc", "yrc", "qrc", "lys"] as const;
+export type CompatibleLyricFormat = (typeof LYRIC_COMPATIBLE_FORMATS)[number];
+
+/** 歌词文件保存请求及与对应主文件共用文件名的独立轨道 */
 export interface LyricSaveFilesRequest {
   track: Track;
   lrc?: string;
+  compatibleFormat?: CompatibleLyricFormat;
+  translation?: string;
+  romanization?: string;
   ttml?: string;
+  auxiliary?: LyricAuxiliaryData;
+  saveTtmlAs?: boolean;
 }
 
 /** 单个歌词文件的保存结果 */
@@ -123,6 +153,8 @@ export type LyricFileSaveOutcome =
 export interface LyricSaveFilesResult {
   lrc?: LyricFileSaveOutcome;
   ttml?: LyricFileSaveOutcome;
+  translation?: LyricFileSaveOutcome;
+  romanization?: LyricFileSaveOutcome;
 }
 
 /** 文件预览只读取现有内容；另存为的目标在保存时选择 */
@@ -133,6 +165,8 @@ export type LyricFilePreviewOutcome =
 export interface LyricPreviewFilesResult {
   lrc?: LyricFilePreviewOutcome;
   ttml?: LyricFilePreviewOutcome;
+  translation?: LyricFilePreviewOutcome;
+  romanization?: LyricFilePreviewOutcome;
 }
 
 /** 渲染端歌词匹配入口 */
@@ -169,7 +203,7 @@ export interface LyricsApi {
   /** 按 Track 元数据搜索 AMLL TTML DB，用于没有可用平台 ID 或 ID 未命中的歌曲 */
   searchTTML: (track: Track) => Promise<LyricTTMLResponse>;
   /** 在本地 TTML 歌词库中按元信息匹配，命中返回 TTML 原文 */
-  matchLocalTTML: (track: Track) => Promise<LyricTTMLResponse>;
+  matchLocalTTML: (track: Track) => Promise<LocalTtmlResponse>;
   /** 弹出目录选择器，返回所选本地 TTML 歌词库目录 */
   pickLyricRepoDir: () => Promise<string | null>;
   /** 保存同名 LRC 或另存为，并按配置保存 TTML 到本地库 */

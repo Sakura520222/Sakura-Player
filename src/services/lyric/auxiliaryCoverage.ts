@@ -5,12 +5,14 @@ import type { AuxiliaryLyricSpan, LyricLine } from "@shared/types/lyrics";
  * @param line - 保持原始时间的主歌词
  * @param spans - 辅助歌词的逐字片段
  * @param text - 辅助轨道应保留的完整文本
- * @returns 文本一致且覆盖每个有效原词时返回 true
+ * @param allowUnmapped - 自然译文可省略个别原词，音译仍需覆盖全部原词
+ * @returns 文本一致且有明确语义范围或完整时间覆盖时返回 true
  */
 export const hasCompleteAuxiliary = (
   line: LyricLine,
   spans: AuxiliaryLyricSpan[] | undefined,
   text: string,
+  allowUnmapped = false,
 ): boolean => {
   if (
     !text.trim() ||
@@ -30,19 +32,25 @@ export const hasCompleteAuxiliary = (
     return false;
   const words = line.words.flatMap((word, index) => (word.word.trim() ? [{ word, index }] : []));
   if (
+    words.length &&
+    spans.every(
+      ({ from, to }) =>
+        from !== undefined &&
+        to !== undefined &&
+        Number.isSafeInteger(from) &&
+        Number.isSafeInteger(to) &&
+        from >= 0 &&
+        to >= from &&
+        to < line.words.length &&
+        words.some(({ index }) => index >= from && index <= to),
+    ) &&
+    (allowUnmapped ||
+      words.every(({ index }) => spans.some(({ from, to }) => from! <= index && to! >= index)))
+  )
+    return true;
+  if (
     words.length > 1 &&
-    new Set(spans.map((span) => `${span.startTime}:${span.endTime}`)).size < 2 &&
-    !words.every(({ index }) =>
-      spans.some(
-        (span) =>
-          Number.isSafeInteger(span.from) &&
-          Number.isSafeInteger(span.to) &&
-          span.from! >= 0 &&
-          span.to! < line.words.length &&
-          span.from! <= index &&
-          span.to! >= index,
-      ),
-    )
+    new Set(spans.map((span) => `${span.startTime}:${span.endTime}`)).size < 2
   )
     return false;
   const ranges: { start: number; end: number }[] = [];

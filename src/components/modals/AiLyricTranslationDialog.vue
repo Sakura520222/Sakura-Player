@@ -29,8 +29,9 @@ const {
   canApply,
   canStart,
   canResume,
-  start,
-  resume,
+  runWithRetries,
+  repairRomanizationLine,
+  repairRomanization,
   cancel,
   apply,
 } = useAiLyricTranslation(toRef(props, "open"));
@@ -205,6 +206,12 @@ const applyTranslation = (): void => {
       <p v-if="canResume" class="m-0 text-xs leading-5 text-on-surface-variant">
         {{ t("player.aiTranslation.resumeHint") }}
       </p>
+      <p
+        v-if="repairRomanizationLine !== null"
+        class="m-0 text-xs leading-5 text-on-surface-variant"
+      >
+        {{ t("player.aiTranslation.repairRomanizationHint", { line: repairRomanizationLine + 1 }) }}
+      </p>
       <SVirtualList
         v-if="rows.length"
         :items="rows"
@@ -251,10 +258,10 @@ const applyTranslation = (): void => {
         <SButton v-if="busy" variant="secondary" :disabled="phase !== 'running'" @click="cancel">
           {{ t("player.aiTranslation.cancel") }}
         </SButton>
-        <SButton v-else variant="secondary" :disabled="!canStart" @click="start">
+        <SButton v-else variant="secondary" :disabled="!canStart" @click="runWithRetries(false)">
           {{ t(phase === "idle" ? "player.aiTranslation.start" : "player.aiTranslation.retry") }}
         </SButton>
-        <SButton v-if="canResume" type="primary" variant="secondary" @click="resume">
+        <SButton v-if="canResume" type="primary" variant="secondary" @click="runWithRetries(true)">
           {{
             t(
               phase === "error"
@@ -262,6 +269,13 @@ const applyTranslation = (): void => {
                 : "player.aiTranslation.resumeCancelled",
             )
           }}
+        </SButton>
+        <SButton
+          v-if="repairRomanizationLine !== null"
+          variant="secondary"
+          @click="repairRomanization"
+        >
+          {{ t("player.aiTranslation.repairRomanization", { line: repairRomanizationLine + 1 }) }}
         </SButton>
         <SButton type="primary" variant="secondary" :disabled="!canApply" @click="applyTranslation">
           {{ t("player.aiTranslation.applySelected") }}

@@ -81,7 +81,7 @@ pub struct TrackResult {
     pub score: f64,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub struct ReadingToken {
     pub text: String,
     #[serde(default)]
@@ -92,7 +92,7 @@ pub struct ReadingToken {
     pub to: usize,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub struct Phrase {
     pub text: String,
     pub indices: Vec<usize>,

@@ -86,7 +86,7 @@ export const getGenerationCoverage = (lines: LyricLine[]) => {
     if (getExistingRomanization(line)) existing.romanization++;
     if (hasCompleteAuxiliary(line, getRomanizationSpans(line), getExistingRomanization(line)))
       existing.wordRomanization++;
-    if (hasCompleteAuxiliary(line, line.translationWords, line.translatedLyric))
+    if (hasCompleteAuxiliary(line, line.translationWords, line.translatedLyric, true))
       existing.wordTranslation++;
   }
   return { total, existing };
@@ -105,12 +105,14 @@ export const collectGenerationLines = (lines: LyricLine[]): GenerationLine[] =>
  * @param lines - 当前歌词及已有辅助数据
  * @param options - 用户选择的生成项目
  * @param mode - 补齐缺失或从头完整生成
+ * @param regenerateRomanization - 用户选择单独重新音译的失败行
  * @returns 仅包含需要请求模型的行及其实际任务
  */
 export const createGenerationPlan = (
   lines: LyricLine[],
   options: GenerationOptions,
   mode: GenerationMode,
+  regenerateRomanization?: ReadonlySet<number>,
 ): GenerationLine[] =>
   collectGenerationLines(lines).flatMap((line) => {
     const { existing } = getGenerationCoverage([lines[line.id]]);
@@ -121,12 +123,14 @@ export const createGenerationPlan = (
       ]),
     ) as GenerationOptions;
     if (!GENERATION_TASKS.some((task) => requested[task])) return [];
+    const replaceRomanization = requested.wordRomanization && regenerateRomanization?.has(line.id);
     return [
       {
         ...line,
         existingTranslation: mode === "full" ? "" : line.existingTranslation,
-        existingRomanization: mode === "full" ? "" : line.existingRomanization,
-        options: requested,
+        existingRomanization:
+          mode === "full" || replaceRomanization ? "" : line.existingRomanization,
+        options: replaceRomanization ? { ...requested, romanization: true } : requested,
       },
     ];
   });
@@ -147,22 +151,42 @@ export const createGenerationMessages = (
   song: { title: string; artists: string[] },
   retryFeedback?: GenerationRetryFeedback | null,
 ): AiMessage[] => {
-  const schema: Record<string, unknown> = { id: 0 };
+  const example = lines[0];
+  const firstIndex = example?.words[0]?.index ?? 0;
+  const ids = new Set(lines.map((line) => line.id));
+  // 下标反复出错时，改用输入顺序返回音译文本，避免再次要求模型推断范围
+  const retryInOrder =
+    options.wordRomanization &&
+    !!retryFeedback &&
+    [retryFeedback, ...(retryFeedback.previousErrors ?? [])].some(
+      ({ lineId, message }) =>
+        lineId !== null && ids.has(lineId) && /^音译.*(?:范围|下标).*无效/.test(message),
+    );
+  const schema: Record<string, unknown> = { id: example?.id ?? 0 };
   if (options.wordTranslation)
-    schema.translation = [{ text: "translated fragment", from: 0, to: 1 }];
+    schema.translation = [{ text: "translated fragment", from: firstIndex, to: firstIndex }];
   else if (options.translation) schema.translation = "translated lyric";
-  if (options.wordRomanization) schema.romanization = [{ from: 0, to: 1, text: "pronunciation" }];
+  if (options.wordRomanization)
+    schema.romanization = retryInOrder
+      ? example.words.map((_, index) => `fragment ${index + 1}`)
+      : [{ index: firstIndex, text: "pronunciation" }];
   else if (options.romanization) schema.romanization = "romanized lyric";
   const aligned = options.wordTranslation || options.wordRomanization;
   const instructions = [
-    ...(aligned ? [WORD_ALIGNMENT_PROMPTS.source] : []),
+    ...(options.wordTranslation || (options.wordRomanization && !retryInOrder)
+      ? [WORD_ALIGNMENT_PROMPTS.source]
+      : []),
     ...(options.wordTranslation
       ? [WORD_ALIGNMENT_PROMPTS.translation]
       : options.translation
         ? ["translation must be a nonempty single-line string, not a word array."]
         : []),
     ...(options.wordRomanization
-      ? [WORD_ALIGNMENT_PROMPTS.romanization]
+      ? [
+          retryInOrder
+            ? "Romanization retry: return one string for each entry in this line’s words array, in the exact order shown. Do not return index, from, or to. Use an empty string for a timed fragment whose pronunciation is already included in a neighboring entry. A string can contain multiple spoken syllables. When existingRomanization is supplied, preserve its non-whitespace characters."
+            : WORD_ALIGNMENT_PROMPTS.romanization,
+        ]
       : options.romanization
         ? ["romanization must be a nonempty single-line string, not a word array."]
         : []),
@@ -180,7 +204,7 @@ export const createGenerationMessages = (
 ${options.translation || options.wordTranslation ? `Translate naturally into ${TRANSLATION_LANGUAGES[language]}, preserving meaning, imagery and tone.` : "Do not produce a translation."}
 ${options.romanization || options.wordRomanization ? "Romanize the original pronunciation in Latin letters (Japanese Hepburn, Korean Revised Romanization, Chinese pinyin), using sentence context. Keep Latin-script words and punctuation, including Japanese quotes. Never translate romanization." : "Do not produce romanization."}
 ${instructions}
-Missing existing text must be generated for the requested task. Before outputting a record, check that every requested field is present, all indices come from that input line, ranges cover the source words, and concatenated fragments preserve any supplied existing text. Return JSON only, without timestamps, original lyrics or explanations.${retryFeedback ? " Earlier attempts encountered retryFeedback and previousErrors. Use the specific field, index and reason to correct response-related mistakes; do not claim to repair external service failures. lineId is the stable input id; lineNumber is only a display label. Return only the currently supplied lines, without repeating completed lines." : ""}`,
+Generate missing auxiliary text when needed. Include the requested fields. For any ranges, use indices from the matching input line. Preserve any supplied existing text when aligning. Natural translations can leave untranslated source words unmapped. Return JSON only, without timestamps, original lyrics or explanations.${retryFeedback ? " Earlier attempts encountered retryFeedback and previousErrors. Use the specific field, index and reason to correct response-related mistakes. lineId is the stable input id; lineNumber is a display label. Return only currently supplied lines." : ""}`,
     },
     {
       role: "user",
@@ -210,6 +234,9 @@ Missing existing text must be generated for the requested task. Before outputtin
         lines: lines.map((line) => ({
           id: line.id,
           ...(aligned ? { words: line.words } : { text: line.text }),
+          ...(options.wordRomanization && retryInOrder
+            ? { romanizationSlots: line.words.length }
+            : {}),
           ...(options.wordTranslation && !options.translation && line.existingTranslation.trim()
             ? { existingTranslation: line.existingTranslation }
             : {}),
@@ -291,13 +318,7 @@ export class GenerationDecoder {
     if (options.wordRomanization) {
       output.romanization = readRomanizationAlignment(line, romanization);
     } else if (options.romanization) {
-      if (
-        !isAlignedText(romanization, 16_384) ||
-        /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
-          romanization,
-        )
-      )
-        throw new Error("音译内容无效");
+      if (!isAlignedText(romanization, 16_384)) throw new Error("音译内容无效");
       output.romanization = romanization.trim();
     }
     for (const field of ["translation", "romanization"] as const) {

@@ -8,7 +8,10 @@ import type { DownloadResolution, DownloadResolvePayload } from "@shared/types/d
 import i18n from "@/i18n";
 import { resolveDownloadSource } from "@/services/download/source";
 import { resolveDownloadLyric } from "@/services/download/lyric";
-import { buildDownloadLyric } from "@/utils/lyric/serialize";
+import { parseDownloadLyrics } from "@/utils/lyric/serialize";
+import { createLyricSaveContent, getLyricExportMetadata } from "@/utils/lyric/save";
+import { useMediaStore } from "@/stores/media";
+import { serializeCompatibleLyrics } from "@shared/utils/lyricCompatible";
 import { toast } from "@/composables/useToast";
 
 /** 解析单个任务的 URL 与歌词 */
@@ -20,36 +23,62 @@ const resolvePayload = async (payload: DownloadResolvePayload): Promise<Download
   );
   if (!source) throw new Error("no download source");
   const { tagOptions } = payload;
-  let lyricText: string | undefined;
-  let ttmlText: string | undefined;
-  if (tagOptions.embedLyric || tagOptions.writeLrc || tagOptions.saveTtml) {
-    const lyric = await resolveDownloadLyric(payload.track);
-    if (lyric) {
-      const input = {
-        content: lyric.content,
-        translation: lyric.translation,
-        translationFormat: lyric.translationFormat,
-        romaji: lyric.romaji,
-        romajiFormat: lyric.romajiFormat,
-        timeShiftMs: lyric.timeShiftMs,
-      };
-      // 内嵌与 .lrc 文件共用所选格式（lrc/增强 LRC）
-      if (tagOptions.embedLyric || tagOptions.writeLrc) {
-        lyricText = buildDownloadLyric(input, lyric.format, payload.lyricFileFormat) ?? undefined;
-      }
-      // 完整 TTML 单独导出
-      if (tagOptions.saveTtml) {
-        ttmlText = buildDownloadLyric(input, lyric.format, "ttml") ?? undefined;
-      }
-    }
-  }
-  return {
+  const resolution: DownloadResolution = {
     url: source.url,
     declaredFormat: source.format,
     declaredSize: source.size,
-    lyricText,
-    ttmlText,
   };
+  if (tagOptions.embedLyric || tagOptions.writeLrc || tagOptions.saveTtml) {
+    const media = useMediaStore();
+    const sameTrack =
+      !media.lyricLoading &&
+      media.track?.id === payload.track.id &&
+      media.track.source === payload.track.source &&
+      media.track.serverId === payload.track.serverId &&
+      media.track.serverRevision === payload.track.serverRevision;
+    const active =
+      sameTrack && media.lyricFormat && media.lyricContent && media.parsedLyric.length
+        ? { ...media.lyricContent, format: media.lyricFormat }
+        : null;
+    const lyric = active || (await resolveDownloadLyric(payload.track));
+    if (lyric) {
+      const lines = active ? media.getLyricExportLines() : parseDownloadLyrics(lyric);
+      if (tagOptions.embedLyric || tagOptions.writeLrc) {
+        try {
+          const exported = serializeCompatibleLyrics(
+            lines,
+            payload.lyricFileFormat,
+            getLyricExportMetadata(payload.track, lyric),
+          );
+          resolution.lyricText = exported.lrc;
+          resolution.lyricTranslation = exported.translation;
+          resolution.lyricRomanization = exported.romanization;
+        } catch {
+          toast.warning(
+            i18n.global.t("download.lyricExportFailed", {
+              title: payload.track.title,
+              format: payload.lyricFileFormat.toUpperCase(),
+            }),
+          );
+        }
+      }
+      if (tagOptions.saveTtml) {
+        try {
+          const exported = createLyricSaveContent(payload.track, lines, lyric);
+          resolution.ttmlText = exported.ttml;
+          resolution.ttmlAuxiliary = exported.auxiliary;
+        } catch {
+          toast.warning(
+            i18n.global.t("download.lyricExportFailed", {
+              title: payload.track.title,
+              format: "TTML",
+            }),
+          );
+        }
+      }
+    }
+  }
+  return resolution;
 };
 
 /** 注册解析请求监听 */

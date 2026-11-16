@@ -98,6 +98,106 @@ afterEach(() => {
 });
 
 describe("AI 歌词翻译任务生命周期", () => {
+  it("七个原词遇到越界端点时改用按顺序的音译，允许只重做仍失败的一行", async () => {
+    const source = structuredClone(ALIGNMENT_LINES[0]);
+    media.parsedLyric = [
+      { ...source, romanLyric: "", romanizationWords: undefined },
+      {
+        ...source,
+        words: [..."決めポーズ完璧"].map((word, index) => ({
+          word,
+          startTime: 1000 + 100 * index,
+          endTime: 1100 + 100 * index,
+        })),
+        romanLyric: "ki me po zu sa da ka be",
+        romanizationWords: undefined,
+      },
+    ];
+    const state = await setup(false);
+    state.selected.value = {
+      translation: false,
+      romanization: false,
+      wordTranslation: false,
+      wordRomanization: true,
+    };
+    const bad = JSON.stringify({
+      id: 1,
+      romanization: [{ from: 0, to: 7, text: "ki me po zu sa da ka be" }],
+    });
+    const fixed = JSON.stringify({
+      id: 1,
+      romanization: ["ki", "me", "pō", "", "zu", "kanpeki", ""],
+    });
+    api.stream.mockImplementationOnce(async (_request, delta) => {
+      delta(
+        JSON.stringify({ id: 0, romanization: ALIGNMENT_RESULT.romanization }) + "\n" + bad + "\n",
+      );
+      return { status: "cancelled" };
+    });
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(request.messages[0].content).toContain(
+        "Romanization retry: return one string for each entry",
+      );
+      expect(payload.lines).toMatchObject([
+        { id: 1, romanizationSlots: 7, existingRomanization: "ki me po zu sa da ka be" },
+      ]);
+      expect(payload.retryFeedback.message).toContain("0、1、2、3、4、5、6");
+      return result(bad);
+    });
+    api.stream.mockResolvedValueOnce(result(fixed));
+    await state.runWithRetries(false);
+    expect(state.translatedCount.value).toBe(1);
+    expect(state.repairRomanizationLine.value).toBe(1);
+    expect(state.canApply.value).toBe(false);
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.lines.map((line) => line.id)).toEqual([1]);
+      expect(payload.lines[0]).not.toHaveProperty("existingRomanization");
+      return result(fixed);
+    });
+    await state.repairRomanization();
+    expect(state.canApply.value).toBe(true);
+    expect(state.rows.value[1].romanization).toBe("ki me pō zu kanpeki");
+    expect(state.apply()).toBe(true);
+    expect(media.applyGeneratedLyric.mock.calls[0][1].size).toBe(2);
+    expect(media.applyGeneratedLyric.mock.calls[0][5]).toEqual(new Set([1]));
+  });
+
+  it("自动重试只请求未完成的逐字行，并累计格式与网络错误", async () => {
+    media.parsedLyric = [structuredClone(ALIGNMENT_LINES[0]), structuredClone(ALIGNMENT_LINES[0])];
+    const state = await setup(false);
+    selectMode(state, "aligned");
+    const first = JSON.stringify({ id: 0, ...ALIGNMENT_RESULT });
+    const second = JSON.stringify({ id: 1, ...ALIGNMENT_RESULT });
+    api.stream.mockImplementationOnce(async (_request, delta) => {
+      delta(first + "\n" + JSON.stringify({ id: 1, translation: false }) + "\n");
+      return { status: "cancelled" };
+    });
+    api.stream.mockResolvedValueOnce({ status: "error", error: "网络中断" });
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.lines.map(({ id }) => id)).toEqual([1]);
+      expect(payload.retryFeedback.message).toBe("网络中断");
+      expect(payload.retryFeedback.previousErrors).toContainEqual(
+        expect.objectContaining({ lineId: 1, message: "译文字词数量无效" }),
+      );
+      return result(second);
+    });
+    await state.runWithRetries(false);
+    expect(api.stream).toHaveBeenCalledTimes(3);
+    expect(state.translatedCount.value).toBe(2);
+    expect(state.canApply.value).toBe(true);
+  });
+
+  it("持续请求失败时自动重试两次并保留手动续译", async () => {
+    const state = await setup();
+    api.stream.mockResolvedValue({ status: "error", error: "网络中断" });
+    await state.runWithRetries(false);
+    expect(api.stream).toHaveBeenCalledTimes(3);
+    expect(state.canResume.value).toBe(true);
+  });
+
   it.each([
     { kind: "service", message: "AI 请求失败（HTTP 401）" },
     { kind: "timeout", message: "AI 请求超时，请稍后重试" },

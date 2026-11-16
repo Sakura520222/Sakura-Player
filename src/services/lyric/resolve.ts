@@ -416,7 +416,7 @@ const resolveLocalRepoLyric = async (track: Track): Promise<ResolvedLyric | null
   }
   const resp = await window.api.lyrics.matchLocalTTML(track);
   if (!resp.ok || !resp.data) return null;
-  return { source: { source: "external", format: "ttml" }, input: { content: resp.data } };
+  return { source: { source: "external", format: "ttml" }, input: resp.data };
 };
 
 /**

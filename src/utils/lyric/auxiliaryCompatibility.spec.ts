@@ -8,6 +8,8 @@ import { collectLocalAlignmentLines } from "@/services/lyric/localAlignment";
 import { applyGeneratedLyrics } from "./alignment";
 import { applyTimedAuxiliary } from "./auxiliary";
 import { getRomanizationSpans } from "./romanization";
+import { parseExportTtml } from "@shared/utils/lyricTtml";
+import { restoreAuxiliaryTracks } from "@shared/utils/lyricAuxiliary";
 import { createLyricSaveContent } from "./save";
 import { createTranslationTrack } from "./translation";
 
@@ -92,7 +94,7 @@ describe("算法对齐与 AI 辅助轨道兼容", () => {
     expect(lines[0].words.map(({ romanWord: _roman, ...word }) => word)).toEqual(original);
     if (middle !== "っ") return;
     expect(lines[0].romanizationWords).toEqual([
-      { word: "ki ", startTime: 1000, endTime: 1200 },
+      { word: "ki ", startTime: 1000, endTime: 1200, from: 0, to: 0 },
       { word: " to", startTime: 1200, endTime: 1600, from: 1, to: 2 },
     ]);
     const saved = {
@@ -129,7 +131,7 @@ describe("算法对齐与 AI 辅助轨道兼容", () => {
     expect(collectLocalAlignmentLines([line])[0].romanization).toBe(line.romanLyric);
   });
 
-  it.each(["track", "ttml", "lrc", "lrc-crlf"] as const)(
+  it.each(["track", "ttml", "ttml-crlf"] as const)(
     "%s 保存单个语义片段三次后，AI 与算法均识别为已对齐",
     (format) => {
       const source = structuredClone(ALIGNMENT_LINES[0]);
@@ -165,21 +167,17 @@ describe("算法对齐与 AI 辅助轨道兼容", () => {
           ),
           translationFormat: "ttml" as const,
         };
-        const saved = createLyricSaveContent(track, lines, content, auxiliary);
-        const input: LyricInput =
-          format === "track"
-            ? { content, format: "ttml", ...auxiliary }
-            : {
-                content:
-                  format === "ttml"
-                    ? saved.ttml!
-                    : format === "lrc-crlf"
-                      ? saved.lrc.replace(/\n/g, "\r\n")
-                      : saved.lrc,
-                format: format === "lrc-crlf" ? "lrc" : format,
-              };
-        lines = parseLyric(input).lines;
-        applyTimedAuxiliary(lines, input);
+        const input: LyricInput = { content, format: "ttml", ...auxiliary };
+        if (format === "track") {
+          lines = parseLyric(input).lines;
+          applyTimedAuxiliary(lines, input);
+        } else {
+          const saved = createLyricSaveContent(track, lines, input);
+          lines = parseExportTtml(
+            format === "ttml-crlf" ? saved.ttml.replace(/\n/g, "\r\n") : saved.ttml,
+          ).lines;
+          restoreAuxiliaryTracks(lines, saved.auxiliary);
+        }
         normalizeLyricLines(lines);
         expect(lines[0].translationWords).toEqual(expected);
         expect(getGenerationCoverage(lines).existing.wordTranslation).toBe(1);

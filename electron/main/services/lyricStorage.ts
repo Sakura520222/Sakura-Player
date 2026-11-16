@@ -3,6 +3,32 @@ import { z } from "zod";
 import { DEFAULT_LYRIC_FORMAT_ORDER, type LyricStorageData } from "@shared/types/lyrics";
 
 const format = z.enum(DEFAULT_LYRIC_FORMAT_ORDER);
+const wordRange = z
+  .object({
+    word: z.string(),
+    startTime: z.int().nonnegative(),
+    endTime: z.int().nonnegative(),
+    from: z.int().nonnegative().optional(),
+    to: z.int().nonnegative().optional(),
+  })
+  .refine(
+    (word) =>
+      word.endTime >= word.startTime &&
+      (word.from === undefined
+        ? word.to === undefined
+        : word.to !== undefined && word.to >= word.from),
+  );
+const auxiliaryLine = z
+  .object({
+    text: z.string(),
+    language: z.string().optional(),
+    wordCount: z.int().nonnegative(),
+    words: z.array(wordRange).optional(),
+  })
+  .refine(
+    (line) =>
+      line.words?.every((word) => word.to === undefined || word.to < line.wordCount) ?? true,
+  );
 const storageSchema = z.object({
   version: z.literal(1),
   contentHash: z.string(),
@@ -12,6 +38,12 @@ const storageSchema = z.object({
   romaji: z.string().optional(),
   romajiFormat: format.optional(),
   kana: z.string().optional(),
+  auxiliary: z
+    .object({
+      translation: z.array(auxiliaryLine).optional(),
+      romanization: z.array(auxiliaryLine).optional(),
+    })
+    .optional(),
 });
 
 /**

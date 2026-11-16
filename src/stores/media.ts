@@ -1,5 +1,17 @@
 import type { MediaInfo, PlaybackContext, Track, TrackDetail } from "@shared/types/player";
-import type { LyricData, LyricFormat, LyricInput, LyricLine } from "@shared/types/lyrics";
+import type {
+  LyricAuxiliaryData,
+  LyricData,
+  LyricFormat,
+  LyricInput,
+  LyricLine,
+} from "@shared/types/lyrics";
+import {
+  AUXILIARY_TRACKS,
+  captureAuxiliaryTrack,
+  restoreAuxiliaryTracks,
+} from "@shared/utils/lyricAuxiliary";
+import { readTtmlAuxiliary, readTtmlDocument, restoreTtmlWords } from "@shared/utils/lyricTtml";
 import { useSettingsStore } from "@/stores/settings";
 import { watchLyricPreference } from "@/services/lyric/loader";
 import {
@@ -13,7 +25,6 @@ import {
 } from "lyric-kit";
 import { applyLyricExclude } from "@/utils/lyric/lyricStripper";
 import { applyLyricCjkTransform } from "@/utils/lyric/cjkTransform";
-import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { getRomanizationSpans } from "@/utils/lyric/romanization";
 import { alignGeneratedLyrics, applyGeneratedLyrics } from "@/utils/lyric/alignment";
@@ -165,6 +176,97 @@ export const useMediaStore = defineStore("media", () => {
   );
 
   /**
+   * 解析播放用行并保留未经简繁显示转换的数据
+   * @param source - 当前歌词来源及格式
+   * @param input - 正文及独立辅助轨道
+   * @returns 当前设置下原始歌词、制作者与逐字能力
+   */
+  const parseCurrentLyrics = (source: NonNullable<LyricData>, input: LyricInput) => {
+    let nextLines: LyricLine[] = [];
+    let authors: string[] = [];
+    let hasWordTiming = false;
+    const settings = useSettingsStore();
+    const result = parseLyric(
+      {
+        content: input.content,
+        format: source.format,
+        translation: input.translation,
+        translationFormat: input.translationFormat,
+        romaji: input.romaji,
+        romajiFormat: input.romajiFormat,
+        kana: input.kana,
+      },
+      {
+        detectBackground: settings.lyric.detectBackgroundLyrics,
+        preferredLang: settings.locale,
+        cleanKangxi: true,
+        extractMetadata: true,
+      },
+    );
+    const sourceLines: LyricLine[] = result.lines;
+    if (source.format === "ttml") {
+      try {
+        const doc = readTtmlDocument(input.content);
+        restoreTtmlWords(doc, sourceLines);
+        readTtmlAuxiliary(doc, sourceLines, settings.locale, input);
+      } catch {
+        // 旧版或线上 TTML 继续沿用播放解析器，严格校验只约束新写入
+      }
+    }
+    if (source.timeShiftMs) {
+      applyTimestampOffset(sourceLines, source.timeShiftMs);
+      for (const line of sourceLines)
+        for (const [, , field] of AUXILIARY_TRACKS) {
+          for (const word of line[field] ?? []) {
+            word.startTime = Math.max(0, word.startTime + source.timeShiftMs);
+            word.endTime = Math.max(0, word.endTime + source.timeShiftMs);
+          }
+        }
+    }
+    nextLines = applyLyricExclude(sourceLines, track.value);
+    applyTimedAuxiliary(nextLines, { ...input, format: source.format }, settings.locale);
+    normalizeLyricLines(nextLines);
+    nextLines = clampLastLineEnd(nextLines, track.value?.duration);
+    const segmenter = settings.lyric.autoGenerateWordByWord
+      ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+      : null;
+    for (const line of nextLines) {
+      const timed =
+        (line.words.length > 1 || ["ttml", "lys", "yrc", "qrc", "krc"].includes(source.format)) &&
+        line.words.some((word) => word.endTime > word.startTime);
+      if (timed) {
+        hasWordTiming = true;
+        continue;
+      }
+      if (!segmenter || line.endTime <= line.startTime) continue;
+      const text = line.words.map((word) => word.word).join("");
+      const characters = Array.from(segmenter.segment(text), (part) => part.segment);
+      if (!characters.length) continue;
+      const duration = line.endTime - line.startTime;
+      line.words = characters.map((word, index) => ({
+        word,
+        startTime: line.startTime + Math.round((duration * index) / characters.length),
+        endTime: line.startTime + Math.round((duration * (index + 1)) / characters.length),
+      }));
+      hasWordTiming = true;
+    }
+    restoreAuxiliaryTracks(nextLines, input.auxiliary);
+    applyLyricLanguages(nextLines);
+    authors = result.metadata.authors?.length
+      ? result.metadata.authors
+      : extractLyricAuthors(input.content, source.format);
+    return { nextLines, authors, hasWordTiming };
+  };
+
+  /** 从原始来源按需恢复导出内容，避免保存播放器显示用的简繁转换 */
+  const getLyricExportLines = (): LyricLine[] => {
+    const mode = useSettingsStore().lyric.cjkTransform;
+    if (mode && mode !== "none" && activeLyric.value && lyricContent.value)
+      return parseCurrentLyrics(activeLyric.value, lyricContent.value).nextLines;
+    return parsedLyric.value;
+  };
+
+  /**
    * 原子写入歌词
    * @param source - 歌词源
    * @param input - 主歌词 + 可选翻译 / 音译；传 null 即清空
@@ -177,55 +279,7 @@ export const useMediaStore = defineStore("media", () => {
     const settings = useSettingsStore();
     if (source && input) {
       try {
-        const result = parseLyric(
-          {
-            content: input.content,
-            format: source.format,
-            translation: input.translation,
-            translationFormat: input.translationFormat,
-            romaji: input.romaji,
-            romajiFormat: input.romajiFormat,
-          },
-          {
-            detectBackground: settings.lyric.detectBackgroundLyrics,
-            preferredLang: settings.locale,
-            cleanKangxi: true,
-            extractMetadata: true,
-          },
-        );
-        if (source.timeShiftMs) applyTimestampOffset(result.lines, source.timeShiftMs);
-        nextLines = applyLyricExclude(result.lines, track.value);
-        applyTimedAuxiliary(nextLines, { ...input, format: source.format }, settings.locale);
-        normalizeLyricLines(nextLines);
-        nextLines = clampLastLineEnd(nextLines, track.value?.duration);
-        const segmenter = settings.lyric.autoGenerateWordByWord
-          ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
-          : null;
-        for (const line of nextLines) {
-          const timed =
-            (line.words.length > 1 ||
-              ["ttml", "lys", "yrc", "qrc", "krc"].includes(source.format)) &&
-            line.words.some((word) => word.endTime > word.startTime);
-          if (timed) {
-            hasWordTiming = true;
-            continue;
-          }
-          if (!segmenter || line.endTime <= line.startTime) continue;
-          const text = line.words.map((word) => word.word).join("");
-          const characters = Array.from(segmenter.segment(text), (part) => part.segment);
-          if (!characters.length) continue;
-          const duration = line.endTime - line.startTime;
-          line.words = characters.map((word, index) => ({
-            word,
-            startTime: line.startTime + Math.round((duration * index) / characters.length),
-            endTime: line.startTime + Math.round((duration * (index + 1)) / characters.length),
-          }));
-          hasWordTiming = true;
-        }
-        applyLyricLanguages(nextLines);
-        authors = result.metadata.authors?.length
-          ? result.metadata.authors
-          : extractLyricAuthors(input.content, source.format);
+        ({ nextLines, authors, hasWordTiming } = parseCurrentLyrics(source, input));
       } catch (e) {
         console.error("[media] parse lyric failed:", e);
         nextLines = [];
@@ -277,16 +331,13 @@ export const useMediaStore = defineStore("media", () => {
       expected.some((index) => !translations.get(index)?.trim())
     )
       return false;
-    const translation = createTranslationTrack(lines, translations, language, "normalized");
-    transformToken++;
-    lyricContent.value = { ...toRaw(lyricContent.value), translation, translationFormat: "ttml" };
-    parsedLyric.value = lines.map((line, index) => ({
+    const updated = lines.map((line, index) => ({
       ...line,
       translatedLyric: translations.get(index) ?? line.translatedLyric,
       translationWords: undefined,
+      translationLanguage: language,
     }));
-    lyricRevision.value++;
-    syncToMain();
+    commitAuxiliaryLyrics(updated, { translation: true }, language);
     return true;
   };
 
@@ -334,37 +385,36 @@ export const useMediaStore = defineStore("media", () => {
    */
   const commitAuxiliaryLyrics = (
     lines: LyricLine[],
-    options: GenerationOptions,
+    options: Partial<GenerationOptions>,
     language: string,
   ): void => {
     const input = { ...toRaw(lyricContent.value!) };
+    const updated = { ...input.auxiliary };
     if (options.translation || options.wordTranslation) {
-      input.translation = createTranslationTrack(
-        lines,
-        new Map(
-          lines.map((line, index) => [
-            index,
-            line.translationWords?.length ? line.translationWords : line.translatedLyric,
-          ]),
-        ),
-        language,
-        "normalized",
+      lines = lines.map((line) =>
+        line.translatedLyric && !line.translationLanguage
+          ? { ...line, translationLanguage: language }
+          : line,
       );
-      input.translationFormat = "ttml";
+      updated.translation = captureAuxiliaryTrack(lines, "translation");
+      delete input.translation;
+      delete input.translationFormat;
     }
     if (options.romanization || options.wordRomanization) {
-      input.romaji = createTranslationTrack(
-        lines,
-        new Map(
-          lines.map((line, index) => [
-            index,
-            getRomanizationSpans(line) ?? getExistingRomanization(line),
-          ]),
-        ),
-        "und-Latn",
-        "normalized",
-      );
-      input.romajiFormat = "ttml";
+      lines = lines.map((line) => {
+        const romanLyric = getExistingRomanization(line);
+        return romanLyric && !line.romanizationLanguage
+          ? {
+              ...line,
+              romanLyric,
+              romanizationWords: getRomanizationSpans(line),
+              romanizationLanguage: "und-Latn",
+            }
+          : line;
+      });
+      updated.romanization = captureAuxiliaryTrack(lines, "romanization");
+      delete input.romaji;
+      delete input.romajiFormat;
     }
     const settings = useSettingsStore();
     if (options.translation || options.wordTranslation) settings.lyric.showTranslation = true;
@@ -372,10 +422,29 @@ export const useMediaStore = defineStore("media", () => {
     if (options.romanization) settings.lyric.showRomanization = true;
     if (options.wordRomanization) settings.lyric.showWordRomanization = true;
     transformToken++;
-    lyricContent.value = input;
+    lyricContent.value = { ...input, auxiliary: updated };
     parsedLyric.value = lines;
     lyricRevision.value++;
     syncToMain();
+  };
+
+  /**
+   * 清除一条辅助轨道，并记录清除状态以免重载时恢复旧数据
+   * @param track - 要清除的翻译或音译轨道
+   */
+  const clearAuxiliaryLyric = (track: keyof LyricAuxiliaryData): void => {
+    if (!lyricContent.value || lyricLoading.value) return;
+    const [, text, words, language] = AUXILIARY_TRACKS[track === "translation" ? 0 : 1];
+    const lines = parsedLyric.value.map((line) => ({
+      ...line,
+      [text]: "",
+      [words]: undefined,
+      [language]: undefined,
+      ...(track === "romanization"
+        ? { words: line.words.map((word) => ({ ...word, romanWord: undefined })) }
+        : {}),
+    }));
+    commitAuxiliaryLyrics(lines, { [track]: true }, "und");
   };
 
   /**
@@ -385,6 +454,7 @@ export const useMediaStore = defineStore("media", () => {
    * @param options - 用户勾选的生成项目
    * @param language - 新译文的目标语言，已有译文仅对齐时保留其语言
    * @param mode - 补齐缺失或从头完整生成
+   * @param regenerateRomanization - 用户选择单独重新音译的失败行
    * @returns 是否成功应用当前版本的完整结果
    */
   const applyGeneratedLyric = (
@@ -393,9 +463,16 @@ export const useMediaStore = defineStore("media", () => {
     options: GenerationOptions,
     language: string,
     mode: GenerationMode = "missing",
+    regenerateRomanization?: ReadonlySet<number>,
   ): boolean => {
     if (revision !== lyricRevision.value || !lyricContent.value || !activeLyric.value) return false;
-    const lines = applyGeneratedLyrics(parsedLyric.value, results, options, mode);
+    const lines = applyGeneratedLyrics(
+      parsedLyric.value,
+      results,
+      options,
+      mode,
+      regenerateRomanization,
+    );
     if (!lines) return false;
     const input = { ...toRaw(lyricContent.value) };
     let translationLanguage = language;
@@ -417,7 +494,15 @@ export const useMediaStore = defineStore("media", () => {
     const translationUpdated = generated.some((line) => line.translation !== undefined);
     const romanizationUpdated = generated.some((line) => line.romanization !== undefined);
     commitAuxiliaryLyrics(
-      lines,
+      lines.map((line, index) => {
+        const generated = results.get(index)?.translation;
+        return generated !== undefined &&
+          (mode === "full" ||
+            typeof generated === "string" ||
+            !parsedLyric.value[index].translatedLyric.trim())
+          ? { ...line, translationLanguage: language }
+          : line;
+      }),
       {
         translation: options.translation && translationUpdated,
         wordTranslation: options.wordTranslation && translationUpdated,
@@ -509,6 +594,8 @@ export const useMediaStore = defineStore("media", () => {
     applyAlignedLyricTranslation,
     applyGeneratedLyric,
     applyLocalLyricAlignment,
+    clearAuxiliaryLyric,
+    getLyricExportLines,
     updateLyricIndex,
     clear,
   };

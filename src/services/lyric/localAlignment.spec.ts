@@ -271,7 +271,7 @@ describe("本地对齐应用与重读", () => {
     expect(reloaded[0].romanizationWords).toHaveLength(1);
     expect(reloaded[1].romanizationWords).toEqual([
       { ...aligned[0], from: 0, to: 1 },
-      aligned[1],
+      { ...aligned[1], from: 2, to: 2 },
       { ...aligned[2], from: 3, to: 4 },
     ]);
     expect(
@@ -380,7 +380,7 @@ describe("本地对齐应用与重读", () => {
     expect(updated[0].isBG).toBe(true);
     expect(updated[0].romanizationWords).toEqual([
       { word: "  Kyō  ", startTime: 1000, endTime: 1400, from: 0, to: 1 },
-      { word: "wa ", startTime: 1400, endTime: 1600 },
+      { word: "wa ", startTime: 1400, endTime: 1600, from: 2, to: 2 },
       { word: "hare! ", startTime: 1600, endTime: 2000, from: 3, to: 4 },
     ]);
     const input = {

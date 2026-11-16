@@ -166,7 +166,7 @@ overrides:
   node-abi: ^4.33.0
 
 patchedDependencies:
-  lyric-dom@0.3.1: a64e36bcab3e01a51890cf64a14ad3ffbe514560c1d5bb031483774aaecea23f
+  lyric-dom@0.3.1: 8ba8dba454e4bf5106fb467d4dc178674c0edfbc739ed6c317117b8e7183bf3d
 
 importers:
 
@@ -184,6 +184,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(supports-color@7.2.0)(zod@4.6.7)
+      '@xmldom/xmldom':
+        specifier: ^0.9.10
+        version: 0.9.10
       atomically:
         specifier: ^2.1.1
         version: 2.1.1
@@ -334,7 +337,7 @@ importers:
         version: 1.10.0
       lyric-dom:
         specifier: ^0.3.1
-        version: 0.3.1(patch_hash=a64e36bcab3e01a51890cf64a14ad3ffbe514560c1d5bb031483774aaecea23f)
+        version: 0.3.1(patch_hash=8ba8dba454e4bf5106fb467d4dc178674c0edfbc739ed6c317117b8e7183bf3d)
       markdown-it-mathjax3:
         specifier: ^4.3.2
         version: 4.3.2
@@ -9306,7 +9309,7 @@ snapshots:
     dependencies:
       yallist: 4.0.0
 
-  lyric-dom@0.3.1(patch_hash=a64e36bcab3e01a51890cf64a14ad3ffbe514560c1d5bb031483774aaecea23f): {}
+  lyric-dom@0.3.1(patch_hash=8ba8dba454e4bf5106fb467d4dc178674c0edfbc739ed6c317117b8e7183bf3d): {}
 
   lyric-kit@0.7.0: {}
 

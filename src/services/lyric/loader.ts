@@ -66,7 +66,7 @@ const readLocal = async (detail: TrackDetail): Promise<LocalLyric | null> => {
     if (embedded && isBetterFormat(embedded.source.format, ext.format)) return embedded;
     const result = await window.api.player.readLyricFile(ext.path);
     if (!result.success || result.data == null) return embedded;
-    return { source: { source: "external", format: ext.format }, input: { content: result.data } };
+    return { source: { source: "external", format: ext.format }, input: result.data };
   }
   return embedded;
 };

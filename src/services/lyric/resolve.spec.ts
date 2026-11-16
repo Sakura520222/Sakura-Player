@@ -87,7 +87,7 @@ describe("resolveUserLyric 手动选择优先", () => {
     const settings = useSettingsStore();
     settings.system.localLyric.enableLocalTTMLOverride = true;
     settings.system.localLyric.repoDir = "D:/lyrics";
-    mockMatchLocalTTML.mockResolvedValue({ ok: true, data: "<tt></tt>" });
+    mockMatchLocalTTML.mockResolvedValue({ ok: true, data: { content: "<tt></tt>" } });
   });
 
   it("命中手动选择时优先于本地歌词库，并用候选的歌名和时长取词", async () => {

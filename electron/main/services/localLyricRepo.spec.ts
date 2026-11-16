@@ -71,21 +71,21 @@ describe("本地 TTML 多值元数据索引", () => {
     ["qqmusic", "qq-first"],
     ["qqmusic", "qq-second"],
   ] as const)("通过 %s 的平台 ID %s 匹配同一文件", async (source, id) => {
-    expect(await matchLocalTTML(makeTrack(source, id))).toBe(content);
+    expect((await matchLocalTTML(makeTrack(source, id)))?.content).toBe(content);
   });
 
   it("通过 QQ 歌曲的 mid 命中第二个 ID", async () => {
-    expect(await matchLocalTTML({ ...makeTrack("qqmusic", "unknown"), extId: "qq-second" })).toBe(
-      content,
-    );
+    expect(
+      (await matchLocalTTML({ ...makeTrack("qqmusic", "unknown"), extId: "qq-second" }))?.content,
+    ).toBe(content);
   });
 
   it("通过本地歌曲的缓存平台 ID 命中第二个 ID", async () => {
     fixtures.matchedIds.set("netease", { platformId: "1002" });
-    expect(await matchLocalTTML(makeTrack("local", "local-track"))).toBe(content);
+    expect((await matchLocalTTML(makeTrack("local", "local-track")))?.content).toBe(content);
     fixtures.matchedIds.clear();
     fixtures.matchedIds.set("qqmusic", { platformId: "unknown", extra: { mid: "qq-second" } });
-    expect(await matchLocalTTML(makeTrack("local", "local-track"))).toBe(content);
+    expect((await matchLocalTTML(makeTrack("local", "local-track")))?.content).toBe(content);
   });
 
   it.each([
@@ -98,13 +98,13 @@ describe("本地 TTML 多值元数据索引", () => {
     expect(await getLocalTTMLSavePath(track)).toBe(existing);
     expect(await saveLocalTTML(track, updated)).toBe(existing);
     expect(await readFile(existing, "utf8")).toBe(updated);
-    expect(await matchLocalTTML(track)).toBe(updated);
+    expect((await matchLocalTTML(track))?.content).toBe(updated);
   });
 
   it("保留实体解码后的标题匹配", async () => {
-    expect(await matchLocalTTML({ ...makeTrack("local", "local-track"), title: "A & B" })).toBe(
-      content,
-    );
+    expect(
+      (await matchLocalTTML({ ...makeTrack("local", "local-track"), title: "A & B" }))?.content,
+    ).toBe(content);
   });
 
   it("关闭本地覆盖时不返回匹配结果", async () => {

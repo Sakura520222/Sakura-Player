@@ -10,7 +10,7 @@ export const ROMANIZATION_LRC_KEY = "sakura-romanization";
  */
 export const getRomanizationSpans = (line: LyricLine): RomanizationSpan[] | undefined => {
   if (line.romanizationWords?.length) return line.romanizationWords;
-  const words = line.words.filter((word) => word.word.trim());
+  const words = line.words.flatMap((word, index) => (word.word.trim() ? [{ ...word, index }] : []));
   if (!words.length || words.some((word) => !word.romanWord?.trim())) return undefined;
   const text = line.romanLyric || words.map((word) => word.romanWord!.trim()).join(" ");
   if (
@@ -26,7 +26,13 @@ export const getRomanizationSpans = (line: LyricLine): RomanizationSpan[] | unde
   return words.map((word, index) => {
     position += Array.from(word.romanWord!.replace(/\s+/g, "")).length;
     const end = index === words.length - 1 ? text.length : characters[position].index;
-    const part = { word: text.slice(start, end), startTime: word.startTime, endTime: word.endTime };
+    const part = {
+      word: text.slice(start, end),
+      startTime: word.startTime,
+      endTime: word.endTime,
+      from: word.index,
+      to: word.index,
+    };
     start = end;
     return part;
   });
@@ -101,7 +107,7 @@ export const alignRomanizationWords = (
         continue;
       const next = resolve(position + 1, end + 1);
       if (!next.count) continue;
-      result.ranges = [{ ...part, ...(from !== to ? { from, to } : {}) }, ...next.ranges];
+      result.ranges = [{ ...part, from, to }, ...next.ranges];
       result.count = Math.min(2, result.count + next.count);
       if (result.count === 2) break;
     }

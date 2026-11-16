@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { nextTick, reactive, toRaw } from "vue";
-import { normalizeLyricLines, parseLyric, toTTML } from "lyric-kit";
+import { normalizeLyricLines, toTTML } from "lyric-kit";
 import { ALIGNMENT_LINES, ALIGNMENT_RESULT } from "@shared/testFixtures/lyricAlignment";
 import type { LyricLine } from "@shared/types/lyrics";
 import type { CjkTransformMode } from "@shared/types/opencc";
@@ -143,8 +143,8 @@ describe("当前歌曲本地算法对齐", () => {
     const saved = structuredClone(toRaw(media.lyricContent!));
     expect(saved.format).toBe("ttml");
     expect(saved.content).toBe(toTTML(lines));
-    expect(saved.translationFormat).toBe("ttml");
-    expect(saved.romajiFormat).toBe("ttml");
+    expect(saved.auxiliary?.translation).toHaveLength(2);
+    expect(saved.auxiliary?.romanization).toHaveLength(2);
     media.setLyric({ source: "embedded", format: "ttml" }, saved);
     await nextTick();
     expect(media.parsedLyric[0].translationWords).toEqual(applied[0].translationWords);
@@ -153,7 +153,7 @@ describe("当前歌曲本地算法对齐", () => {
     expect(media.parsedLyric[1].romanLyric).toBe("other voice");
     expect(media.parsedLyric[1].isBG).toBe(true);
     const beforeRealign = structuredClone(toRaw(media.parsedLyric));
-    const existingRomaji = media.lyricContent!.romaji;
+    const existingRomaji = media.lyricContent!.auxiliary?.romanization;
     const changed = [
       {
         id: 0,
@@ -172,7 +172,7 @@ describe("当前歌曲本地算法对齐", () => {
     expect(media.parsedLyric[0].translationWords).toHaveLength(3);
     expect(media.parsedLyric[0].words).toEqual(beforeRealign[0].words);
     expect(media.parsedLyric[0].romanizationWords).toEqual(beforeRealign[0].romanizationWords);
-    expect(media.lyricContent!.romaji).toBe(existingRomaji);
+    expect(media.lyricContent!.auxiliary?.romanization).toBe(existingRomaji);
     const realigned = structuredClone(toRaw(media.parsedLyric));
     media.setLyric(
       { source: "embedded", format: "ttml" },
@@ -200,7 +200,7 @@ describe("当前歌曲 AI 译文应用", () => {
         "en",
       ),
     ).toBe(true);
-    const romaji = media.lyricContent!.romaji;
+    const romaji = media.lyricContent!.auxiliary?.romanization;
     media.parsedLyric = media.parsedLyric.map((line) => ({ ...line, translationWords: undefined }));
     expect(
       media.applyGeneratedLyric(
@@ -210,7 +210,7 @@ describe("当前歌曲 AI 译文应用", () => {
         "en",
       ),
     ).toBe(true);
-    expect(media.lyricContent!.romaji).toBe(romaji);
+    expect(media.lyricContent!.auxiliary?.romanization).toBe(romaji);
     expect(getGenerationCoverage(media.parsedLyric).existing.wordRomanization).toBe(1);
   });
 
@@ -283,7 +283,9 @@ describe("当前歌曲 AI 译文应用", () => {
     const expected = structuredClone(toRaw(media.parsedLyric));
     const input = structuredClone(toRaw(media.lyricContent!));
     expect(input.content).toBe(content);
-    expect(input.romaji).toContain('sakura:from="4" sakura:to="5"');
+    expect(input.auxiliary?.romanization?.[0].words).toEqual(
+      expect.arrayContaining([expect.objectContaining({ from: 4, to: 5 })]),
+    );
     expect(mocks.update).toHaveBeenLastCalledWith(
       expect.objectContaining({ lyric: media.parsedLyric }),
     );
@@ -415,12 +417,7 @@ describe("当前歌曲 AI 译文应用", () => {
         "missing",
       ),
     ).toBe(true);
-    expect(
-      parseLyric(
-        { content: media.lyricContent!.translation!, format: "ttml" },
-        { extractMetadata: true },
-      ).metadata.language,
-    ).toBe("en");
+    expect(media.lyricContent!.auxiliary?.translation?.[0].language).toBe("en");
     expect(
       media.applyGeneratedLyric(
         media.lyricRevision,
@@ -484,12 +481,7 @@ describe("当前歌曲 AI 译文应用", () => {
       }
       if (options.wordTranslation && !options.translation) {
         expect(applied.translatedLyric).toBe(before.translatedLyric);
-        expect(
-          parseLyric(
-            { content: media.lyricContent!.translation!, format: "ttml" },
-            { extractMetadata: true },
-          ).metadata.language,
-        ).toBe("zh-CN");
+        expect(media.lyricContent!.auxiliary?.translation?.[0].language).toBe("zh-CN");
       }
       if (options.translation && !options.wordTranslation)
         expect(applied.translationWords).toBeUndefined();
@@ -616,15 +608,24 @@ describe("当前歌曲 AI 译文应用", () => {
     expect(media.applyLyricTranslation(media.lyricRevision, translations, "zh-CN")).toBe(true);
     expect(media.lyricContent?.content).toBe(input?.content);
     expect(media.parsedLyric).toEqual(
-      original.map((row, index) => ({ ...row, translatedLyric: translations.get(index) })),
+      original.map((row, index) => ({
+        ...row,
+        translatedLyric: translations.get(index),
+        translationLanguage: "zh-CN",
+      })),
     );
     expect(mocks.update).toHaveBeenLastCalledWith(
       expect.objectContaining({ lyric: media.parsedLyric }),
     );
-    const saved = parseLyric({ ...toRaw(media.lyricContent!), format: "lrc" }).lines;
-    expect(saved.map((row) => row.translatedLyric)).toEqual(["灯光", "雨声"]);
+    const saved = structuredClone(toRaw(media.lyricContent!));
+    expect(saved.auxiliary?.translation?.map((row) => row.text)).toEqual(["灯光", "雨声"]);
     media.setLyric(media.activeLyric, media.lyricContent);
     expect(media.parsedLyric.map((row) => row.translatedLyric)).toEqual(["灯光", "雨声"]);
+    const romanization = media.parsedLyric.map((row) => row.romanLyric);
+    media.clearAuxiliaryLyric("translation");
+    media.setLyric(media.activeLyric, media.lyricContent);
+    expect(media.parsedLyric.map((row) => row.translatedLyric)).toEqual(["", ""]);
+    expect(media.parsedLyric.map((row) => row.romanLyric)).toEqual(romanization);
   });
 
   it.each(["track", "source", "reset", "clear"])("%s 更新后拒绝旧版本结果", (change) => {

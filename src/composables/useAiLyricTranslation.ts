@@ -22,6 +22,8 @@ import {
   type TranslationLanguage,
 } from "@/services/lyric/aiTranslation";
 
+const MAX_AUTO_RETRIES = 2;
+
 /**
  * 当前弹窗独占任务，仅为当前歌词和选择保留有界续译结果
  * @param open - 弹窗是否打开
@@ -74,6 +76,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     responseSize: number;
     responseSizes: Map<number, number>;
     retryFeedback: GenerationRetryFeedback | null;
+    regenerateRomanization?: Set<number>;
   } | null = null;
   let job: {
     revision: number;
@@ -120,6 +123,27 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       progress.key === selectionKey.value &&
       generationCount.value > 0,
   );
+  const repairRomanizationLine = computed(() => {
+    const saved = progress;
+    const feedback = saved?.retryFeedback;
+    if (!canResume.value || phase.value !== "error" || !saved || !feedback) return null;
+    for (const { lineId, message } of [feedback, ...(feedback.previousErrors ?? [])]) {
+      if (
+        lineId === null ||
+        saved.results.has(lineId) ||
+        !/^(?:音译|逐字对齐不得改写已有音译)/.test(message)
+      )
+        continue;
+      const line = saved.lines.find(({ id }) => id === lineId);
+      if (
+        line?.options?.wordRomanization &&
+        !line.options.romanization &&
+        line.existingRomanization.trim()
+      )
+        return lineId;
+    }
+    return null;
+  });
 
   /**
    * 汇总所有失败路径的诊断，重复原因合并，历史有界保留并标明压缩数量
@@ -228,10 +252,11 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
   };
 
   /**
-   * 按当前模型配置分批生成，续译时将此前所有未处理的错误交给模型
+   * 按当前模型配置分批生成，续译时将此前错误交给模型
    * @param resuming - 是否沿用当前歌词与选项的已校验进度
+   * @param keepDiagnostics - 自动重试期间继续携带已经出现过的错误
    */
-  const run = async (resuming: boolean): Promise<void> => {
+  const run = async (resuming: boolean, keepDiagnostics = false): Promise<void> => {
     if (
       disposed ||
       busy.value ||
@@ -318,7 +343,11 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
                 : (result?.romanization
                     ?.map((part) => part.text)
                     .join(
-                      saved.mode === "missing" && line.existingRomanization.trim() ? "" : " ",
+                      saved.mode === "missing" &&
+                        line.existingRomanization.trim() &&
+                        !saved.regenerateRomanization?.has(line.id)
+                        ? ""
+                        : " ",
                     ) ?? line.existingRomanization),
             done: !plannedIds.value.has(line.id) || !!result,
           };
@@ -365,7 +394,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           end++;
         }
         const batch = remaining.slice(offset, end);
-        const retryFeedback = resuming ? saved.retryFeedback : null;
+        const retryFeedback = resuming || keepDiagnostics ? saved.retryFeedback : null;
         const decoder = new GenerationDecoder(batch, options);
         const requestId = crypto.randomUUID();
         current.requestId = requestId;
@@ -435,7 +464,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
         } finally {
           publish(finalDecoder.results);
         }
-        if (saved.retryFeedback === retryFeedback) saved.retryFeedback = null;
+        if (!keepDiagnostics && saved.retryFeedback === retryFeedback) saved.retryFeedback = null;
         offset = end;
       }
       if (isCurrent()) phase.value = "completed";
@@ -454,8 +483,45 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     }
   };
 
+  /**
+   * 自动继续失败的流式任务，每次只请求未完成的行，并保留历次错误
+   * @param resuming - 是否从已有的预览进度开始
+   */
+  const runWithRetries = async (resuming: boolean): Promise<void> => {
+    const revision = media.lyricRevision;
+    const key = selectionKey.value;
+    const language = targetLanguage.value;
+    await run(resuming, true);
+    for (let retry = 0; retry < MAX_AUTO_RETRIES; retry++) {
+      if (
+        phase.value !== "error" ||
+        !canResume.value ||
+        media.lyricRevision !== revision ||
+        selectionKey.value !== key ||
+        targetLanguage.value !== language
+      )
+        return;
+      await run(true, true);
+    }
+  };
+
   const start = (): Promise<void> => run(false);
   const resume = (): Promise<void> => run(true);
+  /** 从原文重新音译失败行，复用其余行的已校验结果 */
+  const repairRomanization = async (): Promise<void> => {
+    const id = repairRomanizationLine.value;
+    const saved = progress;
+    if (id === null || !saved) return;
+    (saved.regenerateRomanization ??= new Set()).add(id);
+    saved.lines = createGenerationPlan(
+      media.parsedLyric,
+      saved.options,
+      saved.mode,
+      saved.regenerateRomanization,
+    );
+    await runWithRetries(true);
+  };
+
   const apply = (): boolean => {
     if (!canApply.value || !progress) return false;
     const saved = progress;
@@ -465,6 +531,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       saved.options,
       saved.language,
       saved.mode,
+      ...(saved.regenerateRomanization ? ([saved.regenerateRomanization] as const) : []),
     );
   };
 
@@ -529,6 +596,9 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     canResume,
     start,
     resume,
+    runWithRetries,
+    repairRomanizationLine,
+    repairRomanization,
     cancel,
     apply,
   };

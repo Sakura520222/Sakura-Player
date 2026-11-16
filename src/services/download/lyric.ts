@@ -5,10 +5,10 @@
  */
 
 import type { Track } from "@shared/types/player";
-import type { LyricFormat, LyricInput } from "lyric-kit";
+import type { LyricFormat, LyricInput } from "@shared/types/lyrics";
 
 import { isPlatform } from "@shared/types/platform";
-import { buildDownloadLyric } from "@/utils/lyric/serialize";
+import { parseDownloadLyrics } from "@/utils/lyric/serialize";
 import {
   isBetterFormat,
   isPluginLyricPreferred,
@@ -38,10 +38,11 @@ const toDownloadLyric = (lyric: ResolvedLyric): DownloadLyric => ({
 const toUsableDownloadLyric = (lyric: ResolvedLyric | null): DownloadLyric | null => {
   if (!lyric) return null;
   const downloadLyric = toDownloadLyric(lyric);
-  const hasContent =
-    buildDownloadLyric(downloadLyric, downloadLyric.format, "lrc") ||
-    buildDownloadLyric(downloadLyric, downloadLyric.format, "ttml");
-  return hasContent ? downloadLyric : null;
+  try {
+    return parseDownloadLyrics(downloadLyric).length ? downloadLyric : null;
+  } catch {
+    return null;
+  }
 };
 
 /** 在线歌词优先尝试 TTML，失败再回落原结果 */

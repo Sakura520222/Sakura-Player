@@ -7,32 +7,34 @@ import { readSse } from "./sse";
 import { readResponseText } from "./body";
 
 const MAX_RESPONSE_LENGTH = 2 * 1024 * 1024;
-const REQUEST_TIMEOUT_MS = 120_000;
+const RESPONSE_IDLE_TIMEOUT_MS = 120_000;
 const MAX_ERROR_LENGTH = 8192;
 
 class ActivityTimeout {
   private timer: NodeJS.Timeout | null = null;
-  private controller = new AbortController();
-  constructor(
-    public timeoutMs: number,
-    parentSignal?: AbortSignal,
-  ) {
-    parentSignal?.addEventListener("abort", () => this.controller.abort(parentSignal.reason), {
-      once: true,
-    });
+  private readonly controller = new AbortController();
+  readonly signal: AbortSignal;
+
+  /**
+   * 从请求发出开始监控空闲时间，沿用调用者的取消信号
+   * @param parentSignal - IPC 请求的取消信号
+   */
+  constructor(parentSignal: AbortSignal) {
+    this.signal = AbortSignal.any([this.controller.signal, parentSignal]);
     this.reset();
   }
-  get signal() {
-    return this.controller.signal;
-  }
-  reset() {
-    if (this.timer) clearTimeout(this.timer);
-    if (this.controller.signal.aborted) return;
+
+  /** 收到 HTTP 响应数据时重置空闲计时 */
+  reset(): void {
+    this.clear();
+    if (this.signal.aborted) return;
     this.timer = setTimeout(() => {
-      this.controller.abort(new Error("AI 请求超时，请稍后重试"));
-    }, this.timeoutMs);
+      this.controller.abort(new Error("AI 请求超时（120 秒无数据），请稍后重试"));
+    }, RESPONSE_IDLE_TIMEOUT_MS);
   }
-  clear() {
+
+  /** 完成或取消请求时释放空闲计时器 */
+  clear(): void {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -111,7 +113,7 @@ export const requestAi = async (
   if (anthropic && options.temperature !== undefined && options.temperature > 1) {
     throw new Error("Anthropic 的 temperature 必须介于 0 和 1 之间");
   }
-  const activityTimeout = new ActivityTimeout(REQUEST_TIMEOUT_MS, signal);
+  const activityTimeout = new ActivityTimeout(signal);
   const requestSignal = activityTimeout.signal;
   const body: Record<string, unknown> = {
     model: connection.model,
@@ -336,7 +338,7 @@ export const requestAi = async (
     return { text: texts.join(""), model, finishReason, usage };
   } catch (error) {
     if (signal.aborted) signal.throwIfAborted();
-    if (activityTimeout.signal.aborted) throw new Error("AI 请求超时，请稍后重试");
+    activityTimeout.signal.throwIfAborted();
     if (error instanceof z.ZodError) throw new Error("AI 服务响应结构无效，请检查接口协议兼容性");
     if (error instanceof SyntaxError)
       throw new Error("AI 服务返回了无法解析的 JSON，请检查接口服务");

@@ -53,7 +53,7 @@ describe("日文和英文歌曲的本地翻译对齐回归", () => {
     expect(updated[0].words).toBe(line.words);
     expect(updated[0].romanLyric).toBe(line.romanLyric);
     expect(line).toEqual(original);
-    expect(updated[0].translationWords).toEqual(
+    expect(updated[0].translationWords).toMatchObject(
       fixture.expected.map((part, index) => ({
         word: part.text,
         startTime: fixture.times[index].startTime,
@@ -102,7 +102,7 @@ describe("日文和英文歌曲的本地翻译对齐回归", () => {
       ],
     )!;
     const updated = applyLocalAlignment([line], [{ id: 0, translation }])!;
-    expect(updated[0].translationWords).toEqual([
+    expect(updated[0].translationWords).toMatchObject([
       { word: "描绘", startTime: 1000, endTime: 1327 },
       { word: "我的", startTime: 1327, endTime: 1653 },
       { word: "未来", startTime: 1653, endTime: 1980 },
@@ -141,7 +141,7 @@ describe("日文和英文歌曲的本地翻译对齐回归", () => {
       ],
     )!;
     const updated = applyLocalAlignment([line], [{ id: 0, translation }])!;
-    expect(updated[0].translationWords).toEqual([
+    expect(updated[0].translationWords).toMatchObject([
       { word: "你", startTime: 1000, endTime: 1080 },
       { word: "改变", startTime: 1300, endTime: 1980 },
     ]);

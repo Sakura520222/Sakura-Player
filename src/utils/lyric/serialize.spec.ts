@@ -1,73 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { parseLyric } from "lyric-kit";
-import { buildDownloadLyric } from "./serialize";
+import { parseDownloadLyrics } from "./serialize";
+import { LYRIC_SAVE_FIXTURES } from "@shared/testFixtures/lyricSave";
+import { serializeCompatibleLyrics } from "@shared/utils/lyricCompatible";
 
-describe("下载歌词格式兼容", () => {
-  it("整秒歌词与外部翻译可下载，并在重新加载后保持对应", () => {
-    const content = buildDownloadLyric(
-      {
-        content: "[ti:歌曲]\n[00:01]原词甲\n[00:03.250]原词乙",
-        translation: "[00:01]译文甲\n[00:03.250]译文乙",
-      },
-      "lrc",
-      "lrc",
-    );
-    expect(content).not.toBeNull();
-    expect(content).not.toContain("[ti:");
-    expect(
-      parseLyric(content!).lines.map((line) => [line.startTime, line.translatedLyric]),
-    ).toEqual([
-      [1000, "译文甲"],
-      [3250, "译文乙"],
-    ]);
+describe("下载歌词输入与兼容导出", () => {
+  it("解析同步的整行辅助歌词并应用整首时间偏移", () => {
+    const lines = parseDownloadLyrics({
+      format: "lrc",
+      content: "[00:01]Original",
+      translation: "[00:01]译文",
+      romaji: "[00:01]roma",
+      timeShiftMs: 350,
+    });
+    const output = serializeCompatibleLyrics(lines, "lrc");
+    expect(output).toMatchObject({
+      lrc: expect.stringMatching(/^\[00:01.350\]Original\n\[/),
+      translation: expect.stringMatching(/^\[00:01.350\]译文\n\[/),
+      romanization: expect.stringMatching(/^\[00:01.350\]roma\n\[/),
+    });
   });
 
-  it.each(["lrc", "enhanced-lrc"] as const)(
-    "%s 下载后保留只有罗马音的辅助行及毫秒起点",
-    (target) => {
-      const content = buildDownloadLyric(
-        { content: "[00:01.001]你好", romaji: "[00:01.001]ni hao" },
-        "lrc",
-        target,
-      );
-      expect(content).not.toBeNull();
-      expect(parseLyric(content!).lines[0]).toMatchObject({
-        startTime: 1001,
-        translatedLyric: "",
-        romanLyric: "ni hao",
-      });
-    },
-  );
-
-  it("增强歌词下载后保留背景人声、词间空隙及最后一个字的结束时间", () => {
+  it("按同一偏移移动 TTML 原始字词和头部辅助片段", () => {
     const input = {
-      content: "[00:01.001]<00:01.001>(Hello <00:01.307><00:01.555>World)<00:02.009>",
-      translation: "[00:01.001](你好世界)",
-      romaji: "[00:01.001](hello world)",
+      format: "ttml" as const,
+      content:
+        '<tt xmlns="http://www.w3.org/ns/ttml" xmlns:i="http://music.apple.com/lyric-ttml-internal"><head><metadata><iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal"><translations><translation xml:lang="zh-CN"><text for="L1"><span begin="1.2s" end="1.8s">歌词</span></text></translation></translations></iTunesMetadata></metadata></head><body><div><p begin="1s" end="2s" i:key="L1"><span begin="1.0s" end="2.0s">Words</span></p></div></body></tt>',
+      timeShiftMs: -250,
     };
-    const content = buildDownloadLyric(input, "lrc", "enhanced-lrc");
-    expect(content).not.toBeNull();
-    expect(parseLyric(content!).lines).toEqual(parseLyric(input).lines);
+    const [line] = parseDownloadLyrics(input);
+    expect(line.words[0]).toMatchObject({ word: "Words", startTime: 750, endTime: 1750 });
+    expect(line.translationWords).toEqual([{ word: "歌词", startTime: 950, endTime: 1550 }]);
   });
 
-  it("已有 TTML 下载时保留原文及扩展元数据", () => {
-    const original = `<tt xmlns="http://www.w3.org/ns/ttml"
-      xmlns:amll="http://www.example.com/ns/amll"><head><metadata>
-      <amll:meta key="musicName" value="歌曲"/></metadata></head><body><div>
-      <p begin="1s" end="2s">歌词</p></div></body></tt>`;
-    expect(buildDownloadLyric({ content: original }, "ttml", "ttml")).toBe(original);
+  it("丢失辅助逐字能力时仍保留可兼容的独立歌词", () => {
+    const lines = parseDownloadLyrics(LYRIC_SAVE_FIXTURES[0]);
+    const output = serializeCompatibleLyrics(lines, "enhanced-lrc");
+    expect(output.lrc).toContain("<00:01.234>逐<00:02.100>字");
+    expect(output.translation).toContain("[00:01.234]翻译原文");
+    expect(output.romanization).toContain("[00:01.234]zhu zi ge ci");
   });
 
-  it("无有效歌词时不生成下载文件", () => {
-    expect(buildDownloadLyric({ content: "[ti:只有元数据]" }, "lrc", "lrc")).toBeNull();
-  });
-
-  it("带时间校正量时写入校正后的时间", () => {
-    const content = buildDownloadLyric(
-      { content: "[00:05.00]偏晚的歌词", timeShiftMs: -3000 },
-      "lrc",
-      "lrc",
-    );
-    expect(content).toContain("[00:02.000]");
+  it("只有元数据时没有可供导出的歌词", () => {
+    expect(parseDownloadLyrics({ content: "[ti:只有元数据]", format: "lrc" })).toEqual([]);
   });
 });

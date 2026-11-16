@@ -63,6 +63,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@hono/node-server": "^2.1.5",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@xmldom/xmldom": "^0.9.10",
     "atomically": "^2.1.1",
     "better-sqlite3": "^13.0.3",
     "diff": "^8.0.4",

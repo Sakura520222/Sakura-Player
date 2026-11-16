@@ -1,5 +1,5 @@
 diff --git a/dist/index.d.mts b/dist/index.d.mts
-index e49d5963bf26ec46440e29a4503a71a49076dd33..9095fa773fffe1e353100de895c94a11ae70e083 100644
+index e49d596..9095fa7 100644
 --- a/dist/index.d.mts
 +++ b/dist/index.d.mts
 @@ -41,6 +41,8 @@ interface LyricLine {
@@ -12,7 +12,7 @@ index e49d5963bf26ec46440e29a4503a71a49076dd33..9095fa773fffe1e353100de895c94a11
    startTime: number;
    /** 句子的结束时间（毫秒） */
 diff --git a/dist/index.mjs b/dist/index.mjs
-index a23b2b8fa651dfc27eeae3d88015680ef3e2fee8..8892a1204f6a90cc80651b2699466cb14231abd8 100644
+index a23b2b8..9c6690e 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -1308,7 +1308,15 @@ const measureAndApplyWordMasks = (wordMeasurements, fadeRatio, lines) => {
@@ -32,7 +32,7 @@ index a23b2b8fa651dfc27eeae3d88015680ef3e2fee8..8892a1204f6a90cc80651b2699466cb1
  const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
  	if (isStatic) {
  		mainDiv.appendChild(document.createTextNode(line.words.map((w) => w.word).join("")));
-@@ -1318,6 +1326,45 @@ const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
+@@ -1318,6 +1326,76 @@ const buildMainLayer = (line, mainDiv, options, isStatic, showWordRoman) => {
  			animTargets: []
  		};
  	}
@@ -47,21 +47,44 @@ index a23b2b8fa651dfc27eeae3d88015680ef3e2fee8..8892a1204f6a90cc80651b2699466cb1
 +			let end = part ? part.to + 1 : index + 1;
 +			if (!part) while (end < line.words.length && !byStart.has(end)) end++;
 +			let target = mainDiv;
-+			let roman;
++			let punctuation;
++			let voicedEnd = end;
++			const romanElements = [];
 +			if (part) {
++				// 句尾标点仍在所属范围内，但不占用音译的居中列
++				while (voicedEnd > index + 1 && /^[\p{P}\s]+$/u.test(line.words[voicedEnd - 1].word)) voicedEnd--;
 +				const group = document.createElement("span");
 +				group.className = "lp-word-roman lp-roman-range";
 +				group.dataset.romanFrom = String(part.from);
 +				group.dataset.romanTo = String(part.to);
 +				target = document.createElement("span");
 +				target.className = "lp-main lp-roman-range-main";
-+				roman = document.createElement("span");
++				const roman = document.createElement("span");
 +				roman.className = "lp-roman-word";
-+				roman.textContent = part.word.trim();
++				const romanText = part.word.trim();
++				roman.textContent = romanText;
 +				group.append(target, roman);
++				if (voicedEnd < end) {
++					group.classList.add("lp-roman-with-punctuation");
++					punctuation = document.createElement("span");
++					punctuation.className = "lp-main lp-roman-range-punctuation";
++					group.appendChild(punctuation);
++					const suffix = /\p{P}+$/u.exec(romanText);
++					if (suffix?.index > 0) {
++						const syllable = document.createElement("span");
++						syllable.className = "lp-roman-syllable";
++						syllable.textContent = romanText.slice(0, suffix.index);
++						const mark = document.createElement("span");
++						mark.className = "lp-roman-punctuation";
++						mark.textContent = suffix[0];
++						roman.replaceChildren(syllable, mark);
++						romanElements.push(syllable, mark);
++					}
++				}
++				if (!romanElements.length) romanElements.push(roman);
 +				mainDiv.appendChild(group);
 +			}
-+			const built = buildWordSpans(line.words.slice(index, end), target, {
++			const built = buildWordSpans(line.words.slice(index, voicedEnd), target, {
 +				enableEmphasizeEffect: options.enableEmphasizeEffect,
 +				emphasizeMinDuration: options.emphasizeMinDuration,
 +				showRuby: options.showRuby,
@@ -69,7 +92,15 @@ index a23b2b8fa651dfc27eeae3d88015680ef3e2fee8..8892a1204f6a90cc80651b2699466cb1
 +			});
 +			measurements.push(...built.measurements);
 +			animTargets.push(...built.animTargets);
-+			if (part) measurements.push({ element: roman, word: part, width: 0, fadeWidth: 0 });
++			if (punctuation) {
++				const marks = buildWordSpans(line.words.slice(voicedEnd, end), punctuation, {
++					enableEmphasizeEffect: false,
++					showRuby: options.showRuby
++				});
++				measurements.push(...marks.measurements);
++				animTargets.push(...marks.animTargets);
++			}
++			for (const element of romanElements) measurements.push({ element, word: part, width: 0, fadeWidth: 0 });
 +			index = end;
 +		}
 +		for (const [index, target] of animTargets.entries()) target.isLastWord = index === animTargets.length - 1;
@@ -79,10 +110,10 @@ index a23b2b8fa651dfc27eeae3d88015680ef3e2fee8..8892a1204f6a90cc80651b2699466cb1
  		enableEmphasizeEffect: options.enableEmphasizeEffect,
  		emphasizeMinDuration: options.emphasizeMinDuration,
 diff --git a/dist/style.css b/dist/style.css
-index 02c947cf2972be0ea9ad18b33286ec8fe195b663..ef8b5e483fa7e627bc60755f99aef8ea05863e3a 100644
+index 02c947c..c5e87a1 100644
 --- a/dist/style.css
 +++ b/dist/style.css
-@@ -173,6 +173,16 @@
+@@ -173,6 +173,47 @@
      display: inline-block;
    }
  
@@ -94,6 +125,37 @@ index 02c947cf2972be0ea9ad18b33286ec8fe195b663..ef8b5e483fa7e627bc60755f99aef8ea
 +
 +  & .lp-roman-range-main {
 +    white-space: nowrap;
++  }
++
++  & > span.lp-roman-with-punctuation {
++    display: inline-grid;
++    grid-template-columns: auto max-content;
++    align-items: end;
++    justify-items: center;
++
++    & > .lp-roman-range-main {
++      grid-area: 1 / 1;
++    }
++
++    & > .lp-roman-range-punctuation {
++      grid-area: 1 / 2;
++      white-space: nowrap;
++    }
++
++    & > .lp-roman-word {
++      grid-area: 2 / 1;
++      position: relative;
++    }
++
++    & .lp-roman-syllable {
++      display: inline-block;
++    }
++
++    & .lp-roman-punctuation {
++      position: absolute;
++      inset-inline-start: 100%;
++      inset-block-start: 0;
++    }
 +  }
 +
    & > span.lp-emp-wrapper {

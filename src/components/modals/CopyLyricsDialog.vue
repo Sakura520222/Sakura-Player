@@ -6,7 +6,13 @@ import { saveTrackTags } from "@/core/player";
 import { useCopyText } from "@/composables/useCopyText";
 import { toast } from "@/composables/useToast";
 import { createLyricPoster } from "@/utils/lyric/poster";
-import { createLyricSaveContent } from "@/utils/lyric/save";
+import { createLyricSaveContent, getLyricExportMetadata } from "@/utils/lyric/save";
+import { serializeCompatibleLyrics } from "@shared/utils/lyricCompatible";
+import {
+  LYRIC_COMPATIBLE_FORMATS,
+  type CompatibleLyricFormat,
+  type LyricSaveFilesRequest,
+} from "@shared/types/lyrics";
 import type { LyricSavePreviewTarget } from "@/types/lyric-preview";
 
 const LyricSavePreviewDialog = defineAsyncComponent(() => import("./LyricSavePreviewDialog.vue"));
@@ -126,9 +132,14 @@ const handleCopyRaw = async (): Promise<void> => {
 /** 导出中，防重复点击 */
 const exporting = ref(false);
 const saving = ref(false);
-const saveMetadata = ref(true);
+const saveMetadata = ref(false);
 const saveLrc = ref(false);
 const saveTtml = ref(true);
+const compatibleFormat = ref<CompatibleLyricFormat>("lrc");
+const formatOptions = LYRIC_COMPATIBLE_FORMATS.map((value) => ({
+  value,
+  label: value === "enhanced-lrc" ? "Enhanced LRC (A2)" : value.toUpperCase(),
+}));
 const saveFeedback = ref<string[]>([]);
 const previewing = ref(false);
 const previewOpen = ref(false);
@@ -137,46 +148,35 @@ let previewRequestId = 0;
 const canWriteMetadata = computed(
   () => media.track?.source === "local" && !!media.track.path && !media.track.cuePath,
 );
-const canSaveTtml = computed(
-  () =>
-    media.lyricFormat === "ttml" &&
-    !!media.lyricContent?.content &&
-    settings.system.localLyric.enableLocalTTMLOverride &&
-    !!settings.system.localLyric.repoDir,
+const hasTtmlRepo = computed(
+  () => settings.system.localLyric.enableLocalTTMLOverride && !!settings.system.localLyric.repoDir,
 );
-const canSaveLyrics = computed(
-  () =>
-    !!media.track &&
-    !media.lyricLoading &&
-    !!media.lyricContent?.content &&
-    !!media.lyricFormat &&
-    media.parsedLyric.length > 0 &&
-    ((canWriteMetadata.value && saveMetadata.value) ||
-      saveLrc.value ||
-      (canSaveTtml.value && saveTtml.value)),
+const hasTranslation = computed(() => media.parsedLyric.some((line) => line.translatedLyric));
+const hasRomanization = computed(() =>
+  media.parsedLyric.some((line) => line.romanLyric || line.words.some((word) => word.romanWord)),
 );
 
 const saveSnapshot = computed(() => {
   const track = media.track;
   const input = media.lyricContent;
   const format = media.lyricFormat;
-  if (!track || !input || !format) return null;
+  if (!track || !input?.content || !format || media.lyricLoading || !media.parsedLyric.length)
+    return null;
   return {
     track: toRaw(track),
-    lyrics: input.content,
-    lyricData: {
-      format,
-      translation: input.translation,
-      translationFormat: input.translationFormat,
-      romaji: input.romaji,
-      romajiFormat: input.romajiFormat,
-      kana: input.kana,
-    },
-    lines: media.parsedLyric,
+    input: { ...toRaw(input), format },
+    lines: media.getLyricExportLines(),
     writeMetadata: canWriteMetadata.value && saveMetadata.value,
     writeLrc: saveLrc.value,
-    ttml: canSaveTtml.value && saveTtml.value ? input.content : undefined,
+    writeTtml: saveTtml.value,
+    saveTtmlAs: !hasTtmlRepo.value,
+    compatibleFormat: compatibleFormat.value,
   };
+});
+
+const canSaveLyrics = computed(() => {
+  const snapshot = saveSnapshot.value;
+  return !!snapshot && (snapshot.writeMetadata || snapshot.writeLrc || snapshot.writeTtml);
 });
 
 watch(
@@ -196,111 +196,119 @@ onBeforeUnmount(() => {
   previewRequestId++;
 });
 
-/** 按保存快照读取原歌词，过期的请求不会重新打开预览。 */
+/**
+ * 为每个导出目标生成独立的预览及待写入数据
+ * @param snapshot - 不随切歌变化的歌词快照
+ * @returns 完整 TTML、兼容文件与可显示的错误
+ */
+const prepareSave = (snapshot: NonNullable<typeof saveSnapshot.value>) => {
+  const { track, input, lines, writeMetadata, writeTtml, writeLrc, saveTtmlAs, compatibleFormat } =
+    snapshot;
+  const request: LyricSaveFilesRequest = { track, saveTtmlAs };
+  const errors: LyricSavePreviewTarget[] = [];
+  let full: ReturnType<typeof createLyricSaveContent> | undefined;
+  if (writeMetadata || writeTtml) {
+    try {
+      full = createLyricSaveContent(track, lines, input);
+      if (writeTtml) Object.assign(request, full);
+    } catch (error) {
+      for (const key of ["ttml", "metadata"] as const) {
+        if (key === "ttml" ? writeTtml : writeMetadata)
+          errors.push({
+            key,
+            fields: [],
+            error: error instanceof Error ? error.message : String(error),
+          });
+      }
+    }
+  }
+  if (writeLrc) {
+    try {
+      Object.assign(request, {
+        compatibleFormat,
+        ...serializeCompatibleLyrics(lines, compatibleFormat, getLyricExportMetadata(track, input)),
+      });
+    } catch (error) {
+      errors.push({
+        key: "lrc",
+        label: compatibleFormat.toUpperCase(),
+        fields: [],
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return { full, request, errors };
+};
+
+/** 按保存快照读取原歌词，过期的请求不会重新打开预览 */
 const handlePreviewLyrics = async (): Promise<void> => {
   const snapshot = saveSnapshot.value;
   if (!snapshot || saving.value || previewing.value || !canSaveLyrics.value) return;
   const id = ++previewRequestId;
   previewing.value = true;
-  const { track, lyrics, lyricData, lines, writeMetadata, writeLrc, ttml } = snapshot;
-  const tasks: Promise<LyricSavePreviewTarget[]>[] = [];
-  if (writeMetadata)
-    tasks.push(
-      (async () => {
-        try {
-          const result = await window.api.library.readTags(track.path!);
-          if (!result.success || !result.data)
-            throw new Error(t("player.copyLyric.preview.readFailed"));
-          const before = result.data;
-          const fields: LyricSavePreviewTarget["fields"] = [
+  try {
+    const { full, request, errors } = prepareSave(snapshot);
+    const targets = [...errors];
+    if (snapshot.writeMetadata && full) {
+      try {
+        const result = await window.api.library.readTags(snapshot.track.path!);
+        if (!result.success || !result.data)
+          throw new Error(t("player.copyLyric.preview.readFailed"));
+        targets.push({
+          key: "metadata",
+          path: snapshot.track.path,
+          exists: !!result.data.lyrics,
+          fields: [
             {
               key: "lyrics",
-              before: before.lyrics ?? "",
-              after: lyrics,
-              beforeFormat: before.lyricData?.format,
-              afterFormat: lyricData.format,
+              before: result.data.lyrics ?? "",
+              after: full.ttml,
+              beforeFormat: result.data.lyricData?.format,
+              afterFormat: "ttml",
             },
-            {
-              key: "translation",
-              before: before.lyricData?.translation ?? "",
-              after: lyricData.translation ?? "",
-              beforeFormat: before.lyricData?.translationFormat,
-              afterFormat: lyricData.translationFormat,
-            },
-            {
-              key: "romaji",
-              before: before.lyricData?.romaji ?? "",
-              after: lyricData.romaji ?? "",
-              beforeFormat: before.lyricData?.romajiFormat,
-              afterFormat: lyricData.romajiFormat,
-            },
-            { key: "kana", before: before.lyricData?.kana ?? "", after: lyricData.kana ?? "" },
-          ];
-          return [
-            {
-              key: "metadata",
-              path: track.path,
-              exists: !!before.lyrics,
-              fields: fields.filter((field) => field.before || field.after),
-            },
-          ];
-        } catch (error) {
-          return [
-            {
-              key: "metadata",
-              path: track.path,
-              fields: [],
-              error:
-                error instanceof Error ? error.message : t("player.copyLyric.preview.readFailed"),
-            },
-          ];
-        }
-      })(),
-    );
-  if (writeLrc || ttml)
-    tasks.push(
-      (async () => {
-        const selected = (["lrc", "ttml"] as const).filter((key) =>
-          key === "lrc" ? writeLrc : !!ttml,
-        );
-        try {
-          const content = createLyricSaveContent(track, lines, ttml, lyricData);
-          const result = await window.api.lyrics.previewFiles({
-            track,
-            lrc: writeLrc ? content.lrc : undefined,
-            ttml: content.ttml,
-          });
-          return selected.map((key): LyricSavePreviewTarget => {
-            const before = result[key];
-            if (!before || before.status === "failed")
-              return {
-                key,
-                fields: [],
-                error: before?.error ?? t("player.copyLyric.preview.readFailed"),
-              };
-            return {
-              key,
-              path: before.path,
-              exists: before.exists,
-              needsDestination: before.needsDestination,
-              fields: [{ key: "lyrics", before: before.content, after: content[key]! }],
-            };
-          });
-        } catch (error) {
-          return selected.map((key) => ({
+          ],
+        });
+      } catch (error) {
+        targets.push({
+          key: "metadata",
+          fields: [],
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    if (request.lrc !== undefined || request.ttml !== undefined) {
+      const result = await window.api.lyrics.previewFiles(request);
+      for (const key of ["lrc", "ttml", "translation", "romanization"] as const) {
+        if (request[key] === undefined) continue;
+        const before = result[key];
+        const label = key === "lrc" ? snapshot.compatibleFormat.toUpperCase() : undefined;
+        if (!before || before.status === "failed") {
+          targets.push({
             key,
+            label,
             fields: [],
-            error:
-              error instanceof Error ? error.message : t("player.copyLyric.preview.readFailed"),
-          }));
+            error: before?.error ?? t("player.copyLyric.preview.readFailed"),
+          });
+        } else {
+          targets.push({
+            key,
+            label,
+            path: before.path,
+            exists: before.exists,
+            needsDestination: before.needsDestination,
+            fields: [{ key: "lyrics", before: before.content, after: request[key] }],
+          });
         }
-      })(),
-    );
-  try {
-    const targets = (await Promise.all(tasks)).flat();
+      }
+    }
     if (id !== previewRequestId) return;
     previewTargets.value = targets;
     previewOpen.value = true;
+  } catch (error) {
+    if (id === previewRequestId)
+      toast.error(
+        error instanceof Error ? error.message : t("player.copyLyric.preview.readFailed"),
+      );
   } finally {
     if (id === previewRequestId) previewing.value = false;
   }
@@ -313,50 +321,50 @@ watch(
   },
 );
 
-/** 保存前固定歌曲与歌词快照，标签写入重载歌曲时不会混入新歌词。 */
+/** 保存前固定歌曲与歌词快照，重载歌曲时不会混入新歌词 */
 const handleSaveLyrics = async (): Promise<void> => {
   const snapshot = saveSnapshot.value;
   if (saving.value || previewing.value || !snapshot || !canSaveLyrics.value) return;
-  const { track, lyrics, lyricData, lines, writeMetadata, writeLrc, ttml } = snapshot;
   saving.value = true;
   saveFeedback.value = [];
   const saved: string[] = [];
   const failed: string[] = [];
   try {
-    // 先保存文件，让标签写入后的歌曲重载能发现同名 LRC 与新的 TTML。
-    if (writeLrc || ttml)
+    const { full, request, errors } = prepareSave(snapshot);
+    for (const error of errors) failed.push(error.error ?? t("player.copyLyric.saveFailed"));
+    if (request.lrc !== undefined || request.ttml !== undefined) {
       try {
-        const content = createLyricSaveContent(track, lines, ttml, lyricData);
-        const result = await window.api.lyrics.saveFiles({
-          track: toRaw(track),
-          lrc: writeLrc ? content.lrc : undefined,
-          ttml: content.ttml,
-        });
+        const result = await window.api.lyrics.saveFiles(request);
         for (const [target, outcome] of Object.entries(result)) {
-          const label = target.toUpperCase();
+          const label =
+            target === "lrc"
+              ? snapshot.compatibleFormat.toUpperCase()
+              : t(`player.copyLyric.preview.targets.${target}`);
           if (outcome.status === "saved") {
             saved.push(label);
-            saveFeedback.value.push(`${label}: ${outcome.path}`);
+            saveFeedback.value.push(`${label} · ${outcome.path}`);
           } else if (outcome.status === "failed") {
-            failed.push(`${label}: ${outcome.error}`);
+            failed.push(`${label} · ${outcome.error}`);
           }
         }
       } catch {
         failed.push(t("player.copyLyric.saveFilesFailed"));
       }
-    if (writeMetadata) {
+    }
+    if (snapshot.writeMetadata && full) {
       try {
-        const outcomes = await saveTrackTags([{ path: track.path!, lyrics, lyricData }]);
+        const outcomes = await saveTrackTags([
+          {
+            path: snapshot.track.path!,
+            lyrics: full.ttml,
+            lyricData: { format: "ttml", auxiliary: full.auxiliary },
+          },
+        ]);
         const outcome = outcomes?.[0];
-        if (outcome?.success) {
-          saved.push(t("player.copyLyric.musicTags"));
-        } else {
-          failed.push(
-            `${t("player.copyLyric.musicTags")}: ${outcome?.error ?? t("player.copyLyric.saveFailed")}`,
-          );
-        }
+        if (outcome?.success) saved.push(t("player.copyLyric.musicTags"));
+        else failed.push(outcome?.error ?? t("player.copyLyric.saveFailed"));
       } catch {
-        failed.push(`${t("player.copyLyric.musicTags")}: ${t("player.copyLyric.saveFailed")}`);
+        failed.push(t("player.copyLyric.saveFailed"));
       }
     }
     if (saved.length)
@@ -365,8 +373,6 @@ const handleSaveLyrics = async (): Promise<void> => {
       saveFeedback.value.push(...failed);
       toast.error(failed.join("\n"));
     }
-  } catch {
-    toast.error(t("player.copyLyric.saveFailed"));
   } finally {
     saving.value = false;
   }
@@ -469,6 +475,26 @@ const handleExport = async (): Promise<void> => {
             {{ t("player.copyLyric.copyRaw") }}
           </SButton>
         </div>
+        <div v-if="hasTranslation || hasRomanization" class="flex flex-wrap gap-2">
+          <SButton
+            v-if="hasTranslation"
+            variant="secondary"
+            size="tiny"
+            :disabled="saving || previewing"
+            @click="media.clearAuxiliaryLyric('translation')"
+          >
+            {{ t("player.copyLyric.clearTranslation") }}
+          </SButton>
+          <SButton
+            v-if="hasRomanization"
+            variant="secondary"
+            size="tiny"
+            :disabled="saving || previewing"
+            @click="media.clearAuxiliaryLyric('romanization')"
+          >
+            {{ t("player.copyLyric.clearRomanization") }}
+          </SButton>
+        </div>
       </div>
       <div class="flex flex-col gap-2 border-t border-outline-variant/30 pt-3">
         <span class="text-xs text-on-surface/50">{{ t("player.copyLyric.saveFullLyrics") }}</span>
@@ -487,7 +513,6 @@ const handleExport = async (): Promise<void> => {
             size="small"
           />
           <SCheckbox
-            v-if="canSaveTtml"
             v-model:checked="saveTtml"
             :disabled="saving || previewing"
             :label="t('player.copyLyric.ttmlFile')"
@@ -514,18 +539,27 @@ const handleExport = async (): Promise<void> => {
             </SButton>
           </div>
         </div>
-        <p class="text-xs text-on-surface/50 leading-relaxed">
-          {{
-            t(
-              canWriteMetadata
-                ? "player.copyLyric.saveLocalHint"
-                : "player.copyLyric.saveExportHint",
-            )
-          }}
+        <div v-if="saveLrc" class="flex flex-col gap-1">
+          <SSelect
+            class="w-48"
+            :model-value="compatibleFormat"
+            :options="formatOptions"
+            :disabled="saving || previewing"
+            :aria-label="t('player.copyLyric.compatibleFormat')"
+            @update:model-value="compatibleFormat = $event as CompatibleLyricFormat"
+          />
+          <p class="text-xs text-on-surface/60">
+            {{ t(`player.copyLyric.formatHints.${compatibleFormat}`) }}
+            {{ hasTranslation || hasRomanization ? t("player.copyLyric.companionHint") : "" }}
+          </p>
+        </div>
+        <p v-if="saveTtml || (canWriteMetadata && saveMetadata)" class="text-xs text-on-surface/60">
           {{ t("player.copyLyric.saveCompleteHint") }}
-        </p>
-        <p v-if="canSaveTtml && saveTtml" class="text-xs text-on-surface/50">
-          {{ t("player.copyLyric.saveTtmlHint") }}
+          {{
+            saveTtml
+              ? t(hasTtmlRepo ? "player.copyLyric.saveTtmlHint" : "player.copyLyric.saveTtmlAsHint")
+              : ""
+          }}
         </p>
         <p
           v-for="(text, index) in saveFeedback"

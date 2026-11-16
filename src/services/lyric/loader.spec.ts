@@ -136,7 +136,7 @@ describe("lyric loader", () => {
     const { content, ...data } = LYRIC_SAVE_FIXTURES.find((item) => item.format === "krc")!;
     mockWindowApi.player.readLyricFile.mockResolvedValueOnce({
       success: true,
-      data: "[00:01.234]外部 LRC",
+      data: { content: "[00:01.234]外部 LRC" },
     });
     await loadForTrack({
       quality: {

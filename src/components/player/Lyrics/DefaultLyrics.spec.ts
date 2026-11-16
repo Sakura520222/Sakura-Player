@@ -1,3 +1,4 @@
+import { toTTML } from "lyric-kit";
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LyricLine } from "@shared/types/lyrics";
@@ -8,6 +9,8 @@ import { applyTimedAuxiliary } from "@/utils/lyric/auxiliary";
 import { createTranslationTrack } from "@/utils/lyric/translation";
 import { applyLocalAlignment } from "@/services/lyric/localAlignment";
 import { applyGeneratedLyrics } from "@/utils/lyric/alignment";
+import { parseExportTtml } from "@shared/utils/lyricTtml";
+import { restoreAuxiliaryTracks } from "@shared/utils/lyricAuxiliary";
 import { createLyricSaveContent } from "@/utils/lyric/save";
 import {
   ROMANIZATION_RANGE_LINE,
@@ -59,6 +62,32 @@ describe("默认歌词引擎显示与配置", () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each(["，", "。", "？"])("句末 %s 保留显示，逐字拼音锚定在发音原词", (mark) => {
+    const line: LyricLine = {
+      ...makeLine("见"),
+      words: [
+        { word: "没", startTime: 1000, endTime: 1300, romanWord: "méi" },
+        { word: "见", startTime: 1300, endTime: 2000, romanWord: "jiàn," },
+        { word: mark, startTime: 2000, endTime: 2000 },
+      ],
+      romanLyric: "méi jiàn,",
+      romanizationWords: [{ word: "jiàn,", startTime: 1300, endTime: 2000, from: 1, to: 2 }],
+    };
+    const before = structuredClone(line);
+    const wrapper = mount(DefaultLyrics, { props: { lyricLines: [line], playing: false } });
+    try {
+      const group = wrapper.get(".lp-roman-range");
+      expect(group.attributes("data-roman-to")).toBe("2");
+      expect(group.get(".lp-roman-range-main").text()).toBe("见");
+      expect(group.get(".lp-roman-range-punctuation").text()).toBe(mark);
+      expect(group.get(".lp-roman-syllable").text()).toBe("jiàn");
+      expect(group.get(".lp-roman-word").text()).toBe("jiàn,");
+      expect(line).toEqual(before);
+    } finally {
+      wrapper.unmount();
+    }
+  });
 
   it("辅助歌词初始化完成并经过两帧布局后向播放器报告就绪", async () => {
     let callbacks: FrameRequestCallback[] = [];
@@ -134,10 +163,10 @@ describe("默认歌词引擎显示与配置", () => {
         const saved = createLyricSaveContent(
           { id: "range", source: "local", title: "范围音译", artists: [], duration: 3200 },
           lines,
+          { content: toTTML(lines), format: "ttml" },
         );
-        const input = { content: saved.lrc, format: "lrc" as const };
-        const reloaded: LyricLine[] = parseLyric(input).lines;
-        applyTimedAuxiliary(reloaded, input);
+        const reloaded = parseExportTtml(saved.ttml).lines;
+        restoreAuxiliaryTracks(reloaded, saved.auxiliary);
         await wrapper.setProps({ lyricLines: reloaded });
         for (const [frame] of vi.mocked(requestAnimationFrame).mock.calls.slice(frames.length))
           frame(performance.now());

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeLyricLines, parseLyric, toTTML } from "lyric-kit";
 import type { LyricLine } from "@shared/types/lyrics";
 import { ALIGNMENT_LINES, ALIGNMENT_RESULT } from "@shared/testFixtures/lyricAlignment";
+import { ROMANIZATION_RANGE_OPTIONS } from "@shared/testFixtures/lyricRomanization";
 import { alignGeneratedLyrics, applyGeneratedLyrics } from "./alignment";
 import {
   GenerationDecoder,
@@ -10,9 +11,55 @@ import {
 } from "@/services/lyric/aiGeneration";
 import { AUXILIARY_TIME_BASIS_KEY, createTranslationTrack } from "./translation";
 import { applyTimedAuxiliary } from "./auxiliary";
+import { parseExportTtml } from "@shared/utils/lyricTtml";
+import { restoreAuxiliaryTracks } from "@shared/utils/lyricAuxiliary";
 import { createLyricSaveContent } from "./save";
 
 describe("逐字辅助歌词对齐与重载", () => {
+  it("只在用户选中失败行后替换错误的既有音译", () => {
+    const original: LyricLine = {
+      ...structuredClone(ALIGNMENT_LINES[0]),
+      words: [..."決めポーズ完璧"].map((word, index) => ({
+        word,
+        startTime: 1000 + index * 100,
+        endTime: 1100 + index * 100,
+      })),
+      romanLyric: "ki me po zu sa da ka be",
+    };
+    const options = ROMANIZATION_RANGE_OPTIONS;
+    const results = new Map([
+      [
+        0,
+        {
+          romanization: [
+            { index: 0, text: "ki" },
+            { index: 1, text: "me" },
+            { index: 2, to: 3, text: "pō" },
+            { index: 4, text: "zu" },
+            { index: 5, to: 6, text: "kanpeki" },
+          ],
+        },
+      ],
+    ]);
+    expect(applyGeneratedLyrics([original], results, options)).toBeNull();
+    const updated = applyGeneratedLyrics(
+      [original],
+      results,
+      options,
+      "missing",
+      new Set([0]),
+    )?.[0];
+    expect(updated?.romanLyric).toBe("ki me pō zu kanpeki");
+    expect(updated?.translatedLyric).toBe(original.translatedLyric);
+    expect(updated?.romanizationWords?.at(-1)).toMatchObject({
+      from: 5,
+      to: 6,
+      startTime: 1500,
+      endTime: 1700,
+    });
+    expect(original.romanLyric).toBe("ki me po zu sa da ka be");
+  });
+
   it("促音拗音合并范围应用及重载后保留原文、已有标点和完整逐字覆盖", () => {
     const source: LyricLine[] = [
       {
@@ -53,7 +100,7 @@ describe("逐字辅助歌词对齐与重载", () => {
     expect(generated[0].romanizationWords).toEqual([
       { word: "kya ", startTime: 1000, endTime: 1400, from: 0, to: 1 },
       { word: "tto", startTime: 1400, endTime: 1800, from: 2, to: 3 },
-      { word: "!", startTime: 1800, endTime: 2000 },
+      { word: "!", startTime: 1800, endTime: 2000, from: 4, to: 4 },
     ]);
     expect(createGenerationPlan(generated, options, "missing")).toEqual([]);
     const input = {
@@ -103,7 +150,9 @@ describe("逐字辅助歌词对齐与重载", () => {
     const loaded: LyricLine[] = parseLyric(input).lines;
     applyTimedAuxiliary(loaded, input);
     expect(loaded[0].translatedLyric).toBe("Walk with you");
-    expect(loaded[0].translationWords).toEqual(aligned()[0].translationWords);
+    expect(loaded[0].translationWords).toEqual(
+      aligned()[0].translationWords?.map(({ from: _from, to: _to, ...part }) => part),
+    );
     expect(input).toEqual(original);
   });
   it("内嵌逐字译文跟随主歌词所选语言", () => {
@@ -216,7 +265,9 @@ describe("逐字辅助歌词对齐与重载", () => {
     expect(lines[0].words.map((word) => word.romanWord)).toEqual(
       romanization.map((word) => word.word.trim()),
     );
-    expect(lines[0].romanizationWords).toEqual(romanization);
+    expect(lines[0].romanizationWords).toEqual(
+      romanization.map((part, index) => ({ ...part, from: index, to: index })),
+    );
     expect(
       lines[0].words.map(({ word, startTime, endTime }) => ({ word, startTime, endTime })),
     ).toEqual(source[0].words);
@@ -278,7 +329,6 @@ describe("逐字辅助歌词对齐与重载", () => {
     const saved = createLyricSaveContent(
       { id: "gap", title: "时间差", source: "local", artists: [], duration: 7000 },
       generated,
-      content,
       input,
     );
     expect(parseLyric(saved.ttml!).lines[0].translatedLyric).toBe(generated[0].translatedLyric);
@@ -349,9 +399,9 @@ describe("逐字辅助歌词对齐与重载", () => {
     const before = structuredClone(ALIGNMENT_LINES);
     const result = aligned()[0];
     expect(result.translationWords).toEqual([
-      { word: "Walk ", startTime: 1100, endTime: 2155 },
-      { word: "with ", startTime: 2155, endTime: 3209 },
-      { word: "you", startTime: 3209, endTime: 4000 },
+      { word: "Walk ", startTime: 1100, endTime: 2155, from: 2, to: 2 },
+      { word: "with ", startTime: 2155, endTime: 3209, from: 1, to: 1 },
+      { word: "you", startTime: 3209, endTime: 4000, from: 0, to: 0 },
     ]);
     expect(result.words.map((word) => word.romanWord)).toEqual(["kimi", "to", "aruku"]);
     expect(result.translatedLyric).toBe("Walk with you");
@@ -383,12 +433,11 @@ describe("逐字辅助歌词对齐与重载", () => {
     const saved = createLyricSaveContent(
       { id: "fixture", title: "原创", source: "local", artists: [], duration: 5000 },
       lines,
-      input.content,
       input,
     );
     for (const [format, content] of [["ttml", saved.ttml!]] as const) {
-      const current: LyricLine[] = parseLyric({ content, format }).lines;
-      applyTimedAuxiliary(current, { content, format });
+      const current = parseExportTtml(content).lines;
+      restoreAuxiliaryTracks(current, saved.auxiliary);
       expect(current[0].translationWords, format).toEqual(lines[0].translationWords);
       expect(current[0].romanizationWords, format).toEqual(lines[0].romanizationWords);
       expect(
@@ -406,8 +455,5 @@ describe("逐字辅助歌词对齐与重载", () => {
         })),
       );
     }
-    const lrc = parseLyric({ content: saved.lrc, format: "lrc" }).lines;
-    expect(lrc[0].translatedLyric).toBe("Walk with you");
-    expect(lrc[0].romanLyric).toBe("kimi to aruku");
   });
 });

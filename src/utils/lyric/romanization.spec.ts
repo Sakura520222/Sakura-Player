@@ -8,12 +8,14 @@ import {
 } from "@shared/testFixtures/lyricRomanization";
 import { applyGeneratedLyrics } from "./alignment";
 import { applyTimedAuxiliary } from "./auxiliary";
+import { parseExportTtml } from "@shared/utils/lyricTtml";
+import { restoreAuxiliaryTracks } from "@shared/utils/lyricAuxiliary";
 import { createLyricSaveContent } from "./save";
 import { createTranslationTrack } from "./translation";
 import { alignRomanizationWords } from "./romanization";
 
 describe("范围音译保存与恢复", () => {
-  it.each(["track", "ttml", "lrc", "lrc-crlf"] as const)(
+  it.each(["track", "ttml", "ttml-crlf"] as const)(
     "%s 连续保存重读三次保留跨词范围、主词时间及已有音译空格",
     (format) => {
       const source = structuredClone(ROMANIZATION_RANGE_LINE);
@@ -25,7 +27,9 @@ describe("范围音译保存与恢复", () => {
       )!;
       const expected = structuredClone(generated[0].romanizationWords);
       expect(
-        expected?.filter((part) => part.from !== undefined).map(({ from, to }) => [from, to]),
+        expected
+          ?.filter((part) => part.from !== undefined && part.from !== part.to)
+          .map(({ from, to }) => [from, to]),
       ).toEqual([
         [0, 1],
         [4, 5],
@@ -43,26 +47,21 @@ describe("范围音译保存与恢复", () => {
           ),
           romajiFormat: "ttml" as const,
         };
-        const saved = createLyricSaveContent(
-          { id: "range", source: "local", title: "范围音译", artists: [], duration: 3200 },
-          lines,
-          content,
-          auxiliary,
-        );
-        const input: LyricInput =
-          format === "track"
-            ? { content, format: "ttml", ...auxiliary }
-            : {
-                content:
-                  format === "ttml"
-                    ? saved.ttml!
-                    : format === "lrc-crlf"
-                      ? saved.lrc.replace(/\n/g, "\r\n")
-                      : saved.lrc,
-                format: format === "lrc-crlf" ? "lrc" : format,
-              };
-        lines = parseLyric(input).lines;
-        applyTimedAuxiliary(lines, input);
+        const input: LyricInput = { content, format: "ttml", ...auxiliary };
+        if (format === "track") {
+          lines = parseLyric(input).lines;
+          applyTimedAuxiliary(lines, input);
+        } else {
+          const saved = createLyricSaveContent(
+            { id: "range", source: "local", title: "范围音译", artists: [], duration: 3200 },
+            lines,
+            input,
+          );
+          lines = parseExportTtml(
+            format === "ttml-crlf" ? saved.ttml.replace(/\n/g, "\r\n") : saved.ttml,
+          ).lines;
+          restoreAuxiliaryTracks(lines, saved.auxiliary);
+        }
         normalizeLyricLines(lines);
         expect(lines[0].romanizationWords).toEqual(expected);
         expect(lines[0].romanLyric).toBe(source.romanLyric);

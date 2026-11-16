@@ -38,6 +38,7 @@ import {
 } from "@main/database/lyricMatchCache";
 import { clearManualMatch, getManualMatch, setManualMatch } from "@main/database/lyricManualMatch";
 import { coreLog } from "@main/utils/logger";
+import type { LocalTtmlResponse } from "@shared/types/lyrics";
 import type {
   LyricManualMatch,
   LyricMatchResponse,
@@ -276,7 +277,7 @@ export const registerLyricsIpc = (): void => {
   );
   ipcMain.handle(
     "lyrics:matchLocalTTML",
-    async (_evt, track: Track): Promise<LyricTTMLResponse> => {
+    async (_evt, track: Track): Promise<LocalTtmlResponse> => {
       try {
         return { ok: true, data: await matchLocalTTML(track) };
       } catch (err) {

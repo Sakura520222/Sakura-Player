@@ -14,7 +14,6 @@
 import { readdir, stat } from "node:fs/promises";
 import { join, extname, relative, isAbsolute } from "node:path";
 import { createHash } from "node:crypto";
-import { writeFile } from "atomically";
 import { readFileAutoEncoding } from "@main/utils/encoding";
 import { store } from "@main/store";
 import { normalize } from "@main/apis/common/lyric/utils";
@@ -22,6 +21,8 @@ import { buildFingerprint, getMatchedId } from "@main/database/lyricMatchCache";
 import { coreLog } from "@main/utils/logger";
 import { sanitizeSegment } from "@main/utils/filename";
 import type { Track } from "@shared/types/player";
+import type { LyricAuxiliaryData, LyricInput } from "@shared/types/lyrics";
+import { readLyricDocument, writeTtmlDocument } from "./lyricDocument";
 
 /** 同名候选：艺术家仅作区分，不作硬门槛 */
 interface NameCandidate {
@@ -158,11 +159,11 @@ const getIndex = async (): Promise<RepoIndex | null> => {
   return building;
 };
 
-/** 读取文件，失败返回 null */
-const tryRead = async (file: string | undefined): Promise<string | null> => {
+/** 读取歌词正文及匹配的附件，失败返回 null */
+const tryRead = async (file: string | undefined): Promise<LyricInput | null> => {
   if (!file) return null;
   try {
-    return await readFileAutoEncoding(file);
+    return await readLyricDocument(file);
   } catch {
     return null;
   }
@@ -193,7 +194,7 @@ const pickByArtist = (candidates: NameCandidate[], wantArtist: string): string =
  * @param index - 当前索引
  * @returns 命中的 TTML 原文，未命中返回 null
  */
-const matchByCachedId = async (track: Track, index: RepoIndex): Promise<string | null> => {
+const matchByCachedId = async (track: Track, index: RepoIndex): Promise<LyricInput | null> => {
   const fingerprint = buildFingerprint(track);
   const ncm = getMatchedId(fingerprint, "netease");
   if (ncm) {
@@ -216,7 +217,7 @@ const matchByCachedId = async (track: Track, index: RepoIndex): Promise<string |
  * @param track - 歌曲信息
  * @returns 命中的 TTML 原文，未命中返回 null
  */
-export const matchLocalTTML = async (track: Track): Promise<string | null> => {
+export const matchLocalTTML = async (track: Track): Promise<LyricInput | null> => {
   if (!store.get("localLyric.enableLocalTTMLOverride")) return null;
   const index = await getIndex();
   if (!index) return null;
@@ -280,12 +281,16 @@ export const getLocalTTMLSavePath = async (track: Track): Promise<string> => {
  * 保存当前 TTML 并使下一次匹配重新读取索引
  * @param track - 当前歌曲
  * @param content - 含歌曲匹配元信息的 TTML
+ * @param auxiliary - 用于恢复对应原词索引的附件
  * @returns 写入的文件路径
  */
-export const saveLocalTTML = async (track: Track, content: string): Promise<string> => {
-  if (!content.trim()) throw new Error("没有可保存的 TTML 歌词");
+export const saveLocalTTML = async (
+  track: Track,
+  content: string,
+  auxiliary?: LyricAuxiliaryData,
+): Promise<string> => {
   const filePath = await getLocalTTMLSavePath(track);
-  await writeFile(filePath, content, "utf8");
+  await writeTtmlDocument(filePath, content, auxiliary);
   // 等待旧扫描完成后再丢弃缓存，防止旧索引覆盖刚写入的歌词。
   await building;
   cache = null;

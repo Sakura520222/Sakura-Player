@@ -22,7 +22,7 @@ export const WORD_ALIGNMENT_PROMPTS = {
   source:
     "Source words are timed fragments, NOT necessarily complete linguistic words or syllables. Copy the supplied indices exactly; indices may have gaps. Never renumber them or use character offsets.",
   translation: `Translation: return [{"text":"translated fragment","from":0,"to":1}]. Each inclusive range refers to supplied source indices. Keep natural target-language order; ranges may overlap. Cover every supplied source index. An omitted particle can share a neighboring fragment's range. Include spaces between fragments when the language requires them. When existingTranslation is supplied, split and align that text, preserving its wording and punctuation instead of retranslating.`,
-  romanization: `Romanization: return [{"text":"pronunciation","from":0,"to":1}]. Group adjacent source fragments that form one pronunciation; the number of output fragments need NOT equal the number of source fragments. Cover every supplied index exactly once, without overlapping ranges, in source order. A single source fragment may also use {"index":0,"text":"pronunciation"}. An array of strings is accepted only when it has exactly one item per supplied source fragment in input order.
+  romanization: `Romanization: return [{"text":"pronunciation","from":0,"to":1}]. Both endpoints are inclusive and must be actual indices in that line's words array. Group adjacent source fragments that form one pronunciation. Cover every supplied index exactly once, without overlapping ranges, in source order. A single source fragment may also use {"index":0,"text":"pronunciation"}. An array of strings is accepted only when it has exactly one item per supplied source fragment in input order.
 For example, source [{"index":0,"text":"き"},{"index":1,"text":"ゃ"},{"index":2,"text":"っ"},{"index":3,"text":"と"},{"index":4,"text":"!"}] can be romanized as [{"from":0,"to":1,"text":"kya"},{"from":2,"to":3,"text":"tto"},{"index":4,"text":"!"}]. Keep punctuation, including Japanese quotation marks. Do not invent a pronunciation for punctuation, silent annotations, or a kana fragment whose sound is already included in its neighbor; include it in that neighbor's range. Prefer these explicit ranges over empty text records.
 When existingRomanization is supplied, align that text without changing any non-whitespace characters, even if its pronunciation seems incorrect. Use larger ranges if the existing text cannot be split into one nonempty piece per source fragment.`,
 } as const;
@@ -127,7 +127,7 @@ export class AlignmentDecoder {
 }
 
 /**
- * 规范化语义范围并校验原词覆盖，保留译文顺序
+ * 读取有明确语义锚点的译文范围，允许自然翻译省略原文成分
  * @param line - 原文字词及稳定下标
  * @param value - 模型返回的译文片段
  * @returns 合并空片段后的有效译文关联
@@ -136,28 +136,25 @@ export const readTranslationAlignment = (
   line: AlignmentLine,
   value: unknown,
 ): AlignedTranslation["translation"] => {
-  if (!Array.isArray(value) || !value.length || value.length > line.words.length * 8)
-    throw new Error("译文字词数量无效");
+  if (!Array.isArray(value) || !value.length) throw new Error("译文字词数量无效");
   const indices = new Set(line.words.map((word) => word.index));
-  const covered = new Set<number>();
   const translation = value.map((part: unknown, position) => {
     if (
       !part ||
       typeof part !== "object" ||
-      !("from" in part) ||
-      !("to" in part) ||
       !("text" in part) ||
       !isAlignedText(part.text, 8192, true)
     )
-      throw new Error(`译文第 ${position + 1} 项需要 from、to 和单行 text`);
-    const from = readLyricIndex(part.from, `译文第 ${position + 1} 项 from`);
-    const to = readLyricIndex(part.to, `译文第 ${position + 1} 项 to`);
+      throw new Error(`译文第 ${position + 1} 项需要原词下标和单行 text`);
+    const from = readLyricIndex(
+      "from" in part ? part.from : "index" in part ? part.index : undefined,
+      `译文第 ${position + 1} 项 from`,
+    );
+    const to = "to" in part ? readLyricIndex(part.to, `译文第 ${position + 1} 项 to`) : from;
     if (!indices.has(from) || !indices.has(to) || from > to)
       throw new Error(`译文第 ${position + 1} 项范围 ${from}–${to} 无效，请使用输入的字词下标`);
-    for (const index of indices) if (index >= from && index <= to) covered.add(index);
     return { from, to, text: part.text };
   });
-  if (covered.size !== indices.size) throw new Error("译文缺少原文字词关联");
   const visible = translation.filter((part) => part.text.trim());
   if (!visible.length) throw new Error("译文缺少有效文本");
   const anchors = visible.map((part) => ({ part, from: part.from, to: part.to }));
@@ -212,12 +209,9 @@ export const readRomanizationAlignment = (
       !part ||
       typeof part !== "object" ||
       !("text" in part) ||
-      !isAlignedText(part.text, 8192, true) ||
-      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(part.text)
+      !isAlignedText(part.text, 8192, true)
     )
-      throw new Error(
-        `音译第 ${position + 1} 项 text 必须是单行拉丁音译或标点，合并发音可使用 from/to 范围`,
-      );
+      throw new Error(`音译第 ${position + 1} 项需要单行 text，合并发音可使用 from/to 范围`);
     const index = readLyricIndex(
       "index" in part ? part.index : "from" in part ? part.from : undefined,
       `音译第 ${position + 1} 项 index/from`,
@@ -226,7 +220,9 @@ export const readRomanizationAlignment = (
     if ("index" in part && "from" in part && readLyricIndex(part.from, "音译 from") !== index)
       throw new Error(`音译第 ${position + 1} 项 index 与 from 不一致`);
     if (!indices.has(index) || !indices.has(to) || index > to)
-      throw new Error(`音译第 ${position + 1} 项范围 ${index}–${to} 无效，请使用输入的字词下标`);
+      throw new Error(
+        `音译第 ${position + 1} 项范围 ${index}–${to} 无效，可用下标为 ${line.words.map((word) => word.index).join("、")}（含首尾）`,
+      );
     for (const source of indices) {
       if (source < index || source > to) continue;
       if (romanized.has(source)) throw new Error(`音译字词下标 ${source} 重复或范围重叠`);
@@ -234,12 +230,19 @@ export const readRomanizationAlignment = (
     }
     return { index, to, text: part.text.trim() };
   });
-  if (romanized.size !== indices.size) {
-    const missing = [...indices].filter((index) => !romanized.has(index));
+  const missing = line.words.filter(({ index }) => !romanized.has(index));
+  const pronounced = missing.filter(
+    ({ text }) => /[\p{L}\p{N}]/u.test(text) && !/^[っッ]+$/u.test(text.trim()),
+  );
+  if (pronounced.length) {
     throw new Error(
-      `音译缺少字词下标 ${missing.slice(0, 20).join(", ")}，无独立发音时请并入相邻范围`,
+      `音译缺少字词下标 ${pronounced
+        .slice(0, 20)
+        .map(({ index }) => index)
+        .join(", ")}，无独立发音时请并入相邻范围`,
     );
   }
+  romanization.push(...missing.map(({ index }) => ({ index, to: index, text: "" })));
   romanization.sort((a, b) => a.index - b.index);
   const visible = romanization.filter((part) => part.text);
   if (!visible.length) throw new Error("音译缺少有效文本");

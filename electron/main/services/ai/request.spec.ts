@@ -39,6 +39,51 @@ const openAiStream = () =>
   sse({ choices: [{ index: 0, delta: { content: "好🌸" }, finish_reason: "stop" }] }) +
   sse({ choices: [], usage: openAiResult.usage }) +
   sse("[DONE]");
+
+it("流式数据重置 120 秒空闲计时，停更后中断请求", async () => {
+  vi.useFakeTimers();
+  try {
+    let body!: ReadableStreamDefaultController<Uint8Array>;
+    const received = vi.fn();
+    const encoder = new TextEncoder();
+    vi.mocked(fetchWithProxy).mockImplementationOnce(async (_url, init) => {
+      init?.signal?.addEventListener("abort", () => body.error(init.signal?.reason), {
+        once: true,
+      });
+      return new Response(
+        new ReadableStream({
+          start: (controller) => {
+            body = controller;
+          },
+        }),
+        {
+          headers: { "content-type": "text/event-stream" },
+        },
+      );
+    });
+    const request = requestAi(
+      {
+        protocol: "openai-compatible",
+        baseUrl: "https://example.invalid/v1",
+        model: "fixture",
+        apiKey: "fixture",
+      },
+      { messages: [message] },
+      new AbortController().signal,
+      received,
+    ).catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(119_000);
+    body.enqueue(encoder.encode(sse({ choices: [{ delta: { content: "字" } }] })));
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(received).toHaveBeenCalledWith("字");
+    await vi.advanceTimersByTimeAsync(118_001);
+    const failure = await request;
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain("120 秒无数据");
+  } finally {
+    vi.useRealTimers();
+  }
+});
 const anthropicStream = () =>
   [
     {

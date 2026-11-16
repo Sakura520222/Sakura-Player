@@ -39,13 +39,13 @@ watch(
           :aria-selected="index === selected"
           @click="selected = index"
         >
-          {{ t(`player.copyLyric.preview.targets.${item.key}`) }}
+          {{ item.label ?? t(`player.copyLyric.preview.targets.${item.key}`) }}
         </SButton>
       </div>
       <template v-if="target">
         <div class="flex flex-col gap-1">
           <div class="flex items-center gap-2 text-sm font-medium">
-            {{ t(`player.copyLyric.preview.targets.${target.key}`) }}
+            {{ target.label ?? t(`player.copyLyric.preview.targets.${target.key}`) }}
             <span
               v-if="target.exists === false && !target.needsDestination && !target.error"
               class="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary"

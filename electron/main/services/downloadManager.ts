@@ -14,6 +14,10 @@ import { store } from "@main/store";
 import { getDownloadDir, getCoverCacheDir, getAppCacheDir } from "@main/utils/config";
 import { broadcast } from "@main/utils/broadcast";
 import { downloadLog } from "@main/utils/logger";
+import { parseCompatibleExport } from "@shared/utils/lyricCompatible";
+import { writeTtmlDocument } from "./lyricDocument";
+import { writeCompatible } from "./lyricSave";
+import { encodeLyricStorage } from "./lyricStorage";
 import { getEngine } from "@main/services/engine";
 import { fetchBytes } from "@main/utils/fetchBytes";
 import { fetchStreamingDownload } from "@main/services/streaming/mediaSource";
@@ -171,8 +175,23 @@ const applyTags = async (req: DownloadRequest, filePath: string): Promise<boolea
     hasWrite = true;
   }
   if (tagOptions.embedLyric && req.lyricText) {
-    writeRequest.lyrics = req.lyricText;
-    hasWrite = true;
+    try {
+      parseCompatibleExport(req.lyricText, req.lyricFileFormat);
+      if (req.lyricTranslation) parseCompatibleExport(req.lyricTranslation, "lrc");
+      if (req.lyricRomanization) parseCompatibleExport(req.lyricRomanization, "lrc");
+      writeRequest.lyrics = req.lyricText;
+      writeRequest.lyricData = encodeLyricStorage(req.lyricText, {
+        format: "lrc",
+        translation: req.lyricTranslation,
+        translationFormat: req.lyricTranslation ? "lrc" : undefined,
+        romaji: req.lyricRomanization,
+        romajiFormat: req.lyricRomanization ? "lrc" : undefined,
+      });
+      hasWrite = true;
+    } catch (error) {
+      downloadLog.warn("下载歌词未通过标签写入校验", error);
+      return false;
+    }
   }
   if (tagOptions.embedCover && req.coverUrl) {
     const cover = await fetchBytes(req.coverUrl, { requireImage: true });
@@ -193,20 +212,45 @@ const applyTags = async (req: DownloadRequest, filePath: string): Promise<boolea
   }
 };
 
-/** 写同名歌词文件，失败仅告警不影响音频 */
-const writeSidecar = async (filePath: string, text: string): Promise<void> => {
-  try {
-    await fsp.writeFile(filePath, text, "utf-8");
-  } catch (err) {
-    downloadLog.warn(`写歌词文件失败 ${filePath}:`, err);
-  }
-};
-
-/** 按开关写 .lrc（所选格式）与 .ttml（完整） */
-const writeLyricFiles = async (req: DownloadRequest, audioPath: string): Promise<void> => {
+/**
+ * 校验并保存下载歌词，兼容文件和完整 TTML 按各自设置写入
+ * @param req - 已解析的下载及歌词请求
+ * @param audioPath - 已落盘的音频文件路径
+ * @returns 所有选择且有内容的歌词文件是否已写入
+ */
+const writeLyricFiles = async (req: DownloadRequest, audioPath: string): Promise<boolean> => {
   const base = audioPath.slice(0, audioPath.length - path.extname(audioPath).length);
-  if (req.tagOptions.writeLrc && req.lyricText) await writeSidecar(`${base}.lrc`, req.lyricText);
-  if (req.tagOptions.saveTtml && req.ttmlText) await writeSidecar(`${base}.ttml`, req.ttmlText);
+  let ok = true;
+  if (req.tagOptions.writeLrc && req.lyricText) {
+    try {
+      const times = new Set(
+        parseCompatibleExport(req.lyricText, req.lyricFileFormat).map((line) => line.startTime),
+      );
+      const files = [{ path: `${base}.lrc`, content: req.lyricText }];
+      for (const [suffix, text] of [
+        ["tr", req.lyricTranslation],
+        ["roma", req.lyricRomanization],
+      ]) {
+        if (!text) continue;
+        if (parseCompatibleExport(text, "lrc").some((line) => !times.has(line.startTime)))
+          throw new Error("辅助歌词与原文时间点不匹配");
+        files.push({ path: `${base}.${suffix}.lrc`, content: text });
+      }
+      await writeCompatible(files);
+    } catch (error) {
+      downloadLog.warn("下载歌词写入失败", error);
+      ok = false;
+    }
+  }
+  if (req.tagOptions.saveTtml && req.ttmlText) {
+    try {
+      await writeTtmlDocument(`${base}.ttml`, req.ttmlText, req.ttmlAuxiliary);
+    } catch (error) {
+      downloadLog.warn("下载 TTML 歌词写入失败", error);
+      ok = false;
+    }
+  }
+  return ok;
 };
 
 /** 等待渲染层补全解析；任务被取消/删除时经中断信号立即拒绝 */
@@ -357,14 +401,14 @@ const runTask = async (
     const finalPath = policy === "rename" ? dedupePath(finalNoExt, ext) : `${finalNoExt}${ext}`;
     await moveFile(partPath, finalPath);
 
-    await writeLyricFiles(req, finalPath);
+    const lyricsOk = await writeLyricFiles(req, finalPath);
     const tagOk = await applyTags(req, finalPath);
 
     task.status = "done";
     task.received = received;
     task.total = total || received;
     task.filePath = finalPath;
-    task.tagWarning = !tagOk;
+    task.tagWarning = !tagOk || !lyricsOk;
     task.finishedAt = Date.now();
     broadcastState(task);
     downloadLog.info(`完成 ${req.track.title} → ${finalPath}`);

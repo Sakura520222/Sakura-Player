@@ -5,6 +5,7 @@
 
 import type { Track } from "./player";
 import type { PluginQuality } from "./plugin";
+import type { LyricAuxiliaryData } from "./lyrics";
 
 /** 下载歌词文件保存格式：逐行 LRC / 逐字增强 LRC */
 export type DownloadLyricFormat = "lrc" | "enhanced-lrc";
@@ -46,8 +47,11 @@ export interface DownloadRequest {
   coverUrl?: string;
   /** 歌词文本 */
   lyricText?: string;
+  lyricTranslation?: string;
+  lyricRomanization?: string;
   /** 完整 TTML 文本 */
   ttmlText?: string;
+  ttmlAuxiliary?: LyricAuxiliaryData;
   tagOptions: DownloadTagOptions;
   /** 是否复用当前播放链接下载 */
   usePlaybackForDownload: boolean;
@@ -84,7 +88,16 @@ export interface DownloadProgress {
 
 /** 渲染层回传的解析结果（补全 DownloadRequest 缺省的网络字段，url 必填） */
 export type DownloadResolution = Required<Pick<DownloadRequest, "url">> &
-  Pick<DownloadRequest, "declaredFormat" | "declaredSize" | "lyricText" | "ttmlText">;
+  Pick<
+    DownloadRequest,
+    | "declaredFormat"
+    | "declaredSize"
+    | "lyricText"
+    | "lyricTranslation"
+    | "lyricRomanization"
+    | "ttmlText"
+    | "ttmlAuxiliary"
+  >;
 
 /** 主进程 → 渲染层的解析请求载荷（轮到下载但缺少 URL 时下发） */
 export type DownloadResolvePayload = Pick<

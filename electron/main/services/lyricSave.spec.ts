@@ -21,6 +21,10 @@ vi.mock("@main/database/lyricMatchCache", () => ({
 
 import { previewLyricFiles, saveLyricFiles } from "./lyricSave";
 import { matchLocalTTML } from "./localLyricRepo";
+import { readLyricDocument } from "./lyricDocument";
+import { serializeTtmlLyrics } from "@shared/utils/lyricTtmlExport";
+import { parseExportTtml } from "@shared/utils/lyricTtml";
+import { restoreAuxiliaryTracks } from "@shared/utils/lyricAuxiliary";
 
 let root: string;
 let track: Track;
@@ -49,6 +53,73 @@ afterEach(async () => {
 });
 
 describe("歌词文件保存", () => {
+  it("非法格式及不配对的时间轴不会替换已有文件", async () => {
+    const oldLrc = join(root, "music.v2.lrc");
+    const oldTtml = join(root, "music.v2.ttml");
+    await writeFile(oldLrc, lrc);
+    await writeFile(oldTtml, ttml);
+    const result = await saveLyricFiles({
+      track,
+      lrc,
+      translation: "[00:03.00]错误时间",
+      ttml: ttml.replace("1s", "invalid"),
+      saveTtmlAs: true,
+    });
+    expect(result.lrc?.status).toBe("failed");
+    expect(result.ttml?.status).toBe("failed");
+    expect(await readFile(oldLrc, "utf8")).toBe(lrc);
+    expect(await readFile(oldTtml, "utf8")).toBe(ttml);
+    expect(
+      (await saveLyricFiles({ track, lrc: "[sakura-translation:raw]\n" + lrc })).lrc?.status,
+    ).toBe("failed");
+    expect(await readdir(root)).toHaveLength(4);
+  });
+
+  it("兼容歌词按同名副文件重载，独立音译不会被当成译文", async () => {
+    const romanization = "[00:01.00]ge ci";
+    const result = await saveLyricFiles({ track, lrc: "[00:01.00]歌词", romanization });
+    expect(result.romanization).toEqual({ status: "saved", path: join(root, "music.v2.roma.lrc") });
+    const reloaded = await readLyricDocument(join(root, "music.v2.lrc"));
+    expect(reloaded.romaji).toBe(romanization);
+    expect(reloaded.translation).toBeUndefined();
+  });
+
+  it("保存 TTML 后重读同刻原词关联，外部替换正文后跳过旧附件", async () => {
+    const full = serializeTtmlLyrics(
+      track,
+      [
+        {
+          startTime: 1000,
+          endTime: 3000,
+          isBG: false,
+          isDuet: false,
+          words: [
+            { word: "歌", startTime: 1000, endTime: 3000 },
+            { word: "词", startTime: 1000, endTime: 3000 },
+          ],
+          translatedLyric: "Words",
+          translationWords: [{ word: "Words", startTime: 1000, endTime: 3000, from: 1, to: 1 }],
+          translationLanguage: "en",
+          romanLyric: "ge ci",
+          romanizationWords: [{ word: "ge ci", startTime: 1000, endTime: 3000, from: 0, to: 1 }],
+          romanizationLanguage: "zh-Latn",
+        },
+      ],
+      {},
+    );
+    const result = await saveLyricFiles({ track, ...full, saveTtmlAs: true });
+    const file = join(root, "music.v2.ttml");
+    expect(result.ttml).toEqual({ status: "saved", path: file });
+    const { content, auxiliary } = await readLyricDocument(file);
+    expect(auxiliary).toEqual(full.auxiliary);
+    const { lines } = parseExportTtml(content);
+    restoreAuxiliaryTracks(lines, auxiliary);
+    expect(lines[0].translationWords?.[0]).toMatchObject({ from: 1, to: 1 });
+    expect(lines[0].romanizationWords?.[0]).toMatchObject({ from: 0, to: 1 });
+    await writeFile(file, content.replace("Words", "Changed"));
+    expect((await readLyricDocument(file)).auxiliary).toBeUndefined();
+  });
+
   it("预览读取同名 LRC 和已匹配 TTML，读取前后文件不变且实际保存使用相同路径", async () => {
     const lrcPath = join(root, "music.v2.lrc");
     const ttmlPath = join(state.dir, "existing.ttml");
@@ -123,7 +194,7 @@ describe("歌词文件保存", () => {
     expect(result.lrc).toEqual({ status: "saved", path: join(root, "music.v2.lrc") });
     expect(await readFile(join(root, "music.v2.lrc"), "utf8")).toBe(lrc);
     expect(result.ttml?.status).toBe("saved");
-    expect(await matchLocalTTML(track)).toBe(ttml);
+    expect((await matchLocalTTML(track))?.content).toBe(ttml);
     expect(await readFile(track.path!, "utf8")).toBe("audio fixture");
   });
 
@@ -133,7 +204,7 @@ describe("歌词文件保存", () => {
     const file = join(nested, "existing.ttml");
     const old = ttml;
     await writeFile(file, old);
-    expect(await matchLocalTTML(track)).toBe(old);
+    expect((await matchLocalTTML(track))?.content).toBe(old);
     const parentMtime = (await stat(state.dir)).mtimeMs;
     const next = old.replace("歌词", "新歌词");
     expect((await saveLyricFiles({ track, ttml: next })).ttml).toEqual({
@@ -141,7 +212,7 @@ describe("歌词文件保存", () => {
       path: file,
     });
     expect((await stat(state.dir)).mtimeMs).toBe(parentMtime);
-    expect(await matchLocalTTML(track)).toBe(next);
+    expect((await matchLocalTTML(track))?.content).toBe(next);
     expect(await readdir(state.dir)).toEqual(["nested"]);
   });
 
@@ -186,6 +257,6 @@ describe("歌词文件保存", () => {
     const result = await saveLyricFiles({ track: online, lrc, ttml });
     expect(result.lrc).toEqual({ status: "canceled" });
     expect(result.ttml?.status).toBe("saved");
-    expect(await matchLocalTTML(online)).toBe(ttml);
+    expect((await matchLocalTTML(online))?.content).toBe(ttml);
   });
 });

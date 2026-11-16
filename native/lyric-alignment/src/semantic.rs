@@ -3,7 +3,10 @@ use anyhow::{ensure, Context, Result};
 use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config, DTYPE};
-use std::{collections::BTreeSet, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 use tokenizers::Tokenizer;
 
 pub struct SemanticModel {
@@ -199,16 +202,18 @@ impl SemanticModel {
         Ok(variants)
     }
 
-    /// 沿用子词、短语、词典基本形及实词扩展的旧候选优先级
+    /// 按优先级筛选可靠词对，基础结果可用时跳过短语和词形推理
     /// @param source - 原文语义词元
     /// @param target - 已有译文词元
     /// @param phrases - 原文词性组成的短语
-    pub fn align(
+    /// @param accept - 应用覆盖率与词序校验，返回通过的结果
+    pub fn align<R>(
         &self,
         source: &[String],
         target: &[String],
         phrases: &[Phrase],
-    ) -> Result<Vec<Pairs>> {
+        mut accept: impl FnMut(&Pairs) -> Option<R>,
+    ) -> Result<Option<R>> {
         let heads: Vec<_> = phrases
             .iter()
             .flat_map(|p| p.heads.iter().copied())
@@ -217,30 +222,38 @@ impl SemanticModel {
         let head_pairs = variants.pop().unwrap();
         let word_pairs = variants.pop().unwrap();
         let pairs = variants.pop().unwrap();
-        // 超长或空白输入在分词阶段已拒绝，短语候选不能绕过同一模型长度限制
         if pairs.is_empty() && word_pairs.is_empty() && head_pairs.is_empty() {
-            return Ok(vec![pairs]);
+            return Ok(None);
         }
-        let mut alternatives = Vec::new();
+        let mut seen = Vec::new();
+        if let Some(result) = select_candidates([pairs.clone()], &mut seen, &mut accept) {
+            return Ok(Some(result));
+        }
         if phrases.len() > 1 && phrases.len() < source.len() {
             let variants = self.variants(
                 &phrases.iter().map(|p| p.text.clone()).collect::<Vec<_>>(),
                 target,
                 None,
             )?;
-            for candidate in variants.iter().rev() {
-                alternatives.push(
-                    candidate
-                        .iter()
-                        .flat_map(|[from, to]| phrases[*from].indices.iter().map(|i| [*i, *to]))
-                        .collect::<BTreeSet<_>>()
-                        .into_iter()
-                        .collect(),
-                );
+            let expanded = variants.into_iter().rev().map(|candidate| {
+                candidate
+                    .iter()
+                    .flat_map(|[from, to]| phrases[*from].indices.iter().map(|i| [*i, *to]))
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect()
+            });
+            if let Some(result) = select_candidates(expanded, &mut seen, &mut accept) {
+                return Ok(Some(result));
             }
         }
-        alternatives.push(word_pairs.clone());
-        alternatives.push(expand(&pairs, phrases));
+        if let Some(result) = select_candidates(
+            [word_pairs.clone(), expand(&pairs, phrases)],
+            &mut seen,
+            &mut accept,
+        ) {
+            return Ok(Some(result));
+        }
         let mut lemma = source.to_vec();
         for p in phrases {
             for (index, value) in p.indices.iter().zip(&p.lemmas) {
@@ -254,21 +267,87 @@ impl SemanticModel {
             let p = v.pop().unwrap();
             (p, w, h)
         } else {
-            (pairs.clone(), word_pairs, head_pairs.clone())
+            (pairs, word_pairs, head_pairs.clone())
         };
-        alternatives.extend([
-            expand(&lemma_pairs, phrases),
-            expand(&lemma_words, phrases),
-            expand(&head_pairs, phrases),
-            expand(&lemma_heads, phrases),
-        ]);
-        let mut unique = vec![pairs];
-        for candidate in alternatives {
-            if !candidate.is_empty() && !unique.contains(&candidate) {
-                unique.push(candidate);
-            }
+        if let Some(result) = select_candidates(
+            [
+                expand(&lemma_pairs, phrases),
+                expand(&lemma_words, phrases),
+                expand(&head_pairs, phrases),
+                expand(&lemma_heads, phrases),
+            ],
+            &mut seen,
+            &mut accept,
+        ) {
+            return Ok(Some(result));
         }
-        Ok(unique)
+        Ok(accept(&consensus_pairs(&seen)))
+    }
+}
+
+/// 逐个校验候选并跳过重复结果，按原有顺序优先使用更可信的词对
+/// @param candidates - 本轮可用词对
+/// @param seen - 已经评估的不同词对
+/// @param accept - 根据歌词覆盖率及原词范围选择可用结果
+fn select_candidates<R>(
+    candidates: impl IntoIterator<Item = Pairs>,
+    seen: &mut Vec<Pairs>,
+    accept: &mut impl FnMut(&Pairs) -> Option<R>,
+) -> Option<R> {
+    for pairs in candidates {
+        if pairs.is_empty() || seen.contains(&pairs) {
+            continue;
+        }
+        if let Some(result) = accept(&pairs) {
+            return Some(result);
+        }
+        seen.push(pairs);
+    }
+    None
+}
+
+/// 汇合至少两类候选共同确认的词对，补回单一候选遗漏的语义锚点
+/// @param candidates - 已去重的语义、词形和短语候选
+fn consensus_pairs(candidates: &[Pairs]) -> Pairs {
+    let mut votes = BTreeMap::new();
+    for pairs in candidates {
+        for pair in pairs {
+            *votes.entry(*pair).or_insert(0usize) += 1;
+        }
+    }
+    votes
+        .into_iter()
+        .filter_map(|(pair, count)| (count >= 2).then_some(pair))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{consensus_pairs, select_candidates, Pairs};
+    use crate::{translation, types::ReadingToken};
+
+    #[test]
+    fn consensus_recovers_complementary_anchors_without_lowering_thresholds() {
+        let source: Vec<_> = (0..6)
+            .map(|index| ReadingToken {
+                text: format!("word{index}"),
+                reading: String::new(),
+                readings: None,
+                from: index,
+                to: index,
+            })
+            .collect();
+        let target: Vec<_> = (0..6).map(|index| format!("词{index}")).collect();
+        let variants: Vec<Pairs> = [[0, 1, 2], [0, 3, 4], [1, 3, 5], [2, 4, 5]]
+            .into_iter()
+            .map(|rows| rows.into_iter().map(|index| [index, index]).collect())
+            .collect();
+        let mut seen = Vec::new();
+        let mut accept = |pairs: &Pairs| translation::align(&source, &target, pairs);
+        assert!(select_candidates(variants, &mut seen, &mut accept).is_none());
+        let aligned = accept(&consensus_pairs(&seen)).unwrap();
+        assert_eq!(aligned.parts.len(), 6);
+        assert_eq!(aligned.score, 1.0);
     }
 }
 

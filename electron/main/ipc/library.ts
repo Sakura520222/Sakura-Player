@@ -1,5 +1,6 @@
 import { ipcMain, dialog } from "electron";
 import { encodeLyricStorage, decodeLyricStorage } from "@main/services/lyricStorage";
+import { validateTtmlDocument } from "@main/services/lyricDocument";
 import fs from "node:fs/promises";
 import { store } from "@main/store";
 import {
@@ -279,6 +280,12 @@ export const registerLibraryIpc = (): void => {
       const replacedCovers = new Set<string>();
       for (const edit of edits) {
         const { coverPath, coverUrl, lyricData, ...fields } = edit;
+        if (lyricData?.format === "ttml" && fields.lyrics !== undefined)
+          validateTtmlDocument(fields.lyrics, lyricData.auxiliary);
+        const storedLyric =
+          lyricData && fields.lyrics !== undefined
+            ? encodeLyricStorage(fields.lyrics, lyricData)
+            : undefined;
         let cover: Buffer | undefined;
         if (coverPath) {
           cover = await fs.readFile(coverPath);
@@ -289,10 +296,7 @@ export const registerLibraryIpc = (): void => {
         if (cover) replacedCovers.add(edit.path);
         requests.push({
           ...fields,
-          lyricData:
-            lyricData && fields.lyrics !== undefined
-              ? encodeLyricStorage(fields.lyrics, lyricData)
-              : undefined,
+          lyricData: storedLyric,
           cover,
         });
       }

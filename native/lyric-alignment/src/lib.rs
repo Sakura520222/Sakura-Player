@@ -11,6 +11,7 @@ pub mod types;
 use anyhow::Result;
 use readings::{target_words, Linguistics};
 use semantic::SemanticModel;
+use std::collections::HashMap;
 use std::path::Path;
 use types::{LineResult, Phrase, ReadingToken, Request, Response, TrackResult};
 
@@ -83,7 +84,9 @@ pub fn align(request: &Request, model_directory: Option<&Path>) -> Result<Respon
     } else {
         None
     };
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(prepared.len());
+    // 副歌可复用相同分词和原词范围的结果，缓存只存活于本次请求
+    let mut matches = HashMap::<_, Option<TrackResult>>::new();
     for line in prepared {
         let mut result = LineResult {
             id: line.id,
@@ -92,37 +95,28 @@ pub fn align(request: &Request, model_directory: Option<&Path>) -> Result<Respon
         };
         if let Some(model) = &model {
             if !line.source.is_empty() && line.target.iter().any(|s| !s.trim().is_empty()) {
-                match model.align(
-                    &line
-                        .source
+                let key = (line.source, line.target, line.phrases);
+                if let Some(translation) = matches.get(&key) {
+                    result.translation = translation.clone();
+                } else {
+                    let source = key
+                        .0
                         .iter()
-                        .map(|t| t.text.clone())
-                        .collect::<Vec<_>>(),
-                    &line.target,
-                    &line.phrases,
-                ) {
-                    Ok(candidates) => {
-                        for pairs in candidates {
-                            if let Some(translation) =
-                                translation::align(&line.source, &line.target, &pairs)
-                            {
-                                result.translation = Some(translation);
-                                break;
-                            }
+                        .map(|token| token.text.clone())
+                        .collect::<Vec<_>>();
+                    match model.align(&source, &key.1, &key.2, |pairs| {
+                        translation::align(&key.0, &key.1, pairs)
+                    }) {
+                        Ok(translation) => {
+                            result.translation = translation.clone();
+                            matches.insert(key, translation);
                         }
-                    }
-                    Err(error) => {
-                        translation_error = Some(error.to_string());
+                        Err(error) => translation_error = Some(error.to_string()),
                     }
                 }
             }
         }
         lines.push(result);
-    }
-    if translation_error.is_some() {
-        for line in &mut lines {
-            line.translation = None;
-        }
     }
     Ok(Response {
         lines,

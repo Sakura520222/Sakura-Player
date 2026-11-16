@@ -52,7 +52,8 @@ export const collectLocalAlignmentLines = (
         ["romanization", getRomanizationSpans(line)],
       ] as const) {
         // 使用同一规则区分整行占位与明确语义范围，并校验词内音译文本
-        if (hasCompleteAuxiliary(line, spans, source[field])) source[field] = "";
+        if (hasCompleteAuxiliary(line, spans, source[field], field === "translation"))
+          source[field] = "";
       }
     }
     if (!source.translation.trim() && !source.romanization.trim()) continue;

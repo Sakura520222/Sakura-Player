@@ -1,100 +1,135 @@
 import { describe, expect, it } from "vitest";
-import { parseLRC, parseLyric, parseTTML } from "lyric-kit";
-import type { LyricLine } from "@shared/types/lyrics";
-import type { Track } from "@shared/types/player";
-import { createLyricSaveContent } from "./save";
+import { parseLyric } from "lyric-kit";
 import { LYRIC_SAVE_FIXTURES } from "@shared/testFixtures/lyricSave";
-import { createTranslationTrack } from "./translation";
+import { LYRIC_COMPATIBLE_FORMATS, type LyricLine } from "@shared/types/lyrics";
+import type { Track } from "@shared/types/player";
+import { restoreAuxiliaryTracks } from "@shared/utils/lyricAuxiliary";
+import { parseCompatibleExport, serializeCompatibleLyrics } from "@shared/utils/lyricCompatible";
+import { parseExportTtml } from "@shared/utils/lyricTtml";
+import { createLyricSaveContent } from "./save";
 
 const track: Track = {
   id: "123",
   source: "netease",
   title: '歌曲 & "标题"',
   artists: [{ id: "a", name: "歌手 & 合唱" }],
-  duration: 30000,
+  duration: 30_000,
 };
-const lines: LyricLine[] = [
-  {
-    startTime: 1234,
-    endTime: 5000,
-    words: [{ word: "歌词", startTime: 1234, endTime: 5000, romanWord: "ka shi" }],
-    translatedLyric: "翻译",
-    romanLyric: "",
-    isBG: false,
-    isDuet: false,
-  },
-];
 
-describe("当前歌词保存内容", () => {
-  it("TTML 导出合入 AI 译文，替换头部与行内旧译文并保留原始注音、逐字、背景和自定义属性", () => {
-    const original = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:i="http://music.apple.com/lyric-ttml-internal"><head><metadata><translations><translation xml:lang="zh-CN"><text for="line">旧主译文<span ttm:role="x-bg">旧背景译文</span></text></translation></translations></metadata></head><body><div><p begin="1s" end="3s" i:key="line" custom="keep"><span begin="1s" end="2s" tts:ruby="container"><span tts:ruby="base">光</span><span tts:ruby="textContainer"><span tts:ruby="text" begin="1s" end="2s">ひかり</span></span></span><span ttm:role="x-roman">hikari</span><span ttm:role="x-translation">行内旧译文</span><span ttm:role="x-bg" begin="2s" end="3s">echo<span ttm:role="x-translation">旧回声</span></span></p></div></body></tt>`;
-    const before = parseTTML(original).lines;
-    const auxiliary = {
-      translation: createTranslationTrack(
-        before,
-        new Map([
-          [0, "Light < glow"],
-          [1, "Echo & voice"],
-        ]),
-        "en",
-      ),
-      translationFormat: "ttml" as const,
-    };
-    const current = parseLyric({ content: original, format: "ttml", ...auxiliary }).lines;
-    const saved = createLyricSaveContent(track, current, original, auxiliary);
-    const after = parseTTML(saved.ttml!, { preferredLang: "zh-CN" }).lines;
-    expect(after.map((row) => row.translatedLyric)).toEqual(["Light < glow", "Echo & voice"]);
-    expect(after.map((row) => ({ ...row, translatedLyric: "" }))).toEqual(
-      before.map((row) => ({ ...row, translatedLyric: "" })),
-    );
-    expect(saved.ttml).toContain('custom="keep"');
-    expect(saved.ttml).not.toContain("旧主译文");
-  });
-  it("逐行歌词仍使用普通 LRC，并保留翻译和音译且不修改显示数据", () => {
-    const content = createLyricSaveContent(track, lines);
-    expect(content.lrc).toBe("[00:01.234]歌词\n[00:01.234]翻译\n[00:01.234]ka shi");
-    expect(content.ttml).toBeUndefined();
-    expect(lines[0].romanLyric).toBe("");
-    expect(createLyricSaveContent(track, [{ ...lines[0], isBG: true }]).lrc).toContain("(歌词)");
-  });
-
-  it.each(LYRIC_SAVE_FIXTURES.filter((input) => input.format !== "srt"))(
-    "$format 导出 LRC 仍保留逐字起止时间与空拍",
-    (raw) => {
-      const input = parseLyric(raw).lines;
-      const content = createLyricSaveContent(track, input);
-      const reloaded = parseLyric({ format: "lrc", content: content.lrc }).lines;
-      expect(input[0].words.length).toBeGreaterThan(1);
-      expect(reloaded[0].words).toEqual(input[0].words);
-      expect(reloaded[0].translatedLyric).toBe(input[0].translatedLyric);
-      expect(reloaded[0].romanLyric).toBe(input[0].romanLyric);
-    },
-  );
-
-  it("毫秒时间及只有音译时的字段位置能在保存后重新解析", () => {
-    const content = createLyricSaveContent(track, [{ ...lines[0], translatedLyric: "" }]);
-    const parsed = parseLRC(content.lrc);
-    expect(parsed.lines[0].startTime).toBe(1234);
-    expect(parsed.lines[0].translatedLyric).toBe("");
-    expect(parsed.lines[0].romanLyric).toBe("ka shi");
-  });
-
-  it("给无元信息 TTML 补全歌曲匹配字段并保留逐字、翻译和制作者内容", () => {
-    const original = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:amll="http://www.example.com/ns/amll"><head><metadata><amll:meta key="ttmlAuthorGithub" value="author"/></metadata></head><body><div><p begin="1.234s" end="5s"><span begin="1.234s" end="3s">歌</span><span begin="3s" end="5s">词</span><span ttm:role="x-translation" xml:lang="zh-CN">翻译</span></p></div></body></tt>`;
-    const originalLines = parseTTML(original).lines;
-    const content = createLyricSaveContent(track, originalLines, original);
-    const parsed = parseTTML(content.ttml!);
-    expect(parsed.lines).toEqual(parseTTML(original).lines);
-    expect(parseLRC(content.lrc).lines[0].words).toEqual(originalLines[0].words);
-    expect(content.ttml).toContain('key="ncmMusicId" value="123"');
-    expect(content.ttml).toContain('key="ttmlAuthorGithub" value="author"');
-    const doc = new DOMParser().parseFromString(content.ttml!, "application/xml");
-    const meta = Array.from(doc.getElementsByTagName("amll:meta"));
+describe("可交换的歌词文件", () => {
+  it.each(LYRIC_SAVE_FIXTURES)("$format 原文及辅助轨道通过 TTML 往返", (input) => {
+    const { lines } = parseLyric(input);
+    const { ttml } = createLyricSaveContent(track, lines, input);
+    const result = parseExportTtml(ttml);
+    expect(result.metadata.title).toEqual([track.title]);
+    expect(result.metadata.platformIds?.ncmMusicId).toEqual([track.id]);
     expect(
-      meta.find((node) => node.getAttribute("key") === "musicName")?.getAttribute("value"),
-    ).toBe(track.title);
-    expect(meta.find((node) => node.getAttribute("key") === "artists")?.getAttribute("value")).toBe(
-      track.artists[0].name,
+      result.lines.map(({ words }) =>
+        words.map(({ word, startTime, endTime }) => [word, startTime, endTime]),
+      ),
+    ).toEqual(
+      lines.map(({ words }) =>
+        words.map(({ word, startTime, endTime }) => [word, startTime, endTime]),
+      ),
     );
+    expect(
+      result.lines.map(({ translatedLyric, romanLyric }) => [translatedLyric, romanLyric]),
+    ).toEqual(lines.map(({ translatedLyric, romanLyric }) => [translatedLyric, romanLyric]));
+  });
+
+  it.each(LYRIC_COMPATIBLE_FORMATS)("%s 只写真实格式字段，同步导出独立辅助文件", (format) => {
+    const lines = parseLyric(LYRIC_SAVE_FIXTURES[0]).lines;
+    const result = serializeCompatibleLyrics(lines, format, { title: [track.title] });
+    const [parsed] = parseCompatibleExport(result.lrc, format);
+    expect(parsed.startTime).toBe(lines[0].startTime);
+    expect(parsed.words.map((word) => word.word).join("")).toBe("逐字歌词");
+    if (format === "lrc") {
+      expect(result.lrc).toBe(`[ti:${track.title}]\n[00:01.234]逐字歌词\n[00:05.000]`);
+      expect(parseLyric(result.lrc).lines[0].endTime).toBe(5000);
+    } else expect(parsed.words.map((word) => word.startTime)).toEqual([1234, 2100, 3500]);
+    if (format === "qrc" || format === "yrc" || format === "lys")
+      expect(parsed.words.map((word) => word.endTime)).toEqual([2000, 3000, 5000]);
+    expect(result.translation).toContain("[00:01.234]翻译原文 & 标点");
+    expect(result.romanization).toContain("[00:01.234]zhu zi ge ci");
+    expect(result.lrc).not.toContain("sakura-");
+  });
+
+  it("TTML 保留多语空白、重复行、同刻词与不同轨道的原词关联", () => {
+    const line: LyricLine = {
+      startTime: 1000,
+      endTime: 2500,
+      isBG: false,
+      isDuet: false,
+      words: [
+        { word: "っ", startTime: 1000, endTime: 1000, emptyBeat: 1 },
+        { word: "て", startTime: 1000, endTime: 1600 },
+        { word: " ", startTime: 1600, endTime: 1600 },
+        { word: "한국你好＆!", startTime: 1500, endTime: 2500 },
+      ],
+      translatedLyric: "한글  & < Chinese",
+      translationWords: [
+        { word: "한글  & ", startTime: 1000, endTime: 1800, from: 3, to: 3 },
+        { word: "< Chinese", startTime: 1800, endTime: 2500, from: 0, to: 1 },
+      ],
+      translationLanguage: "en",
+      romanLyric: "tte hanguk ni hao",
+      romanizationWords: [
+        { word: "tte ", startTime: 1000, endTime: 1600, from: 0, to: 1 },
+        { word: "hanguk ni hao", startTime: 1500, endTime: 2500, from: 3, to: 3 },
+      ],
+      romanizationLanguage: "und-Latn",
+    };
+    const second = {
+      ...line,
+      translatedLyric: "再唱一遍",
+      translationWords: undefined,
+      translationLanguage: "zh-CN",
+    };
+    const { ttml, auxiliary } = createLyricSaveContent(
+      track,
+      [line, second],
+      LYRIC_SAVE_FIXTURES[0],
+    );
+    expect(ttml).toContain('<text for="L1">');
+    expect(ttml).toContain('<text for="L2">');
+    expect(ttml).not.toMatch(/sakura:|sakura-player|"from"|"to"/);
+    const reloaded = parseExportTtml(ttml).lines;
+    expect(reloaded.map((row) => row.translatedLyric)).toEqual([
+      line.translatedLyric,
+      second.translatedLyric,
+    ]);
+    expect(reloaded[0].words).toEqual(line.words);
+    restoreAuxiliaryTracks(reloaded, auxiliary);
+    expect(reloaded[0].translationWords).toEqual(line.translationWords);
+    expect(reloaded[0].romanizationWords).toEqual(line.romanizationWords);
+    expect(reloaded[1].translationWords).toBeUndefined();
+    expect(reloaded[1].translationLanguage).toBe("zh-CN");
+    expect(
+      createLyricSaveContent(track, reloaded, { content: ttml, format: "ttml" }).auxiliary,
+    ).toEqual(auxiliary);
+    expect(() => serializeCompatibleLyrics([line], "enhanced-lrc")).toThrow("TTML");
+    expect(serializeCompatibleLyrics([line, second], "lrc").lrc).toBe(
+      "[00:01.000]って 한국你好＆! / って 한국你好＆!\n[00:02.500]",
+    );
+  });
+
+  it("复用 TTML 原有注音、背景、制作者和 XML 样式", () => {
+    const original =
+      '<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:amll="http://www.example.com/ns/amll"><head><metadata><amll:meta key="ttmlAuthorGithub" value="author"/></metadata></head><body><div><p begin="1s" end="3s" custom="keep"><span tts:ruby="container"><span tts:ruby="base">光</span><span tts:ruby="textContainer"><span tts:ruby="text" begin="1s" end="2s">ひかり</span></span></span><span ttm:role="x-roman">hikari</span><span ttm:role="x-translation">旧译文</span><span ttm:role="x-bg" begin="2s" end="3s">echo<span ttm:role="x-translation">旧回声</span></span></p></div></body></tt>';
+    const input = { content: original, format: "ttml" as const };
+    const { lines } = parseExportTtml(original);
+    lines[0].translatedLyric = "Light < glow";
+    lines[1].translatedLyric = "Echo & voice";
+    const { ttml } = createLyricSaveContent(track, lines, input);
+    expect(ttml).toContain('custom="keep"');
+    expect(ttml).toContain('key="ttmlAuthorGithub" value="author"');
+    expect(ttml).not.toContain("旧译文");
+    const saved = parseExportTtml(ttml).lines;
+    expect(saved.map((line) => [line.translatedLyric, line.romanLyric])).toEqual([
+      ["Light < glow", "hikari"],
+      ["Echo & voice", ""],
+    ]);
+    expect(saved[0].words[0].ruby).toEqual(lines[0].words[0].ruby);
+    expect(saved[1].isBG).toBe(true);
   });
 });

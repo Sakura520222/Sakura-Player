@@ -126,10 +126,10 @@ pub fn align(tokens: &[ReadingToken], existing: &str) -> Option<TrackResult> {
         return anchors(&groups, &target, existing);
     }
     let width = target.text.len() + 1;
+    let has_spaces = existing.chars().any(char::is_whitespace);
     let boundary_costs: Vec<f64> = (0..width)
         .map(|column| {
-            if column > 0 && column < target.text.len() && existing.chars().any(char::is_whitespace)
-            {
+            if column > 0 && column < target.text.len() && has_spaces {
                 let previous = target.offsets[column - 1];
                 let end = previous + existing[previous..].chars().next().unwrap().len_utf8();
                 if target.offsets[column] >= end
@@ -159,8 +159,8 @@ pub fn align(tokens: &[ReadingToken], existing: &str) -> Option<TrackResult> {
                         + variant as f64 / 1048576.0
                 })
                 .collect();
+            let mut current = vec![0.0; width];
             for row in 1..=reading.len() {
-                let mut current = vec![0.0; width];
                 current[0] = previous[0] + 1.0;
                 for column in 1..width {
                     let matched = previous[column - 1]
@@ -178,7 +178,7 @@ pub fn align(tokens: &[ReadingToken], existing: &str) -> Option<TrackResult> {
                         2
                     };
                 }
-                previous = current;
+                std::mem::swap(&mut previous, &mut current);
             }
             for column in 0..width {
                 if previous[column] < best[column] {

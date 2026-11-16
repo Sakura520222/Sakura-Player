@@ -68,7 +68,6 @@ describe("智能翻译与音译逐字协议", () => {
     [{ from: "0.0", to: 2, text: "kimi" }],
     ["", "", ""],
     ["kimi", "to"],
-    ["kimi", "to", "歩く"],
   ])("兼容范围后仍拒绝重叠、缺词、越界和无效文本：%#", (...parts) => {
     expect(() =>
       readRomanizationAlignment(collectAlignmentLines(ALIGNMENT_LINES)[0], parts),
@@ -148,15 +147,19 @@ describe("智能翻译与音译逐字协议", () => {
     ],
     [
       { text: "Visible", from: 0, to: 0 },
-      { text: "", from: 2, to: 2 },
-    ],
-    [
-      { text: "Visible", from: 0, to: 0 },
       { text: " ".repeat(8192), from: 1, to: 2 },
     ],
-  ])("空关联兼容仍拒绝空译文、越界、控制字符、缺词与合并后超长", (...parts) => {
+  ])("空关联兼容仍拒绝空译文、越界、控制字符与合并后超长", (...parts) => {
     const line = collectAlignmentLines(ALIGNMENT_LINES)[0];
     expect(() => readTranslationAlignment(line, parts)).toThrow();
+  });
+
+  it("接受译文的有效部分锚点和混合文字音译", () => {
+    const line = collectAlignmentLines(ALIGNMENT_LINES)[0];
+    expect(readTranslationAlignment(line, [{ index: "2", text: "Walk" }])).toEqual([
+      { from: 2, to: 2, text: "Walk" },
+    ]);
+    expect(readRomanizationAlignment(line, ["kimi", "to", "歩く"])).toHaveLength(3);
   });
 
   it("仅发送稳定字词下标和原文，语义重排不改变原始时间戳", () => {
@@ -177,7 +180,6 @@ describe("智能翻译与音译逐字协议", () => {
 
   it.each([
     "range",
-    "coverage",
     "roman-duplicate",
     "roman-missing",
     "control",
@@ -187,7 +189,6 @@ describe("智能翻译与音译逐字协议", () => {
   ])("拒绝 %s 无效关联及不完整结果", (failure) => {
     const value = structuredClone({ id: 0, ...ALIGNMENT_RESULT });
     if (failure === "range") value.translation[0].to = 99;
-    if (failure === "coverage") value.translation.pop();
     if (failure === "roman-duplicate") value.romanization[1].index = 0;
     if (failure === "roman-missing") value.romanization.pop();
     if (failure === "control") value.translation[0].text = "multi\nline";
