@@ -40,7 +40,9 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     wordRomanization: true,
     wordTranslation: true,
   });
-  const coverage = computed(() => getGenerationCoverage(media.parsedLyric));
+  const coverage = computed(() =>
+    getGenerationCoverage(media.parsedLyric, media.aiLyricExcludedIds),
+  );
   const planned = shallowRef<GenerationLine[]>([]);
   const plannedIds = computed(() => new Set(planned.value.map((line) => line.id)));
   const generationCount = computed(() => planned.value.length);
@@ -205,6 +207,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       });
   };
 
+  /** 根据当前歌词与选项重建生成计划和预览 */
   const reset = (): void => {
     cancel();
     progress = null;
@@ -218,14 +221,18 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
           media.parsedLyric,
           selected.value,
           generationMode.value,
+          undefined,
+          media.aiLyricExcludedIds,
         );
-        rows.value = collectGenerationLines(media.parsedLyric).map((line) => ({
-          id: line.id,
-          text: line.text,
-          translation: line.existingTranslation,
-          romanization: line.existingRomanization,
-          done: !plannedIds.value.has(line.id),
-        }));
+        rows.value = collectGenerationLines(media.parsedLyric, media.aiLyricExcludedIds).map(
+          (line) => ({
+            id: line.id,
+            text: line.text,
+            translation: line.existingTranslation,
+            romanization: line.existingRomanization,
+            done: !plannedIds.value.has(line.id),
+          }),
+        );
       } catch {
         error.value = t("player.aiTranslation.tooLarge");
       }
@@ -284,7 +291,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     }
     if (!rows.value.length || !progress || !progress.lines.length) return;
     const saved = progress;
-    const source = collectGenerationLines(media.parsedLyric);
+    const source = collectGenerationLines(media.parsedLyric, media.aiLyricExcludedIds);
     const remaining = saved.lines.filter((line) => !saved.results.has(line.id));
     // 全部行已预览但请求未成功结束时，重试末行后才允许应用。
     if (!remaining.length) remaining.push(saved.lines.at(-1)!);
@@ -518,6 +525,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       saved.options,
       saved.mode,
       saved.regenerateRomanization,
+      media.aiLyricExcludedIds,
     );
     await runWithRetries(true);
   };

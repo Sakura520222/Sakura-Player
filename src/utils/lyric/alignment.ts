@@ -143,6 +143,7 @@ export const alignGeneratedLyrics = (
  * @param options - 用户勾选的生成项目
  * @param mode - 补齐时保留已有内容，完整生成时重新生成所选轨道
  * @param regenerateRomanization - 用户选择单独重新音译的失败行
+ * @param excludedIds - 跳过的原歌词行下标
  * @returns 完整新歌词；不完整、改写既有文本或格式无效时返回 null
  */
 export const applyGeneratedLyrics = (
@@ -151,11 +152,12 @@ export const applyGeneratedLyrics = (
   options: GenerationOptions,
   mode: GenerationMode = "missing",
   regenerateRomanization?: ReadonlySet<number>,
+  excludedIds?: ReadonlySet<number>,
 ): LyricLine[] | null => {
   let validated: Map<number, GeneratedLyric>;
   let planned: Map<number, ReturnType<typeof createGenerationPlan>[number]>;
   try {
-    const source = createGenerationPlan(lines, options, mode, regenerateRomanization);
+    const source = createGenerationPlan(lines, options, mode, regenerateRomanization, excludedIds);
     if (!source.length || source.length !== results.size) return null;
     planned = new Map(source.map((line) => [line.id, line]));
     const decoder = new GenerationDecoder(source, options);

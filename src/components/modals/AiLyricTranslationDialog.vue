@@ -57,12 +57,15 @@ const clearsAlignment = computed(
     generationMode.value === "full" &&
     ((selected.value.translation &&
       !selected.value.wordTranslation &&
-      media.parsedLyric.some((line) => line.translationWords?.length)) ||
+      media.parsedLyric.some(
+        (line, id) => !media.aiLyricExcludedIds.has(id) && line.translationWords?.length,
+      )) ||
       (selected.value.romanization &&
         !selected.value.wordRomanization &&
         media.parsedLyric.some(
-          (line) =>
-            line.romanizationWords?.length || line.words.some((word) => word.romanWord?.trim()),
+          (line, id) =>
+            !media.aiLyricExcludedIds.has(id) &&
+            (line.romanizationWords?.length || line.words.some((word) => word.romanWord?.trim())),
         ))),
 );
 

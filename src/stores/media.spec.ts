@@ -17,6 +17,9 @@ let settings: {
   lyric: {
     cjkTransform: CjkTransformMode;
     detectBackgroundLyrics: boolean;
+    enableExcludeLyrics: boolean;
+    excludeLyricsUserKeywords: string[];
+    excludeLyricsUserRegexes: string[];
     showTranslation?: boolean;
     showWordTranslation?: boolean;
     showRomanization?: boolean;
@@ -26,9 +29,6 @@ let settings: {
 const mocks = vi.hoisted(() => ({ transform: vi.fn(), update: vi.fn() }));
 vi.mock("@/stores/settings", () => ({ useSettingsStore: () => settings }));
 vi.mock("@/services/lyric/loader", () => ({ watchLyricPreference: vi.fn() }));
-vi.mock("@/utils/lyric/lyricStripper", () => ({
-  applyLyricExclude: (lines: LyricLine[]) => lines,
-}));
 vi.mock("@/utils/lyric/cjkTransform", () => ({ applyLyricCjkTransform: mocks.transform }));
 import { useMediaStore } from "./media";
 import { alignRomanization, alignTranslation } from "@shared/testFixtures/legacyLyricAlignment";
@@ -44,7 +44,13 @@ beforeEach(() => {
   setActivePinia(pinia);
   settings = reactive({
     locale: "zh-CN",
-    lyric: { cjkTransform: "none", detectBackgroundLyrics: true },
+    lyric: {
+      cjkTransform: "none",
+      detectBackgroundLyrics: true,
+      enableExcludeLyrics: true,
+      excludeLyricsUserKeywords: [],
+      excludeLyricsUserRegexes: [],
+    },
   });
   mocks.transform.mockReset().mockImplementation(async (lines) => lines);
   Object.defineProperty(window, "api", {
@@ -67,6 +73,53 @@ const translations = new Map([
   [0, "灯光"],
   [1, "雨声"],
 ]);
+
+describe("AI 歌词排除", () => {
+  it.each([true, false])("复用播放排除规则并按原歌词下标回写（播放排除 %s）", (enabled) => {
+    settings.lyric.enableExcludeLyrics = enabled;
+    settings.lyric.excludeLyricsUserKeywords = ["录制地点"];
+    const media = useMediaStore();
+    media.setTrack({
+      id: "song",
+      source: "local",
+      title: "Amazing Sky",
+      artists: [{ id: "a", name: "Kicco" }],
+      duration: 12000,
+    });
+    const content = [
+      "[00:00]Amazing Sky - Kicco",
+      "[00:01]作词：作词人",
+      "[00:02]作曲：作曲人",
+      "[00:03]录制地点：例子",
+      "[00:04]無垢な瞳を輝かせ",
+      "[00:06]キラリ光る虹仰ぎ見る",
+    ].join("\n");
+    media.setLyric({ source: "embedded", format: "lrc" }, { content });
+    expect([...media.aiLyricExcludedIds]).toEqual(enabled ? [] : [0, 1, 2, 3]);
+    expect(media.parsedLyric).toHaveLength(enabled ? 2 : 6);
+
+    const firstId = enabled ? 0 : 4;
+    const options = {
+      translation: true,
+      romanization: false,
+      wordTranslation: false,
+      wordRomanization: false,
+    };
+    const results = new Map([
+      [firstId, { translation: "让纯净的双眸闪耀" }],
+      [firstId + 1, { translation: "仰望闪耀的彩虹" }],
+    ]);
+    expect(media.applyGeneratedLyric(media.lyricRevision, results, options, "zh-CN", "full")).toBe(
+      true,
+    );
+    expect(media.parsedLyric.map((line) => line.translatedLyric)).toEqual([
+      ...Array.from({ length: firstId }, () => ""),
+      "让纯净的双眸闪耀",
+      "仰望闪耀的彩虹",
+    ]);
+    expect(media.lyricContent?.content).toBe(content);
+  });
+});
 
 describe("当前歌曲本地算法对齐", () => {
   it("保存完整辅助 TTML 并重读，主词时间与同刻背景声部不变", async () => {

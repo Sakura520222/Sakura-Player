@@ -30,10 +30,14 @@ When existingRomanization is supplied, align that text without changing any non-
 /**
  * 保留主歌词字词下标，模型只返回关联关系，不生成或修改时间戳
  * @param lines - 当前歌词快照
+ * @param excludedIds - 跳过的原歌词行下标
  * @returns 可用于智能翻译和音译的原文字词
  */
-export const collectAlignmentLines = (lines: LyricLine[]): AlignmentLine[] =>
-  collectTranslationLines(lines).map((line) => ({
+export const collectAlignmentLines = (
+  lines: LyricLine[],
+  excludedIds?: ReadonlySet<number>,
+): AlignmentLine[] =>
+  collectTranslationLines(lines, excludedIds).map((line) => ({
     ...line,
     words: lines[line.id].words.flatMap((word, index) =>
       word.word.trim() ? [{ index, text: word.word }] : [],

@@ -15,6 +15,7 @@ import { ALIGNMENT_LINES, ALIGNMENT_RESULT } from "@shared/testFixtures/lyricAli
 let media: {
   track: Track | null;
   parsedLyric: LyricLine[];
+  aiLyricExcludedIds: ReadonlySet<number>;
   lyricRevision: number;
   lyricLoading: boolean;
   applyLyricTranslation: ReturnType<typeof vi.fn>;
@@ -82,6 +83,7 @@ beforeEach(() => {
       duration: 5000,
     },
     parsedLyric: parseLyric("[00:01]A light after the rain\n[00:03]Walking with you").lines,
+    aiLyricExcludedIds: new Set<number>(),
     lyricRevision: 1,
     lyricLoading: false,
     applyLyricTranslation: vi.fn(() => true),
@@ -98,6 +100,48 @@ afterEach(() => {
 });
 
 describe("AI 歌词翻译任务生命周期", () => {
+  it.each(["missing", "full"] as const)(
+    "在 %s 模式中跳过元数据行并保留原歌词行号",
+    async (mode) => {
+      media.parsedLyric = parseLyric(
+        "[00:00]Fixture - Writer\n[00:01]作词：Writer\n[00:02]A light after the rain",
+      ).lines;
+      media.aiLyricExcludedIds = new Set([0, 1]);
+      const state = await setup();
+      state.generationMode.value = mode;
+      expect(state.coverage.value.total).toBe(1);
+      expect(state.rows.value.map((row) => row.id)).toEqual([2]);
+      expect(state.generationCount.value).toBe(1);
+
+      api.stream.mockImplementationOnce(async (request) => {
+        expect(JSON.parse(request.messages[1].content).lines).toEqual([
+          { id: 2, text: "A light after the rain" },
+        ]);
+        return result('{"id":2,"translation":"雨后的光"}');
+      });
+      await state.start();
+      expect(api.stream).toHaveBeenCalledOnce();
+      expect(state.translatedCount.value).toBe(1);
+      expect(state.apply()).toBe(true);
+      expect(media.applyGeneratedLyric.mock.lastCall?.[1]).toEqual(
+        new Map([[2, { translation: "雨后的光" }]]),
+      );
+    },
+  );
+
+  it("正文已有辅助歌词时，不为缺少辅助歌词的标题行启动生成", async () => {
+    media.parsedLyric = parseLyric("[00:00]Fixture - Writer\n[00:01]A light after the rain").lines;
+    media.parsedLyric[1].translatedLyric = "雨后的光";
+    media.aiLyricExcludedIds = new Set([0]);
+    const state = await setup();
+    expect(state.coverage.value.existing.translation).toBe(1);
+    expect(state.generationCount.value).toBe(0);
+    expect(state.preservedCount.value).toBe(1);
+    expect(state.canStart.value).toBe(false);
+    await state.start();
+    expect(api.stream).not.toHaveBeenCalled();
+  });
+
   it("七个原词遇到越界端点时改用按顺序的音译，允许只重做仍失败的一行", async () => {
     const source = structuredClone(ALIGNMENT_LINES[0]);
     media.parsedLyric = [

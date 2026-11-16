@@ -68,6 +68,7 @@ export const useMediaStore = defineStore("media", () => {
 
   /** 当前歌词解析结果 */
   const parsedLyric = shallowRef<LyricLine[]>([]);
+  const aiLyricExcludedIds = shallowRef<ReadonlySet<number>>(new Set());
 
   /** 当前歌词文件制作者列表 */
   const lyricAuthors = ref<string[]>([]);
@@ -158,6 +159,7 @@ export const useMediaStore = defineStore("media", () => {
     activeLyric.value = null;
     lyricContent.value = null;
     parsedLyric.value = [];
+    aiLyricExcludedIds.value = new Set();
     lyricAuthors.value = [];
     lyricIndex.value = -1;
     lyricLoading.value = true;
@@ -179,7 +181,7 @@ export const useMediaStore = defineStore("media", () => {
    * 解析播放用行并保留未经简繁显示转换的数据
    * @param source - 当前歌词来源及格式
    * @param input - 正文及独立辅助轨道
-   * @returns 当前设置下原始歌词、制作者与逐字能力
+   * @returns 当前设置下原始歌词、AI 跳过的行号、制作者与逐字能力
    */
   const parseCurrentLyrics = (source: NonNullable<LyricData>, input: LyricInput) => {
     let nextLines: LyricLine[] = [];
@@ -223,7 +225,15 @@ export const useMediaStore = defineStore("media", () => {
           }
         }
     }
-    nextLines = applyLyricExclude(sourceLines, track.value);
+    const filteredLines = applyLyricExclude(sourceLines, track.value);
+    const excludedIds = new Set<number>();
+    nextLines = settings.lyric.enableExcludeLyrics ? filteredLines : sourceLines;
+    if (nextLines !== filteredLines) {
+      const included = new Set(filteredLines);
+      for (const [id, line] of sourceLines.entries()) {
+        if (!included.has(line)) excludedIds.add(id);
+      }
+    }
     applyTimedAuxiliary(nextLines, { ...input, format: source.format }, settings.locale);
     normalizeLyricLines(nextLines);
     nextLines = clampLastLineEnd(nextLines, track.value?.duration);
@@ -255,7 +265,7 @@ export const useMediaStore = defineStore("media", () => {
     authors = result.metadata.authors?.length
       ? result.metadata.authors
       : extractLyricAuthors(input.content, source.format);
-    return { nextLines, authors, hasWordTiming };
+    return { nextLines, excludedIds, authors, hasWordTiming };
   };
 
   /** 从原始来源按需恢复导出内容，避免保存播放器显示用的简繁转换 */
@@ -274,12 +284,13 @@ export const useMediaStore = defineStore("media", () => {
   const setLyric = (source: LyricData, input: LyricInput | null): void => {
     const token = ++transformToken;
     let nextLines: LyricLine[] = [];
+    let excludedIds = new Set<number>();
     let authors: string[] = [];
     let hasWordTiming = false;
     const settings = useSettingsStore();
     if (source && input) {
       try {
-        ({ nextLines, authors, hasWordTiming } = parseCurrentLyrics(source, input));
+        ({ nextLines, excludedIds, authors, hasWordTiming } = parseCurrentLyrics(source, input));
       } catch (e) {
         console.error("[media] parse lyric failed:", e);
         nextLines = [];
@@ -290,6 +301,7 @@ export const useMediaStore = defineStore("media", () => {
     activeLyric.value = hasContent && source ? { ...source, wordTimed: hasWordTiming } : null;
     lyricContent.value = hasContent ? input : null;
     parsedLyric.value = nextLines;
+    aiLyricExcludedIds.value = excludedIds;
     lyricAuthors.value = hasContent && source && input ? authors : [];
     lyricIndex.value = -1;
     lyricLoading.value = false;
@@ -472,6 +484,7 @@ export const useMediaStore = defineStore("media", () => {
       options,
       mode,
       regenerateRomanization,
+      aiLyricExcludedIds.value,
     );
     if (!lines) return false;
     const input = { ...toRaw(lyricContent.value) };
@@ -564,6 +577,7 @@ export const useMediaStore = defineStore("media", () => {
     activeLyric.value = null;
     lyricContent.value = null;
     parsedLyric.value = [];
+    aiLyricExcludedIds.value = new Set();
     lyricAuthors.value = [];
     lyricLoading.value = false;
     lyricIndex.value = -1;
@@ -580,6 +594,7 @@ export const useMediaStore = defineStore("media", () => {
     lyricFormat,
     wordTimed,
     parsedLyric,
+    aiLyricExcludedIds,
     lyricAuthors,
     lyricLoading,
     lyricIndex,

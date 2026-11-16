@@ -68,9 +68,10 @@ export const getExistingRomanization = (line: LyricLine): string => {
 /**
  * 检测每项完整覆盖的行数，部分字词音译和失效时间片段不算完整
  * @param lines - 当前歌词及已有辅助数据
+ * @param excludedIds - 跳过的原歌词行下标
  * @returns 有效主歌词行数和四项已有数据的完整覆盖行数
  */
-export const getGenerationCoverage = (lines: LyricLine[]) => {
+export const getGenerationCoverage = (lines: LyricLine[], excludedIds?: ReadonlySet<number>) => {
   const existing: Record<GenerationTask, number> = {
     translation: 0,
     romanization: 0,
@@ -78,7 +79,8 @@ export const getGenerationCoverage = (lines: LyricLine[]) => {
     wordTranslation: 0,
   };
   let total = 0;
-  for (const line of lines) {
+  for (const [id, line] of lines.entries()) {
+    if (excludedIds?.has(id)) continue;
     const words = line.words.filter((word) => word.word.trim());
     if (!words.length) continue;
     total++;
@@ -92,9 +94,17 @@ export const getGenerationCoverage = (lines: LyricLine[]) => {
   return { total, existing };
 };
 
-/** 仅把原词和对齐需要保留的已有文本发给模型，不包含时间、路径与未选择的辅助轨道 */
-export const collectGenerationLines = (lines: LyricLine[]): GenerationLine[] =>
-  collectAlignmentLines(lines).map((line) => ({
+/**
+ * 提取生成和对齐用的原词及可复用辅助文本
+ * @param lines - 当前歌词及已有辅助数据
+ * @param excludedIds - 跳过的原歌词行下标
+ * @returns 带原歌词下标的生成数据
+ */
+export const collectGenerationLines = (
+  lines: LyricLine[],
+  excludedIds?: ReadonlySet<number>,
+): GenerationLine[] =>
+  collectAlignmentLines(lines, excludedIds).map((line) => ({
     ...line,
     existingTranslation: lines[line.id].translatedLyric,
     existingRomanization: getExistingRomanization(lines[line.id]),
@@ -106,6 +116,7 @@ export const collectGenerationLines = (lines: LyricLine[]): GenerationLine[] =>
  * @param options - 用户选择的生成项目
  * @param mode - 补齐缺失或从头完整生成
  * @param regenerateRomanization - 用户选择单独重新音译的失败行
+ * @param excludedIds - 跳过的原歌词行下标
  * @returns 仅包含需要请求模型的行及其实际任务
  */
 export const createGenerationPlan = (
@@ -113,8 +124,9 @@ export const createGenerationPlan = (
   options: GenerationOptions,
   mode: GenerationMode,
   regenerateRomanization?: ReadonlySet<number>,
+  excludedIds?: ReadonlySet<number>,
 ): GenerationLine[] =>
-  collectGenerationLines(lines).flatMap((line) => {
+  collectGenerationLines(lines, excludedIds).flatMap((line) => {
     const { existing } = getGenerationCoverage([lines[line.id]]);
     const requested = Object.fromEntries(
       GENERATION_TASKS.map((task) => [

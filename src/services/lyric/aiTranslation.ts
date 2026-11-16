@@ -28,12 +28,17 @@ const MAX_RECORD_CHARACTERS = 16_384;
 /**
  * 仅提取需要翻译的原文，不把时间轴、已有译文或文件路径发送给模型
  * @param lines - 当前解析后的歌词
+ * @param excludedIds - 跳过的原歌词行下标
  * @returns 带稳定行下标的文本快照
  */
-export const collectTranslationLines = (lines: LyricLine[]): TranslationLine[] => {
+export const collectTranslationLines = (
+  lines: LyricLine[],
+  excludedIds?: ReadonlySet<number>,
+): TranslationLine[] => {
   const result: TranslationLine[] = [];
   let length = 0;
   for (const [id, line] of lines.entries()) {
+    if (excludedIds?.has(id)) continue;
     const text = line.words
       .map((word) => word.word)
       .join("")
