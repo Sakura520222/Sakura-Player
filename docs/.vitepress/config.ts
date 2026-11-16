@@ -147,6 +147,13 @@ const enTheme: DefaultTheme.Config = {
       ],
     },
     {
+      text: "Playback Transitions",
+      items: [
+        { text: "Crossfade", link: "/en/crossfade" },
+        { text: "AutoMix", link: "/en/automix" },
+      ],
+    },
+    {
       text: "About",
       items: [
         { text: "User Agreement", link: "/en/agreement" },
@@ -199,6 +206,13 @@ const enTheme: DefaultTheme.Config = {
         { text: "External API (HTTP)", link: "/en/api" },
         { text: "WebSocket API", link: "/en/socket" },
         { text: "MCP", link: "/en/mcp" },
+      ],
+    },
+    {
+      text: "Playback Transitions",
+      items: [
+        { text: "Crossfade", link: "/en/crossfade" },
+        { text: "AutoMix", link: "/en/automix" },
       ],
     },
     {

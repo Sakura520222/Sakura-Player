@@ -12,6 +12,8 @@ The player supports list repeat, repeat-one, and shuffle, with queue viewing and
 
 When annotations are available, gold bands show the highlight ranges on the progress bar. Click the **flame button** to jump to a highlight's start in the regular, floating, or full-screen player. Seeking while paused keeps playback paused. For multiple highlights, the button selects the next upcoming range, or returns to the first when none remain. The bands display ranges; adjust playback position by dragging the progress bar as usual.
 
+Turn off **Highlight marks on progress bar** to hide the bands and keep highlight lookup and the flame button available.
+
 - **NetEase and Kugou tracks:** Query the original platform's song ID or Hash first. If no valid annotation is available or the request fails, try matching a version on the other platform.
 - **Local, QQ Music, and streaming tracks:** Search by title and artist, then use album and duration to select a matching version. No highlight range is shown when a reliable match cannot be found.
 - **Plugin-source tracks:** Do not participate in the built-in platforms' highlight queries.
@@ -39,11 +41,11 @@ These tools are available from the More menu in both the regular toolbar and ful
 
 - **Fades:** Smooth volume changes on playback start/stop, with a 100–600 millisecond duration.
 - **Preload next track:** Cache and decode the next song ahead of time, potentially increasing network and disk usage.
-- **Crossfade:** Hand over at the end of a track, with conservative, standard, or eager transition preferences.
+- **Playback Transition → Transition mode:** Choose No transition, [Crossfade](/en/crossfade), or [AutoMix](/en/automix). **Mix handoff preference** offers Conservative, Standard, and Eager settings.
 
-If song caching or streaming caching is disabled, enabling preload or crossfade asks for confirmation and enables the required caches. Crossfade also enables preloading; disabling preloading changes the transition mode to None.
+Enabling preload or either transition mode prompts you to enable any required song and streaming caches. Choosing a transition mode enables preloading. Disabling preloading sets the mode to **No transition**.
 
-A transition requires the next track to be ready and depends on playback mode, source, and cache state. Not every track switch can crossfade. See [Data Management](/en/data-management) for cache limits and cleanup.
+A transition requires the next track to be ready. End-of-track transitions are skipped during repeat-one, Personal FM, A-B looping, or when the sleep timer will stop after the current track. See [Data Management](/en/data-management) for cache limits and cleanup.
 
 ## Output devices
 
@@ -53,9 +55,21 @@ Normalization, equalization, speed, and pitch changes participate in audio proce
 
 ## Lyrics, spectrum, and shortcuts
 
-- Click the playback-bar cover to expand the full-screen player and switch lyrics, queue, and immersive display.
+- Click the playback-bar cover to expand the full-screen player and switch lyrics, queue, and immersive display. Under **Settings → Appearance → Player → Player Layout**, choose Classic, Fullscreen Cover, Fullscreen Lyrics, or AM Style.
 - Enable the spectrum in **Settings → Player → Music spectrum**.
 - Configure in-app and global scopes separately in **Settings → Hotkey Settings**. Duplicate or system-occupied combinations produce conflict messages.
 - See [Lyrics](/en/lyrics) for desktop lyrics, Dynamic Island, and Windows taskbar lyrics.
 
 Linux shortcuts and floating windows can depend on the desktop environment. See [Wayland compatibility](/en/troubleshooting/wayland).
+
+## Animated covers
+
+Choose a source in **Settings → Appearance → Player → Animated Cover**. The feature is off by default. The full-screen player shows static artwork when no video is available.
+
+| Option    | Source and requirements                                                                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NCM Only  | Streams available artwork for NetEase tracks when signed in                                                                                                                      |
+| AM Only   | Matches track metadata to an Apple Music animated album cover and caches the video locally                                                                                       |
+| Prefer AM | Uses the cached Apple Music cover first. With no cached cover, an available NetEase video plays for the current track while the Apple Music cover is prepared for later playback |
+
+See [File and database caches](/en/data-management#file-and-database-caches) for Apple Music cover cache limits and cleanup.

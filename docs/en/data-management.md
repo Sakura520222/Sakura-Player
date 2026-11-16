@@ -21,9 +21,10 @@ Application-managed data lives under `app-data/`:
 app-data/
 ├── config/        Settings, media sources, Last.fm, AI models
 ├── database/      library.db: library, playlists, and other local records
-├── cache/         Covers, artists, backgrounds, songs (location configurable)
+├── cache/         Static and animated covers, artists, backgrounds, songs
 ├── logs/          Application and native logs
 ├── plugins/       Plugin scripts, data, and logs
+├── models/        Manually downloaded AutoMix models and analysis runtime
 └── runtimes/      Local lyric translation alignment model and ready marker
 ```
 
@@ -31,13 +32,15 @@ Library indexes and playlists do not contain the audio files themselves. Quit be
 
 ## Song cache
 
-**Settings → Local & Cache → Song cache** enables online song caching and separately controls caching for media-source tracks. It is off by default. Set a capacity limit after enabling it; `0` means unlimited. Preloading and crossfade may enable these options after confirmation; see [Playback](/en/playback).
+**Settings → Local & Cache → Song cache** enables online song caching and separately controls caching for media-source tracks. It is off by default. Set a capacity limit after enabling it. A value of `0` means unlimited. Preloading, Crossfade, and AutoMix may enable these options after confirmation. See [Playback](/en/playback).
 
 Caches speed up playback and are separate from [music downloads](/en/music-downloads). Do not treat them as permanent song storage.
 
 ## File and database caches
 
 The same settings page has separate file-cache and database managers for inspecting usage and clearing selected content. Images and song files are different from database caches; check the categories shown before clearing them.
+
+In **Cache Management**, set the **Animated Cover Cache Limit** (300 MB by default). When the cache exceeds this limit, the player removes the least recently played covers first. To clear it manually, select **Animated Covers** in the file-cache manager.
 
 ## Alignment model
 

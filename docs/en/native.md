@@ -1,6 +1,6 @@
 # Native Modules
 
-Performance-sensitive features are implemented in **Rust**. Audio and system integration use [NAPI-RS](https://napi.rs/) addons loaded on demand by the main process, while algorithmic lyric alignment runs in an independent Rust worker. All sources live under `native/`.
+Performance-sensitive features are implemented in **Rust**. The main process loads [NAPI-RS](https://napi.rs/) addons for audio and system integration on demand. Algorithmic lyric alignment and AutoMix inference each run in a dedicated Rust worker. The sources live under `native/`.
 
 ## Modules
 
@@ -13,8 +13,9 @@ Performance-sensitive features are implemented in **Rust**. Audio and system int
 | `taskbar-thumbnail` | Replaces Windows taskbar thumbnail and Peek preview with album art                                              |
 | `opencc`            | Simplified/traditional, regional vocabulary, and Japanese character conversion through ferrous-opencc           |
 | `lyric-alignment`   | Independent worker for tokenization, reading matches, and local semantic alignment of existing auxiliary lyrics |
+| `automix-worker`    | Independent worker for beat detection and stem separation through ONNX Runtime                                  |
 
-The repository contains six NAPI addons and one independent worker. The build script enables `audio-capture` on Windows/Linux, taskbar lyrics and thumbnails on Windows, and the remaining addons and alignment worker across platforms.
+The build script enables `audio-capture` on Windows/Linux, taskbar lyrics and thumbnails on Windows, and the remaining addons and lyric alignment worker across platforms.
 
 ### audio-engine
 
@@ -49,6 +50,10 @@ Uses DWM iconic representation on Windows to replace the taskbar hover thumbnail
 [Algorithmic lyric alignment](/en/lyric-alignment) uses an independent executable with bounded JSON over standard input and output. Rust handles Japanese dictionary readings, Chinese pinyin, timing-range matches, and Candle multilingual BERT inference without Python, PyTorch, CUDA, or an external model runtime.
 
 Each task starts a separate process and releases dictionaries, model memory, and threads when completed or cancelled. The Electron main process manages the model, validates requests and responses, and controls cancellation. The renderer retains the existing preview, apply, and save workflow. The Windows worker statically links the CRT; other NAPI addons keep their existing linking configuration.
+
+### automix-worker
+
+[AutoMix](/en/automix) uses ONNX Runtime in a dedicated Rust worker for beat detection and stem separation. The main process uses the analysis to plan the transition, which the audio engine mixes. The script `scripts/package-automix-runtime.ts` packages the worker separately with the AutoMix analysis runtime downloaded through Settings.
 
 ## Building
 

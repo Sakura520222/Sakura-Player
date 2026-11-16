@@ -87,6 +87,8 @@ Click **Cancel generation** to stop. After cancellation or failure, complete val
 
 Progress lasts only for the current dialog session and cannot be restored after quitting the player. Incomplete generation cannot be applied. Previewing or cancelling leaves the current lyrics unchanged.
 
+If existing romanization for a line blocks word alignment, use **Redo romanization for line N** in the error message to regenerate that line. The original text is replaced when you apply the result.
+
 ## Apply, display, and save
 
 **Apply selected content** updates the selected auxiliary tracks together, enables their display options, and synchronizes desktop lyrics, Dynamic Island, and taskbar lyrics. The primary text and timeline are preserved.
@@ -94,18 +96,7 @@ Progress lasts only for the current dialog session and cannot be restored after 
 In **Settings → Lyrics**, configure translation, romanization, word romanization, and **Word-timed translation**. Turning off Word-timed translation displays the translation line by line.
 
 ::: tip Applying still requires a separate save
-Applying updates the current lyrics without writing music tags or lyric files automatically. To keep the results, open **Copy Lyrics** beside the lyrics and choose targets under **Save complete lyrics**.
-:::
-
-| Save target | Requirements and behavior                                                                                                             |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Music tags  | Requires a local file without CUE splitting; preserves the original lyric format and auxiliary translation and romanization data      |
-| LRC file    | Saves beside a standalone local audio file with the same base name; other tracks use Save As. Existing matching files are overwritten |
-| TTML file   | Requires TTML primary lyrics and an enabled, configured local TTML library; saves there and replaces an existing matched file         |
-
-**Preview changes** compares the selected save targets. For an LRC using Save As, the destination is chosen during saving, so its existing content has not been compared in the preview. Complete saving is independent of the line selections and filters used for copying.
-
-Auxiliary tracks in **Music tags** or an eligible **TTML file** preserve timed translation fragments. LRC retains primary word timings and ordinary line-by-line translation, with Sakura extension tags preserving timed translation and cross-word romanization ranges for reloading in this player. Other players may display the results differently depending on their support for auxiliary tracks and extensions.
+After applying, open **Copy Lyrics → Save and export lyrics** to preview and save the results. To keep timed translation and cross-word romanization alignment, choose **Complete TTML** and keep the matching `.sakura.json` file with the TTML if one was generated. See [Copy, share, and save](/en/lyrics#copy-share-and-save) for file locations, audio tags, and compatible formats.
 
 ## Data and credentials
 

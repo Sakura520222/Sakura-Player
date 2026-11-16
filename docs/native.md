@@ -1,6 +1,6 @@
 # 原生模块
 
-Sakura Player 将性能敏感的能力下沉到 **Rust**。音频与系统集成通过 [NAPI-RS](https://napi.rs/) 编译为 Node 原生插件（`.node`），由主进程按需加载；算法智能对齐运行在独立的 Rust 工作进程中。源码均位于仓库的 `native/` 目录。
+Sakura Player 将性能敏感的能力下沉到 **Rust**。音频与系统集成通过 [NAPI-RS](https://napi.rs/) 编译为 Node 原生插件（`.node`），由主进程按需加载。算法智能对齐和 AutoMix 模型推理各有独立的 Rust 工作进程。源码位于 `native/` 目录。
 
 ## 模块一览
 
@@ -13,8 +13,9 @@ Sakura Player 将性能敏感的能力下沉到 **Rust**。音频与系统集成
 | `taskbar-thumbnail` | Windows 任务栏悬停缩略图 / Peek 预览替换为专辑封面                           |
 | `opencc`            | 基于 ferrous-opencc 的简繁、地区用字与日文字形转换                           |
 | `lyric-alignment`   | 独立工作进程，完成已有翻译与音译的分词、读音匹配和本地语义推理               |
+| `automix-worker`    | 独立工作进程，使用 ONNX Runtime 检测节拍并分离声部                           |
 
-仓库包含六个 NAPI 模块和一个独立工作进程。构建脚本按平台选择：`audio-capture` 仅在 Windows / Linux 构建，任务栏歌词和缩略图模块仅在 Windows 构建，其余模块与对齐工作进程跨平台构建。
+`audio-capture` 仅在 Windows / Linux 构建，任务栏歌词和缩略图模块仅在 Windows 构建，其余 NAPI 模块与对齐工作进程跨平台构建。
 
 ### audio-engine
 
@@ -57,6 +58,10 @@ Windows 任务栏缩略图自定义（仅 Windows）：
 [算法智能对齐](/lyric-alignment)使用独立可执行文件，通过标准输入输出传递有界 JSON。Rust 完成日语词典读音、中文拼音、时间范围匹配以及 Candle 多语言 BERT 推理，无需 Python、PyTorch、CUDA 或外部模型运行时。
 
 每个任务单独启动进程，结束或取消后释放词典、模型和计算线程。Electron 主进程负责模型管理、输入输出校验和取消控制，渲染进程保留现有预览、应用与保存流程。Windows 工作进程静态链接 CRT；其他 NAPI 模块沿用各自的链接方式。
+
+### automix-worker
+
+[AutoMix](/automix) 的节拍检测与声部分离在独立的 Rust 工作进程中通过 ONNX Runtime 执行。主进程根据分析结果规划交接，音频引擎执行混音。工作进程由 `scripts/package-automix-runtime.ts` 单独打包，随用户在设置中下载的 AutoMix 分析运行时提供。
 
 ## 构建
 

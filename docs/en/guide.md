@@ -7,7 +7,7 @@ This page covers the basics of Sakura Player. See [Download](/en/download) for i
 | Scan folders, manage likes/playlists, inspect statistics | [Library and Statistics](/en/library)           |
 | Find song highlights and jump to them                    | [Song highlights](/en/playback#song-highlights) |
 | Equalizer, speed, A-B loop, timer, and crossfade         | [Playback and Effects](/en/playback)            |
-| Match lyrics, adjust fonts, copy, and save               | [Lyrics](/en/lyrics)                            |
+| Match lyrics manually, adjust fonts, copy, and save      | [Lyrics](/en/lyrics)                            |
 | Download songs, retry, and manage files                  | [Music Downloads](/en/music-downloads)          |
 | Accounts, recognition, Last.fm, and Discord              | [Integrations](/en/integrations)                |
 | Caches, settings backup, and migration                   | [Data Management](/en/data-management)          |
@@ -17,6 +17,8 @@ This page covers the basics of Sakura Player. See [Download](/en/download) for i
 - **Search and play:** Enter a song, artist, or album in the top search box, then play it or add it to the queue.
 - **Queue:** Use sequential, shuffle, and repeat-one modes, and drag tracks to reorder them.
 - **Quality and effects:** Choose quality, fades, and normalization in Player settings. The toolbar's More menu opens the equalizer, speed/pitch, A-B loop, and sleep timer.
+
+Click the playback-bar cover to open the full-screen player and view [playback layout and animated cover options](/en/playback#animated-covers). Choose [Crossfade](/en/crossfade) or [AutoMix](/en/automix) to blend into the next track.
 
 ## Local music
 
@@ -64,7 +66,7 @@ Toggle these windows from the player or tray menu and configure their styles ind
 2. Click the language icon beside the full-player lyrics to open **AI Lyric Translation**.
 3. Select translation, romanization, word romanization, or word translation. Use **Fill missing** to preserve existing content or **Regenerate all** to replace selected content.
 4. Review the streamed preview and **Apply selected content** when generation completes. Cancelled or failed tasks can be resumed in the current dialog.
-5. To keep the results, preview changes and save under **Copy Lyrics → Save complete lyrics**.
+5. To keep the results, preview changes and save under **Copy Lyrics → Save and export lyrics**.
 
 See [AI Features](/en/ai) for configuration fields, target languages, resume conditions, and save requirements. Applying does not automatically write audio tags or lyric files.
 

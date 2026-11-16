@@ -16,9 +16,15 @@ In **Settings → Lyrics → Lyric content**, configure source preference, platf
 
 ## Online and local TTML
 
-- **Online TTML:** Enable it in the TTML section. The URL template requires `%p` for platform and `%s` for song ID. AMLL TTML DB lookup supports NetEase and QQ Music associations.
+- **Online TTML:** Enable it in the TTML section. The URL template requires `%p` for platform and `%s` for song ID. The player can look up NetEase or QQ Music IDs. If that yields no match, it can search AMLL TTML DB by title and artist and use details such as duration to select a candidate.
 - **Local TTML library:** Enable it and choose a `.ttml` directory. Matching uses embedded song IDs or metadata; one file can associate with multiple NetEase/QQ Music IDs.
 - Local matching lets you prefer your own lyric versions. Online TTML selection also depends on source preference and format order.
+
+## Match lyrics manually
+
+If automatic matching picks the wrong version, click **Match Lyrics** in the full-screen player's lyric toolbar. The dialog searches for the current title and artist. You can edit the search terms and switch between NetEase, QQ Music, and Kugou. Enable online TTML to search AMLL TTML DB on the **TTML** tab.
+
+Select a candidate to preview its lyrics and format. The preview follows the current playback position and places duet lines on different sides, so you can check alternate versions, live recordings, or covers. Click **Use these lyrics** to save the choice for this track. **Restore auto match** clears the saved choice.
 
 ## Display and fonts
 
@@ -38,17 +44,17 @@ Local alignment runs in the bundled Rust worker without installing Python. Roman
 
 In **Copy Lyrics**, select lines and choose whether to include translation, romanization, blank lines, title, and artists, then copy text or export a lyric image. **Copy original** reads the current primary lyric content.
 
-**Save complete lyrics** saves the whole song independently of the copying selections and filters:
+**Save and export lyrics** handles the whole song independently of the copying and sharing selections above.
 
-| Target     | Requirements and overwrite behavior                                                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Music tags | Writable standalone local audio; unavailable for CUE segments. Keeps the primary format and stores independent translation, romanization, and other auxiliary data |
-| LRC        | Matching filename beside standalone local audio, overwriting an existing file; other sources use Save As                                                           |
-| TTML       | TTML primary lyrics and an enabled, configured local TTML library; replaces an existing matched library file                                                       |
+| Target                   | Content and destination                                                                                                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Embed TTML in music tags | Writes complete lyrics to a writable standalone local audio file. Unavailable for CUE segments                                                                                                                                                                              |
+| Complete TTML            | Keeps word timing for the lyrics, translation, and romanization. Saves to the enabled and configured local TTML library and can update an existing match. Otherwise, it saves beside standalone local audio using the same basename. For other tracks, choose a destination |
+| Compatible format        | Choose LRC, Enhanced LRC (A2), YRC, QRC, or LYS. Saves next to standalone local audio. For other tracks, choose a destination                                                                                                                                               |
 
-**Preview changes** compares before and after for each target. An LRC Save As destination is chosen during saving, so the preview has not read that destination. Review each target's success or failure feedback afterwards.
+Compatible formats write available translation and romanization as line-timed `.tr.lrc` and `.roma.lrc` companion files. LRC preserves line start times, A2 preserves word start times, and YRC and QRC preserve word start and end times. LYS also preserves vocal parts. To keep timed translation and cross-word romanization alignment, choose **Complete TTML** and move the matching `.sakura.json` file with the TTML if one was generated.
 
-Word-timed primary lyrics use enhanced LRC, with ordinary translation lines exported line by line. Sakura extension tags also retain complete timed translation and cross-word romanization ranges for reloading in this player. Auxiliary tracks in music tags or eligible TTML preserve timed content too. Display in other players depends on their support for auxiliary tracks and extension data.
+**Preview changes** compares existing and new content for each known destination. When you need to choose a path, the preview shows the export and asks for a destination during saving. You can also clear the current translation or romanization in this dialog and save the changes to the selected targets.
 
 ## External lyric windows
 

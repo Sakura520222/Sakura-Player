@@ -13,15 +13,17 @@ Local songs do not need downloading again. Platforms, plugins, and media servers
 
 ## Options
 
-| Option                     | Behavior                                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Quality                    | Defaults to lossless and can be overridden per task; the source determines the actual file              |
-| Reuse playback URL         | Choose whether to download from the playback address; separate download URLs still follow service rules |
-| File naming                | Title, Artist - Title, or Title - Artist                                                                |
-| Folder grouping            | None, artist, or artist/album                                                                           |
-| Existing files             | Rename by default, or choose overwrite or skip                                                          |
-| Embedded and extra content | Optional artwork, metadata, lyrics, matching LRC, and complete TTML                                     |
-| LRC format                 | Line LRC or enhanced LRC; enhanced LRC is the default                                                   |
+| Option                     | Behavior                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Quality                    | Defaults to lossless and can be overridden per task; the source determines the actual file                        |
+| Reuse playback URL         | Choose whether to download from the playback address; separate download URLs still follow service rules           |
+| File naming                | Title, Artist - Title, or Title - Artist                                                                          |
+| Folder grouping            | None, artist, or artist/album                                                                                     |
+| Existing files             | Rename by default, or choose overwrite or skip                                                                    |
+| Embedded and extra content | Optional artwork, metadata, lyrics, matching LRC, and complete TTML                                               |
+| Lyric File Format          | Line LRC or Enhanced LRC (A2). Enhanced LRC is the default. Applies to embedded lyrics and compatible lyric files |
+
+LRC preserves line start times. A2 preserves word start times. When exporting a compatible lyric file, available translation and romanization go into matching line-timed `.tr.lrc` and `.roma.lrc` files. To retain timed translation and romanization alignment, also save complete TTML and keep its matching `.sakura.json` file if one was generated. See [Copy, share, and save](/en/lyrics#copy-share-and-save).
 
 Media-source downloads use the server's original-file download endpoint and may require additional download permission. Downloading is not reported as playback; downloads and preloading do not produce server scrobbles.
 
@@ -30,7 +32,7 @@ Media-source downloads use the server's original-file download endpoint and may 
 - **Queue:** Queued and downloading tasks, with cancellation.
 - **Errors:** Failed, cancelled, or interrupted tasks, with retry where available.
 - **Completed:** Play downloaded songs or open their containing folder.
-- **Failed to write tags; file saved:** The audio file was downloaded, but artwork, lyric, or metadata processing did not fully succeed.
+- **Audio saved, but lyrics or tags could not be written:** The audio download finished. Some lyric or tag writes failed.
 
 **Remove** and **Clear finished** remove task records. Clear finished also removes finished error records and keeps downloaded files. **Delete file** is a separate action with confirmation that permanently removes the file from disk.
 

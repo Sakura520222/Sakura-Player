@@ -25,7 +25,7 @@ features:
     linkText: 播放控制与高潮跳转
   - icon: 📝
     title: 丰富的歌词展现
-    details: 支持 TTML / LYS / QRC / KRC / YRC / LRC / ASS / SRT，逐字高亮、翻译、音译、复制分享与完整保存，提供多种外部歌词窗口。
+    details: 支持 TTML / LYS / QRC / KRC / YRC / LRC / ASS / SRT，提供手动匹配、逐字高亮、翻译与音译、歌词导出及外部歌词窗口。
     link: /lyrics
     linkText: 歌词使用与保存
   - icon: 🤖
@@ -45,7 +45,9 @@ features:
     linkText: 服务与听歌识曲
   - icon: 🎨
     title: 自适应主题
-    details: 封面取色驱动全站着色，Light / Dark / Auto 自动切换，音乐频谱可视化，细节处处打磨。
+    details: 封面取色、浅色与深色主题、音乐频谱和多种全屏布局，可在全屏播放器开启动态封面。
+    link: /playback#动态封面
+    linkText: 设置动态封面
   - icon: 🧩
     title: 可扩展能力
     details: 内置插件系统与外部 API（HTTP + WebSocket），可编写脚本扩展音源，或通过接口远程控制播放。

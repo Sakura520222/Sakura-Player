@@ -19,6 +19,10 @@ CUE tracks share an audio file and cannot use the ordinary standalone-track work
 
 Lyrics have their own complete-save and diff-preview workflow; see [Lyrics](/en/lyrics).
 
+## 3D album case
+
+Open an album's detail page and click its cover to open the **Album case**. Click the case to open or close it, drag or use the arrow keys to rotate it, and middle-click or press `Home` to reset the view. Its **Listening notes** show the play count and first play recorded locally for tracks in that album.
+
 ## Liked songs
 
 **Liked Songs** has local and online tabs. Local likes belong to the local library; the online tab uses the signed-in NetEase account's liked playlist. Media-server favorites are managed within each [media source](/en/streaming).

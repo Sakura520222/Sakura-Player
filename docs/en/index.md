@@ -24,7 +24,7 @@ features:
     linkText: Playback controls and highlights
   - icon: 📝
     title: Expressive lyrics
-    details: TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT with timed translation, romanization, copy/share, complete saving, and external lyric windows.
+    details: TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT with manual matching, word highlighting, translation, romanization, export, and external lyric windows.
     link: /en/lyrics
     linkText: Display and save lyrics
   - icon: 🤖
@@ -44,7 +44,9 @@ features:
     linkText: Services and recognition
   - icon: 🎨
     title: Adaptive themes
-    details: Cover-driven colors, Light, Dark, and Auto modes, spectrum visualization, and carefully polished details.
+    details: Cover-driven colors, light and dark modes, a music spectrum, and multiple full-screen layouts with optional animated covers.
+    link: /en/playback#animated-covers
+    linkText: Set up animated covers
   - icon: 🧩
     title: Extensible by design
     details: Built-in plugins and external HTTP and WebSocket APIs let you add music sources or control playback remotely.
