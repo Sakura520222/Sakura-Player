@@ -80,6 +80,51 @@ Server protocol clients live in the main process (`electron/main/services/stream
 
 Don't reimplement these inside individual windows.
 
+### Lyric Alignment and AI Generation
+
+Local alignment runs in the standalone Rust worker `native/lyric-alignment`, managed by
+`electron/main/services/lyricAlignment/`. Renderer orchestration lives in
+`useLocalLyricAlignment.ts` and `useAiLyricTranslation.ts`; reuse these flows and the shared
+lyric types rather than creating separate generation, apply, or save paths.
+
+- Reuse `native/shared/audio_input.rs` and the existing static FFmpeg decoder for acoustic input.
+  Reuse AutoMix's ONNX Runtime provisioning; beat analysis is not word alignment, and vocal
+  separation must be evaluated on singing samples before becoming a default dependency.
+- Keep large acoustic and translation models in short-lived worker processes. Process them
+  sequentially; cancellation releases the model lease only after the worker has exited.
+- Process the whole song through internal request batches and long-line inference windows.
+  Keep memory and transport bounds, but do not turn those bounds or low confidence into arbitrary
+  user-facing generation limits. Return valid low-confidence candidates with concise warnings;
+  continue rejecting changed source text and invalid timestamps.
+- Preserve original text, whitespace, punctuation, stable line IDs, background/duet roles, and
+  track identity. Resolve the actual loaded local/cached audio and CUE offset in the main process;
+  returned lyric times remain relative to the track in milliseconds.
+- A changed primary word sequence or timeline invalidates dependent auxiliary timing and ranges,
+  not the translation or romanization text. Preserve auxiliary alignment when the primary words
+  and times are unchanged. Apply results through the media store; writing files remains an
+  explicit save action.
+
+Auxiliary completeness must describe usable source-word associations, not merely nonempty text,
+a span count, or coverage of the line's overall time interval.
+
+- Use `shared/utils/lyricWordRanges.ts` and `src/services/lyric/auxiliaryCoverage.ts` consistently
+  for coverage counts, generation plans, application, rendering, and save/reload validation.
+  Romanization needs unique, complete source-word coverage; translation may omit source words
+  under the translation policy (`hasCompleteAuxiliary(..., true)`). Tests must use the same policy
+  as the production caller.
+- Preserve explicit `from/to` associations and translation/romanization roles through TTML and
+  auxiliary metadata. Never infer the auxiliary track's role from its display position or order.
+  Regressions should cover primary generation → auxiliary alignment → partial AI regeneration →
+  apply → save → reload, including source index gaps and reordered translation fragments.
+- Preserve validated AI rows on failure and retry only unfinished work. Report stable line IDs
+  and actionable diagnostics, including expected/actual fragment counts. For romanization
+  structure failures, use the ordered slot retry supported by `aiGeneration.ts` and isolate the
+  failed line; slot count is the number of supplied words, not syllables or the largest index.
+- Keep retries bounded. Existing auxiliary text must remain unchanged during alignment unless
+  the user explicitly chooses regeneration for that line. Translation redo retains the reference
+  translation's language. Song/revision, language, option changes, close, and cancellation must
+  invalidate stale responses without discarding already valid rows during an ordinary retry.
+
 ### Type System
 
 - `shared/types/player.ts` — `Track`, `TrackDetail`, `Artist`, `Album`, `AudioQuality`, `PlayerState`, `PlayerStatus`, `PlayerEvent`, `LoadOptions`, `LoadResult`, `IpcResponse`
@@ -157,6 +202,28 @@ Forbidden: `// ───` separator lines (including ones with section titles), 
 
 Split logic into files rather than separator comments. Don't extract a helper for one-place callers (3+ uses justify it). No "just in case" defensive code or fallbacks for impossible scenarios. No configurable knobs (timeouts / retries / buffer sizes) unless required — write constants. Don't break errors into per-case enums; `anyhow` or plain `Error` is usually enough.
 
+### UI Consistency and Dialog Lifecycle
+
+- Reuse `SDialog`, `SSelect`, and other shared controls. Keep AI generation and algorithm
+  alignment dialogs consistent; do not introduce native selects or independent control styling.
+- Keep task dialogs focused on choices, progress, previews, and actions. Avoid manual-like
+  paragraphs and implementation details. Model download, verification, removal, size, and license
+  information belong in Settings; an unavailable model in a task dialog needs a short status and
+  a Settings entry point.
+- Do not add native HTML `title` hover hints, custom tooltips, or tray/thumbar tooltip text.
+  Preserve visible heading props such as `SDialog.title`; use `aria-label` for icon-only controls
+  and inline feedback for actionable errors. Functional menus and the volume panel are controls,
+  and drag-time slider feedback may remain; hovering alone must not show a numeric hint.
+- Separate dialog visibility from parent mount state. Set `open=false` and cancel work
+  immediately, keep the preview mounted through the shared close animation, and unmount on
+  `after-close`. Guard rapid reopen against a late close callback.
+- Keep asynchronous model status in a stable-height row; do not flash an unavailable-model panel
+  while status is loading. Reuse `SDialog`'s closing-height handling rather than clearing content
+  before fade-out and moving the centered dialog.
+- Verify initial open, asynchronous status completion, close-button/Escape paths, and rapid
+  reopen in a rendered UI. Check position and height as well as presence during fade-out;
+  a passing component test or build alone does not establish animation behavior.
+
 ### Memory Discipline
 
 Memory is a hard requirement. The main process logs memory usage through `app.getAppMetrics()`
@@ -199,6 +266,30 @@ Double quotes, semicolons, 100-char width, trailing commas.
 ### Shared Types
 
 Put cross-process types (`LocaleCode / SystemConfig / StreamingServerType`, etc.) in `shared/types/`.
+
+### Validation and Commit Scope
+
+- Distinguish deterministic fixtures, real local audio, rendered UI checks, and live AI-provider
+  validation in reports. Speech samples do not establish singing accuracy; successful generation
+  or model confidence does not establish correct word boundaries.
+- Use isolated app data and read-only media inspection for reproduction. Do not overwrite a
+  user's songs, embedded lyrics, or sidecars as a debugging shortcut. Keep model downloads, local
+  samples, screenshots, and generated reports outside committed source.
+- Reuse the existing memory samples for comparable before/after app runs and measure the
+  alignment worker separately. One startup sample cannot establish absence of a memory leak.
+- Reproduce suspected pre-existing test failures against the actual pre-change commit. A staged
+  snapshot containing the current task's changes is not proof that a failure predates the task.
+  When a shared helper gains distinct policies, audit production callers and test callers before
+  weakening validation to make assertions pass.
+- For Rust model tests marked `#[ignore]`, setting `SAKURA_ALIGNMENT_MODEL_DIR` alone does not run
+  them. When validating real-model behavior, explicitly run
+  `cargo test --locked -p lyric-alignment --test semantic -- --ignored` with a verified model path.
+- Stage an explicit, reviewed file list and honor user exclusions, including working notes.
+  Check the staged diff, retain unrelated work, and verify the remote commit SHA after an
+  authorized push. Keep local commit, push, CI, and release status distinct.
+- If Windows rejects a long lint-staged command, run the same checks in bounded batches with
+  `pnpm exec lint-staged --max-arg-length 4000`. Do not treat hook startup failure as a passing
+  check or disable validation globally to work around command length.
 
 ### Commit Messages
 
