@@ -224,6 +224,11 @@ export const serializeTtmlLyrics = (
     const tag = key === "translation" ? "translation" : "transliteration";
     const fallbackLanguage = key === "translation" ? "und" : "und-Latn";
     for (const line of expected) {
+      // 纯空白辅助行不会写入 TTML，往返校验与关联附件也按无内容处理
+      if (!line[text].trim() && !line[words]?.some((word) => word.word.trim())) {
+        line[text] = "";
+        line[words] = undefined;
+      }
       if (!line[language] && line[text].trim()) line[language] = fallbackLanguage;
     }
     const lanes = captureAuxiliaryTrack(expected, key);

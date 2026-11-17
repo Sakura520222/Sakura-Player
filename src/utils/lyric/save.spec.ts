@@ -23,6 +23,65 @@ const track: Track = {
 };
 
 describe("可交换的歌词文件", () => {
+  it("纯空白辅助行按空内容保存，保留元数据行和正常辅助轨道内的空格", () => {
+    const lines: LyricLine[] = [
+      {
+        startTime: 1000,
+        endTime: 2000,
+        isBG: false,
+        isDuet: false,
+        words: [{ word: "曲：作者", startTime: 1000, endTime: 2000 }],
+        translatedLyric: "\t　",
+        translationWords: [{ word: "\t　", startTime: 1000, endTime: 2000 }],
+        romanLyric: " ",
+        romanizationWords: [{ word: " ", startTime: 1500, endTime: 1600 }],
+      },
+      {
+        startTime: 3000,
+        endTime: 5000,
+        isBG: false,
+        isDuet: false,
+        words: [
+          { word: "花", startTime: 3000, endTime: 4000 },
+          { word: "火", startTime: 4000, endTime: 5000 },
+        ],
+        translatedLyric: "Flower fire",
+        translationWords: [
+          { word: "Flower", startTime: 3000, endTime: 4000 },
+          { word: " ", startTime: 4000, endTime: 4000 },
+          { word: "fire", startTime: 4000, endTime: 5000 },
+        ],
+        romanLyric: "hana bi ",
+        romanizationWords: [
+          { word: "hana ", startTime: 3000, endTime: 4000, from: 0, to: 0 },
+          { word: "bi ", startTime: 4000, endTime: 5000, from: 1, to: 1 },
+        ],
+      },
+    ];
+    const before = structuredClone(lines);
+    const input = { content: "[00:01]曲：作者\n[00:03]花火", format: "lrc" as const };
+    for (const source of [lines.slice(0, 1), lines]) {
+      const { ttml, auxiliary } = createLyricSaveContent(track, source, input);
+      const restored = parseExportTtml(ttml).lines;
+      restoreAuxiliaryTracks(restored, auxiliary);
+      expect(restored).toHaveLength(source.length);
+      expect(restored[0].words).toEqual(lines[0].words);
+      expect(restored[0].translatedLyric).toBe("");
+      expect(restored[0].romanLyric).toBe("");
+      expect(restored[0].translationWords).toBeUndefined();
+      expect(restored[0].romanizationWords).toBeUndefined();
+      if (restored[1]) {
+        expect(restored[1].translationWords).toEqual(lines[1].translationWords);
+        expect(restored[1].romanizationWords).toEqual(lines[1].romanizationWords);
+        expect(restored[1].romanLyric).toBe(lines[1].romanLyric);
+      }
+      expect(() =>
+        createLyricSaveContent(track, restored, { content: ttml, format: "ttml" }),
+      ).not.toThrow();
+    }
+    expect(lines).toEqual(before);
+  });
+
   it.each(["div", "body"])("修复 %s 的空命名空间后保存全部声部与逐字辅助轨道", (container) => {
     const original = `<tt xmlns="${TTML_NS}" xmlns:ttm="${TTML_NS}#metadata" xmlns:tts="${TTML_NS}#styling" xmlns:amll="http://www.example.com/ns/amll" xmlns:itunes="http://music.apple.com/lyric-ttml-internal"><head><metadata xmlns=""><ttm:agent xml:id="v1" type="person"/><amll:meta key="ttmlAuthorGithub" value="author"/></metadata><styling xmlns=""><style xml:id="accent" tts:color="red"/></styling></head><body${container === "body" ? ' xmlns=""' : ""}><div${container === "div" ? ' xmlns=""' : ""}><p begin="1s" end="3s" ttm:agent="v1" itunes:key="L1" style="accent" custom="keep"><span begin="1s" end="2s" amll:empty-beat="1">花</span><span begin="2s" end="3s">火</span><span xmlns="${TTML_NS}" ttm:role="x-translation" xml:lang="en"><span begin="1s" end="2s">Flower </span><span begin="2s" end="3s">fire</span></span><span ttm:role="x-roman" xml:lang="ja-Latn"><span begin="1s" end="2s">hana</span><span begin="2s" end="3s">bi</span></span><span ttm:role="x-bg" begin="2s" end="3s"><span begin="2s" end="3s">echo</span><span ttm:role="x-translation">回声</span></span></p></div></body></tt>`;
     const input = { content: original, format: "ttml" as const };
