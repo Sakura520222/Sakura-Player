@@ -115,11 +115,11 @@ const rowLabels = computed<string[]>(() => {
 });
 
 /**
- * 生成格子提示文本
+ * 生成热力图格子的无障碍标签
  * @param cell - 格子数据，空占位为 null
  * @returns 日期 + 播放次数
  */
-const dayTooltip = (cell: HeatCell | null): string =>
+const dayLabel = (cell: HeatCell | null): string =>
   `${cell?.day ?? ""} · ${t("stats.plays", { count: cell?.playCount ?? 0 }, cell?.playCount ?? 0)}`;
 
 /**
@@ -247,20 +247,16 @@ const codecLabel = (codec: string): string => {
             {{ label }}
           </div>
           <template v-for="dow in 7" :key="`r${dow}`">
-            <STooltip
+            <div
               v-for="(week, weekIndex) in heatWeeks"
               :key="weekIndex"
-              :content="dayTooltip(week[dow - 1])"
-              :disabled="!week[dow - 1]"
-              side="top"
-              align="center"
-            >
-              <div
-                class="h-full min-h-0 w-full rounded-[3px]"
-                :class="week[dow - 1] ? 'cursor-default' : 'opacity-0'"
-                :style="cellStyle(cellPlayCount(week, dow))"
-              />
-            </STooltip>
+              role="img"
+              :aria-label="dayLabel(week[dow - 1])"
+              :aria-hidden="!week[dow - 1]"
+              class="h-full min-h-0 w-full rounded-[3px]"
+              :class="week[dow - 1] ? 'cursor-default' : 'opacity-0'"
+              :style="cellStyle(cellPlayCount(week, dow))"
+            />
           </template>
         </div>
       </div>

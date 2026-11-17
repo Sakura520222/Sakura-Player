@@ -1,4 +1,9 @@
 import type { Ref } from "vue";
+import type { AlignmentLanguage } from "@shared/types/lyricAlignment";
+import {
+  collectPrimaryAlignmentLines,
+  applyPrimaryAlignment,
+} from "@/services/lyric/primaryAlignment";
 import type { AlignmentLineResult } from "@shared/types/lyricAlignment";
 import { useMediaStore } from "@/stores/media";
 import { applyLocalAlignment, collectLocalAlignmentLines } from "@/services/lyric/localAlignment";
@@ -14,22 +19,33 @@ export const useLocalLyricAlignment = (open: Ref<boolean>) => {
   const { t } = useI18n();
   const translation = ref(true);
   const romanization = ref(true);
+  const primary = ref(false);
+  const language = ref<AlignmentLanguage>("zh");
   const realignExisting = ref(false);
   const environment = useLyricAlignmentEnvironment(open);
+  const acousticEnvironment = useLyricAlignmentEnvironment(open, "acoustic");
   const busy = ref(false);
   const completed = ref(false);
   const error = ref("");
   const translationError = ref("");
   const results = shallowRef<AlignmentLineResult[]>([]);
+  const rejected = shallowRef<AlignmentLineResult[]>([]);
   const selected = shallowRef(new Set<number>());
   let job: { id: string; revision: number; cancelled: boolean } | null = null;
   let resultRevision = -1;
   const source = computed(() => {
     try {
-      const allLines = collectLocalAlignmentLines(media.parsedLyric, true);
+      const lyrics = primary.value ? media.getLyricExportLines() : media.parsedLyric;
+      const primaryLines = primary.value
+        ? collectPrimaryAlignmentLines(lyrics).filter(
+            (line) => !media.aiLyricExcludedIds.has(line.id),
+          )
+        : [];
+      const allLines = primary.value ? primaryLines : collectLocalAlignmentLines(lyrics, true);
       return {
         allLines,
-        lines: realignExisting.value ? allLines : collectLocalAlignmentLines(media.parsedLyric),
+        lines:
+          primary.value || realignExisting.value ? allLines : collectLocalAlignmentLines(lyrics),
         error: "",
       };
     } catch {
@@ -44,12 +60,13 @@ export const useLocalLyricAlignment = (open: Ref<boolean>) => {
   const requestedLines = computed(() =>
     source.value.lines.filter(
       (line) =>
+        (primary.value && line.primary) ||
         (translation.value && line.translation.trim()) ||
         (romanization.value && line.romanization.trim()),
     ),
   );
   const rows = computed(() => {
-    const resolved = new Map(results.value.map((line) => [line.id, line]));
+    const resolved = new Map([...rejected.value, ...results.value].map((line) => [line.id, line]));
     const original = new Map(source.value.allLines.map((line) => [line.id, line]));
     return requestedLines.value.map((line) => ({
       ...line,
@@ -76,7 +93,9 @@ export const useLocalLyricAlignment = (open: Ref<boolean>) => {
       !busy.value &&
       !media.lyricLoading &&
       !!media.track &&
-      (!translation.value ||
+      (!primary.value || acousticEnvironment.ready.value) &&
+      (primary.value ||
+        !translation.value ||
         !requestedLines.value.some((line) => line.translation.trim()) ||
         environment.ready.value) &&
       requestedLines.value.length > 0,
@@ -103,30 +122,73 @@ export const useLocalLyricAlignment = (open: Ref<boolean>) => {
     cancel();
     completed.value = false;
     results.value = [];
+    rejected.value = [];
     selected.value = new Set();
     error.value = "";
     translationError.value = "";
     resultRevision = -1;
   };
 
-  /** 运行当前快照并逐轨校验，低分或不完整的行只保留原文 */
+  /** 一次处理整曲快照，主歌词在内部按传输大小分批，低分结果保留警告 */
   const start = async (): Promise<void> => {
     if (!canStart.value) return;
     reset();
     const current = { id: crypto.randomUUID(), revision: media.lyricRevision, cancelled: false };
     job = current;
     busy.value = true;
+    const lyrics = primary.value ? media.getLyricExportLines() : media.parsedLyric;
     try {
-      const response = await window.api.lyricAlignment.align({
-        requestId: current.id,
-        lines: requestedLines.value.map((line) => ({
-          ...line,
-          translation: translation.value ? line.translation : "",
-          romanization: romanization.value ? line.romanization : "",
-        })),
-        translation: translation.value,
-        romanization: romanization.value,
-      });
+      const inputLines = requestedLines.value.map((line) => ({
+        ...line,
+        translation: translation.value ? line.translation : "",
+        romanization: romanization.value ? line.romanization : "",
+      }));
+      const batches: (typeof inputLines)[] = [[]];
+      let characters = 0;
+      for (const line of inputLines) {
+        const size =
+          line.words.join("").length +
+          (line.readings?.join("").length ?? 0) +
+          line.translation.length +
+          line.romanization.length;
+        if (
+          primary.value &&
+          batches.at(-1)!.length &&
+          (characters + size > 8000 || batches.at(-1)!.length >= 1000)
+        ) {
+          batches.push([]);
+          characters = 0;
+        }
+        batches.at(-1)!.push(line);
+        characters += size;
+      }
+      const response: { lines: AlignmentLineResult[]; translationError?: string } = { lines: [] };
+      for (const lines of batches) {
+        if (current.cancelled || current.revision !== media.lyricRevision || !open.value) return;
+        const batch = await window.api.lyricAlignment.align({
+          requestId: current.id,
+          lines,
+          translation: translation.value,
+          romanization: romanization.value,
+          ...(primary.value
+            ? { primary: { trackId: media.track!.id, language: language.value } }
+            : {}),
+        });
+        if (
+          current.cancelled ||
+          current.revision !== media.lyricRevision ||
+          !open.value ||
+          job !== current
+        )
+          return;
+        if (batch.status === "cancelled") return;
+        if (batch.status === "error") {
+          error.value = batch.error;
+          return;
+        }
+        response.lines.push(...batch.lines);
+        if (batch.translationError) response.translationError = batch.translationError;
+      }
       if (
         job !== current ||
         current.cancelled ||
@@ -134,32 +196,32 @@ export const useLocalLyricAlignment = (open: Ref<boolean>) => {
         current.revision !== media.lyricRevision
       )
         return;
-      if (response.status === "cancelled") return;
-      if (response.status === "error") {
-        error.value = response.error;
-        return;
-      }
       const accepted: AlignmentLineResult[] = [];
       const ids = new Set<number>();
       for (const line of response.lines) {
-        const original = media.parsedLyric[line.id];
+        const original = lyrics[line.id];
         if (!original || ids.has(line.id))
           throw new Error(t("player.localAlignment.invalidResult"));
         ids.add(line.id);
         const result: AlignmentLineResult = { id: line.id };
+        const aligned =
+          primary.value && line.primary ? applyPrimaryAlignment(original, line.primary) : null;
+        if (aligned && line.primary) result.primary = line.primary;
         for (const field of ["translation", "romanization"] as const) {
           if (
             line[field] &&
             (field === "translation" ? translation.value : romanization.value) &&
             applyLocalAlignment(
-              [original],
+              [aligned ?? original],
               [{ id: 0, [field]: line[field] }],
               realignExisting.value,
             )
           )
             result[field] = line[field];
         }
-        if (result.translation || result.romanization) accepted.push(result);
+        if (result.primary || result.translation || result.romanization) accepted.push(result);
+        else if (line.reason)
+          rejected.value = [...rejected.value, { id: line.id, reason: line.reason }];
       }
       results.value = accepted;
       selected.value = new Set(accepted.map((line) => line.id));
@@ -214,14 +276,22 @@ export const useLocalLyricAlignment = (open: Ref<boolean>) => {
       translation,
       romanization,
       realignExisting,
+      primary,
+      language,
     ],
-    reset,
+    ([visible], [wasVisible]) => {
+      if (!visible && wasVisible) cancel();
+      else reset();
+    },
     { flush: "sync" },
   );
   onBeforeUnmount(reset);
   return {
     translation,
     romanization,
+    primary,
+    language,
+    acousticEnvironment,
     realignExisting,
     environment,
     busy,

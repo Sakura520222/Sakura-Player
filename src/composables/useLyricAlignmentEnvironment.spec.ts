@@ -68,6 +68,18 @@ afterEach(() => {
 });
 
 describe("应用内对齐环境操作", () => {
+  it("设置与对齐弹窗共用订阅，关闭一处仍接收模型状态", async () => {
+    const alignment = await setup();
+    const settings = await setup();
+    expect(api.onEnvironmentStatus).toHaveBeenCalledTimes(1);
+    expect(alignment.status).toBe(settings.status);
+    alignment.wrapper.unmount();
+    expect(unsubscribe).not.toHaveBeenCalled();
+    push(ready);
+    expect(settings.ready.value).toBe(true);
+    settings.wrapper.unmount();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
   it("打开只查状态，必须显式调用安装；安装完成可卸载", async () => {
     const state = await setup();
     expect(api.installEnvironment).not.toHaveBeenCalled();

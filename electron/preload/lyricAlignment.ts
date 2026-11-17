@@ -15,13 +15,14 @@ export const lyricAlignmentApi: LyricAlignmentApi = {
    */
   cancel: (requestId) => ipcRenderer.invoke("lyricAlignment:cancel", requestId),
   /** 获取专用环境状态，不触发安装 */
-  environmentStatus: () => ipcRenderer.invoke("lyricAlignment:environmentStatus"),
+  environmentStatus: (kind) => ipcRenderer.invoke("lyricAlignment:environmentStatus", kind),
   /** 用户点击后安装完整的专用环境 */
-  installEnvironment: () => ipcRenderer.invoke("lyricAlignment:installEnvironment"),
+  installEnvironment: (kind) => ipcRenderer.invoke("lyricAlignment:installEnvironment", kind),
   /** 取消安装并由主进程回收文件及进程 */
-  cancelEnvironmentInstall: () => ipcRenderer.invoke("lyricAlignment:cancelEnvironmentInstall"),
+  cancelEnvironmentInstall: (kind) =>
+    ipcRenderer.invoke("lyricAlignment:cancelEnvironmentInstall", kind),
   /** 卸载专用环境和模型 */
-  uninstallEnvironment: () => ipcRenderer.invoke("lyricAlignment:uninstallEnvironment"),
+  uninstallEnvironment: (kind) => ipcRenderer.invoke("lyricAlignment:uninstallEnvironment", kind),
   /** 关闭窗口时由主进程确认是否需要继续后台安装 */
   continueInBackground: () => ipcRenderer.invoke("lyricAlignment:continueInBackground"),
   /**
@@ -29,8 +30,9 @@ export const lyricAlignmentApi: LyricAlignmentApi = {
    * @param callback - 状态变化处理
    * @returns 解除监听的操作
    */
-  onEnvironmentStatus: (callback) => {
-    const channel = "lyricAlignment:environment-status";
+  onEnvironmentStatus: (callback, kind = "translation") => {
+    const channel =
+      kind === "acoustic" ? "lyricAlignment:acoustic-status" : "lyricAlignment:environment-status";
     ipcRenderer.removeAllListeners(channel);
     const handler = (
       _event: Electron.IpcRendererEvent,

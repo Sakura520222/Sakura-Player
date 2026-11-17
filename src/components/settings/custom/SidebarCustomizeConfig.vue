@@ -356,7 +356,7 @@ const handleReset = async (): Promise<void> => {
               :size="26"
               :icon-size="14"
               round
-              :title="t('settings.sidebarCustomize.showName')"
+              :aria-label="t('settings.sidebarCustomize.showName')"
               @click="toggleShowName(gi)"
             >
               <template #icon>

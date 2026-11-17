@@ -327,7 +327,7 @@ const completeTrackLoad = (
   const coverUrl = coverFetchUrl && /^https?:\/\//i.test(coverFetchUrl) ? coverFetchUrl : undefined;
   const durationMs = toDisplayDurationMs(toMs(meta.duration));
   const startMs = activeCueRange?.startMs ?? 0;
-  setCurrentTransitionRange(startMs, startMs + durationMs, source);
+  setCurrentTransitionRange(startMs, startMs + durationMs, source, authoritative?.id);
   const displayTitle =
     authoritative?.title ?? (meta.title || source.split(/[/\\]/).pop() || source);
   const displayArtists = authoritative

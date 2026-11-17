@@ -152,7 +152,7 @@ const handleLogout = async (): Promise<void> => {
         <div
           v-for="item in stats"
           :key="item.key"
-          :title="item.label"
+          :aria-label="item.label"
           class="group flex flex-1 flex-col items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors duration-200 hover:bg-on-surface/8 active:bg-on-surface/12"
           @click="handleStatClick(item.key)"
         >

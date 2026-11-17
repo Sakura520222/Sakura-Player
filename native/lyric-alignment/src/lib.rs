@@ -1,3 +1,6 @@
+pub mod acoustic;
+#[path = "../../shared/audio_input.rs"]
+mod audio_input;
 mod model_file;
 pub mod pinyin;
 pub mod readings;

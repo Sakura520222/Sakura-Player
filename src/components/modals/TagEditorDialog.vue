@@ -238,8 +238,8 @@ const handleSave = async (): Promise<void> => {
         />
         <div class="flex flex-col justify-between min-w-0 py-0.5">
           <div class="flex flex-col gap-0.5 min-w-0">
-            <span class="text-sm font-medium truncate" :title="fileName">{{ fileName }}</span>
-            <span class="text-xs text-on-surface-variant/70 truncate" :title="track?.path">
+            <span class="text-sm font-medium truncate">{{ fileName }}</span>
+            <span class="text-xs text-on-surface-variant/70 truncate">
               {{ track?.path }}
             </span>
             <span v-if="fileMeta" class="text-xs text-on-surface-variant/70">{{ fileMeta }}</span>

@@ -1,4 +1,5 @@
 import type { LyricAuxiliaryData, LyricAuxiliaryLine, LyricLine } from "../types/lyrics";
+import { resolveTimedWordRanges } from "./lyricWordRanges";
 
 export const AUXILIARY_TRACKS = [
   ["translation", "translatedLyric", "translationWords", "translationLanguage"],
@@ -25,7 +26,7 @@ export const captureAuxiliaryTrack = (
 };
 
 /**
- * 恢复私有附件中的辅助轨道，主歌词重新分词时保留文本并弃用过期索引
+ * 恢复私有附件中的辅助轨道，仅按当前主歌词边界恢复可确认的音译关联
  * @param lines - 同一主歌词解析后的行
  * @param auxiliary - 已确认与主歌词属于同一版本的辅助数据
  */
@@ -41,13 +42,17 @@ export const restoreAuxiliaryTracks = (
       line[text] = row.text;
       line[language] = row.language;
       line[words] = row.wordCount === line.words.length ? row.words : undefined;
-      if (key === "romanization") {
-        line.words = line.words.map((word) => ({ ...word, romanWord: undefined }));
-        for (const part of line.romanizationWords ?? []) {
-          if (part.from !== undefined && line.words[part.from])
-            line.words[part.from].romanWord = part.word.trim();
-        }
-      }
+    }
+  }
+  const restoredRomanization = auxiliary?.romanization?.length === lines.length;
+  for (const line of lines) {
+    if (!restoredRomanization && !line.romanizationWords?.length) continue;
+    line.words = line.words.map((word) => ({ ...word, romanWord: undefined }));
+    const ranges = resolveTimedWordRanges(line.words, line.romanizationWords ?? []);
+    if (ranges) line.romanizationWords = ranges;
+    for (const part of ranges ?? []) {
+      if (part.from !== undefined && line.words[part.from])
+        line.words[part.from].romanWord = part.word.trim();
     }
   }
 };

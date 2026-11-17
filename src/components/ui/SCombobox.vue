@@ -223,7 +223,6 @@ const compareByValue = (a: unknown, b: unknown): boolean => {
               :key="String(opt.value)"
               :value="opt.value"
               :disabled="opt.disabled"
-              :title="opt.label"
               :style="opt.style"
               class="relative flex items-center h-8.5 px-3 pr-8 text-sm rounded-md cursor-pointer transition-[background-color,color] duration-200 data-[highlighted]:bg-on-surface/8 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
               :class="selectedValues.includes(opt.value) ? 'text-primary' : 'text-on-surface'"
@@ -251,7 +250,6 @@ const compareByValue = (a: unknown, b: unknown): boolean => {
                 <ComboboxItem
                   :value="option.value"
                   :disabled="option.disabled"
-                  :title="option.label"
                   :style="option.style"
                   class="relative flex items-center w-full h-8.5 px-3 pr-8 text-sm rounded-md cursor-pointer transition-[background-color,color] duration-200 data-[highlighted]:bg-on-surface/8 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
                   :class="

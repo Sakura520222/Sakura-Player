@@ -12,6 +12,9 @@ vi.mock("@main/utils/paths", () => ({
   get lyricAlignmentRuntimeDir() {
     return path.join(mocks.data, "runtimes", "lyric-alignment");
   },
+  get lyricAcousticRuntimeDir() {
+    return path.join(mocks.data, "runtimes", "lyric-acoustic");
+  },
 }));
 vi.mock("./native", () => ({
   getAlignmentExecutable: () => path.join(mocks.data, "engine"),
@@ -19,6 +22,13 @@ vi.mock("./native", () => ({
 }));
 vi.mock("./download", () => ({ downloadAlignmentAsset: mocks.download }));
 vi.mock("./process", () => ({ runAlignmentNative: mocks.run }));
+vi.mock("./acousticRuntime", () => ({
+  acousticRuntimePath: () => path.join(mocks.data, "onnxruntime.dll"),
+  ensureAcousticRuntime: async (signal: AbortSignal) => {
+    signal.throwIfAborted();
+    await writeFile(path.join(mocks.data, "onnxruntime.dll"), "runtime");
+  },
+}));
 vi.mock("./assets", async (original) => ({
   ...(await original<typeof import("./assets")>()),
   ALIGNMENT_MODEL_FILES: [
@@ -27,6 +37,14 @@ vi.mock("./assets", async (original) => ({
       size: 7,
       sha256: createHash("sha256").update("weights").digest("hex"),
       url: "https://example.invalid/model",
+    },
+  ],
+  ACOUSTIC_MODEL_FILES: [
+    {
+      name: "mms_fa_uint8.onnx",
+      size: 7,
+      sha256: createHash("sha256").update("weights").digest("hex"),
+      url: "https://example.invalid/acoustic",
     },
   ],
 }));
@@ -55,6 +73,21 @@ afterEach(async () => {
 });
 
 describe("原生对齐模型事务", () => {
+  it("声学模型拥有独立租约，移除不影响翻译模型或共用运行库", async () => {
+    await environment.installAlignmentEnvironment();
+    expect((await environment.installAlignmentEnvironment("acoustic")).installed).toBe(true);
+    expect(mocks.run).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining(["--acoustic", "--runtime"]),
+      expect.any(AbortSignal),
+    );
+    const lease = await environment.acquireAlignmentEnvironment("acoustic");
+    await expect(environment.uninstallAlignmentEnvironment("acoustic")).rejects.toThrow("使用");
+    lease.release();
+    expect((await environment.uninstallAlignmentEnvironment("acoustic")).installed).toBe(false);
+    expect((await environment.getAlignmentEnvironmentStatus()).installed).toBe(true);
+    expect((await stat(path.join(mocks.data, "onnxruntime.dll"))).isFile()).toBe(true);
+  });
   it("读取状态不下载或启动进程，重复准备只验证一次", async () => {
     expect((await environment.getAlignmentEnvironmentStatus()).phase).toBe("not-installed");
     expect(mocks.download).not.toHaveBeenCalled();

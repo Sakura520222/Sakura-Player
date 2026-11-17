@@ -75,7 +75,6 @@ const handleChange = (val: string) => {
             v-for="opt in options"
             :key="String(opt.value)"
             :value="String(opt.value)"
-            :title="opt.label"
             :style="opt.style"
             class="relative flex items-center h-8.5 px-3 pr-8 text-sm rounded-md cursor-pointer outline-none focus-visible:outline-none transition-[background-color,color] duration-200 data-[highlighted]:bg-on-surface/8"
             :class="opt.value === modelValue ? 'text-primary' : 'text-on-surface'"

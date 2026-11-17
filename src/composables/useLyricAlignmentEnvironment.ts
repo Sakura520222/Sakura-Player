@@ -1,12 +1,13 @@
+import { createSharedComposable } from "@vueuse/core";
 import type { Ref } from "vue";
-import type { AlignmentEnvironmentState } from "@shared/types/lyricAlignment";
+import type { AlignmentEnvironmentState, AlignmentModelKind } from "@shared/types/lyricAlignment";
 
 /**
- * 订阅专用环境状态，安装和卸载仅由界面点击触发
- * @param open - 弹窗是否可见
+ * 为同类模型共享状态与订阅，避免设置和对齐弹窗互相移除监听
+ * @param kind - 翻译或声学模型
  * @returns 环境状态和显式安装、取消、卸载操作
  */
-export const useLyricAlignmentEnvironment = (open: Ref<boolean>) => {
+const createEnvironment = (kind?: AlignmentModelKind) => {
   const status = shallowRef<AlignmentEnvironmentState>({
     revision: -1,
     phase: "not-installed",
@@ -59,10 +60,10 @@ export const useLyricAlignmentEnvironment = (open: Ref<boolean>) => {
 
   /** 打开弹窗或窗口重新可见时读取最新状态，不启动安装 */
   const refresh = async (): Promise<void> => {
-    if (disposed || !open.value) return;
+    if (disposed) return;
     loading.value = true;
     try {
-      update(await window.api.lyricAlignment.environmentStatus());
+      update(await window.api.lyricAlignment.environmentStatus(kind));
       if (!disposed) error.value = "";
     } catch (failure) {
       if (!disposed) error.value = failure instanceof Error ? failure.message : String(failure);
@@ -77,7 +78,7 @@ export const useLyricAlignmentEnvironment = (open: Ref<boolean>) => {
     actionPending.value = true;
     error.value = "";
     try {
-      update(await window.api.lyricAlignment.installEnvironment());
+      update(await window.api.lyricAlignment.installEnvironment(kind));
     } catch (failure) {
       if (!disposed) error.value = failure instanceof Error ? failure.message : String(failure);
     } finally {
@@ -89,7 +90,7 @@ export const useLyricAlignmentEnvironment = (open: Ref<boolean>) => {
   const cancelInstall = async (): Promise<void> => {
     if (!installing.value || status.value.phase === "cancelling") return;
     try {
-      await window.api.lyricAlignment.cancelEnvironmentInstall();
+      await window.api.lyricAlignment.cancelEnvironmentInstall(kind);
     } catch (failure) {
       if (!disposed) error.value = failure instanceof Error ? failure.message : String(failure);
     }
@@ -101,7 +102,7 @@ export const useLyricAlignmentEnvironment = (open: Ref<boolean>) => {
     actionPending.value = true;
     error.value = "";
     try {
-      update(await window.api.lyricAlignment.uninstallEnvironment());
+      update(await window.api.lyricAlignment.uninstallEnvironment(kind));
     } catch (failure) {
       if (!disposed) error.value = failure instanceof Error ? failure.message : String(failure);
     } finally {
@@ -109,18 +110,8 @@ export const useLyricAlignmentEnvironment = (open: Ref<boolean>) => {
     }
   };
 
-  const unsubscribe = window.api.lyricAlignment.onEnvironmentStatus(update);
-  useEventListener(document, "visibilitychange", () => {
-    if (!document.hidden) void refresh();
-  });
-  watch(
-    open,
-    (visible) => {
-      if (visible) void refresh();
-    },
-    { immediate: true },
-  );
-  onBeforeUnmount(() => {
+  const unsubscribe = window.api.lyricAlignment.onEnvironmentStatus(update, kind);
+  onScopeDispose(() => {
     disposed = true;
     unsubscribe();
   });
@@ -137,5 +128,35 @@ export const useLyricAlignmentEnvironment = (open: Ref<boolean>) => {
     install,
     cancelInstall,
     uninstall,
+    refresh,
   };
+};
+
+const environments = {
+  translation: createSharedComposable(() => createEnvironment()),
+  acoustic: createSharedComposable(() => createEnvironment("acoustic")),
+};
+
+/**
+ * 复用模型状态，在当前界面打开或重新可见时刷新
+ * @param open - 当前界面是否打开
+ * @param kind - 翻译或声学模型
+ * @returns 共享状态及显式下载、取消、移除操作
+ */
+export const useLyricAlignmentEnvironment = (
+  open: Ref<boolean>,
+  kind: AlignmentModelKind = "translation",
+) => {
+  const environment = environments[kind]();
+  watch(
+    open,
+    (visible) => {
+      if (visible) void environment.refresh();
+    },
+    { immediate: true },
+  );
+  useEventListener(document, "visibilitychange", () => {
+    if (open.value && !document.hidden) void environment.refresh();
+  });
+  return environment;
 };

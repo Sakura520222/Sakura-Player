@@ -12,6 +12,7 @@ import {
   restoreAuxiliaryTracks,
 } from "@shared/utils/lyricAuxiliary";
 import { readTtmlAuxiliary, readTtmlDocument, restoreTtmlWords } from "@shared/utils/lyricTtml";
+import { serializeTtmlLyrics } from "@shared/utils/lyricTtmlExport";
 import { useSettingsStore } from "@/stores/settings";
 import { watchLyricPreference } from "@/services/lyric/loader";
 import {
@@ -258,6 +259,7 @@ export const useMediaStore = defineStore("media", () => {
         startTime: line.startTime + Math.round((duration * index) / characters.length),
         endTime: line.startTime + Math.round((duration * (index + 1)) / characters.length),
       }));
+      line.estimatedTiming = true;
       hasWordTiming = true;
     }
     restoreAuxiliaryTracks(nextLines, input.auxiliary);
@@ -467,6 +469,7 @@ export const useMediaStore = defineStore("media", () => {
    * @param language - 新译文的目标语言，已有译文仅对齐时保留其语言
    * @param mode - 补齐缺失或从头完整生成
    * @param regenerateRomanization - 用户选择单独重新音译的失败行
+   * @param regenerateTranslation - 用户选择单独重新翻译的失败行
    * @returns 是否成功应用当前版本的完整结果
    */
   const applyGeneratedLyric = (
@@ -476,6 +479,7 @@ export const useMediaStore = defineStore("media", () => {
     language: string,
     mode: GenerationMode = "missing",
     regenerateRomanization?: ReadonlySet<number>,
+    regenerateTranslation?: ReadonlySet<number>,
   ): boolean => {
     if (revision !== lyricRevision.value || !lyricContent.value || !activeLyric.value) return false;
     const lines = applyGeneratedLyrics(
@@ -485,6 +489,7 @@ export const useMediaStore = defineStore("media", () => {
       mode,
       regenerateRomanization,
       aiLyricExcludedIds.value,
+      regenerateTranslation,
     );
     if (!lines) return false;
     const input = { ...toRaw(lyricContent.value) };
@@ -528,7 +533,7 @@ export const useMediaStore = defineStore("media", () => {
   };
 
   /**
-   * 应用本地对齐的可靠行，并将完整辅助轨道交给现有保存与窗口同步流程
+   * 应用声学时间与辅助轨道，主歌词结果进入现有 TTML 保存和窗口同步流程
    * @param revision - 开始对齐时的歌词版本
    * @param results - 用户选择的已校验行
    * @param realignExisting - 是否允许替换已有完整逐字对齐
@@ -546,8 +551,50 @@ export const useMediaStore = defineStore("media", () => {
       !activeLyric.value
     )
       return false;
-    const lines = applyLocalAlignment(parsedLyric.value, results, realignExisting);
+    const primary = results.some((line) => line.primary);
+    const lines = applyLocalAlignment(
+      primary ? getLyricExportLines() : parsedLyric.value,
+      results,
+      realignExisting,
+    );
     if (!lines) return false;
+    if (primary) {
+      if (!track.value) return false;
+      const metadata = parseLyric(
+        { content: lyricContent.value.content, format: activeLyric.value.format },
+        { extractMetadata: true },
+      ).metadata;
+      const persistentLines = lines.map((line) =>
+        line.estimatedTiming
+          ? {
+              ...line,
+              words: [
+                {
+                  word: line.words.map((word) => word.word).join(""),
+                  startTime: line.startTime,
+                  endTime: line.endTime,
+                },
+              ],
+              translationWords: line.translationWords?.map(
+                ({ from: _from, to: _to, ...word }) => word,
+              ),
+              romanizationWords: line.romanizationWords?.map(
+                ({ from: _from, to: _to, ...word }) => word,
+              ),
+            }
+          : line,
+      );
+      const serialized = serializeTtmlLyrics(track.value, persistentLines, {
+        ...metadata,
+        timingMode: "Word",
+      });
+      lyricContent.value = {
+        content: serialized.ttml,
+        format: "ttml",
+        auxiliary: serialized.auxiliary,
+      };
+      activeLyric.value = { ...activeLyric.value, format: "ttml", wordTimed: true, timeShiftMs: 0 };
+    }
     const input = { ...toRaw(lyricContent.value) };
     const language = input.translation
       ? (parseLyric(
@@ -565,6 +612,16 @@ export const useMediaStore = defineStore("media", () => {
       },
       language,
     );
+    const mode = useSettingsStore().lyric.cjkTransform;
+    if (primary && mode && mode !== "none") {
+      const token = transformToken;
+      void applyLyricCjkTransform(lines, mode).then((transformed) => {
+        if (token !== transformToken) return;
+        parsedLyric.value = transformed;
+        lyricRevision.value++;
+        syncToMain();
+      });
+    }
     return true;
   };
 

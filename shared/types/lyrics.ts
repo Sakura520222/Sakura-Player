@@ -22,6 +22,8 @@ export type RomanizationSpan = AuxiliaryLyricSpan;
 
 /** 保留与主歌词同一毫秒时间轴的辅助逐字轨道 */
 export interface LyricLine extends BaseLyricLine {
+  /** 显示用均分时间仍允许被声学对齐替换 */
+  estimatedTiming?: boolean;
   translationWords?: AuxiliaryLyricSpan[];
   romanizationWords?: RomanizationSpan[];
   translationLanguage?: string;

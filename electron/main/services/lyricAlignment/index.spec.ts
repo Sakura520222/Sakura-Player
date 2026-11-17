@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ acquire: vi.fn(), release: vi.fn(), run: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  acquire: vi.fn(),
+  release: vi.fn(),
+  run: vi.fn(),
+  primary: vi.fn(),
+}));
+vi.mock("./acoustic", () => ({ runPrimaryAlignment: mocks.primary }));
 vi.mock("./environment", () => ({ acquireAlignmentEnvironment: mocks.acquire }));
 vi.mock("./native", () => ({ getAlignmentExecutable: () => "lyric-alignment.exe" }));
 vi.mock("./process", () => ({ runAlignmentNative: mocks.run }));
@@ -20,11 +26,37 @@ const romanization = {
   score: 1,
 };
 beforeEach(() => {
+  mocks.primary.mockReset().mockResolvedValue([]);
   mocks.release.mockReset();
   mocks.acquire.mockReset().mockResolvedValue({ modelDirectory: "model", release: mocks.release });
   mocks.run.mockReset().mockResolvedValue(JSON.stringify({ lines: [{ id: 0, romanization }] }));
 });
 describe("独立原生对齐任务", () => {
+  it("主歌词完成后才按新分词处理辅助轨道，翻译崩溃仍返回主歌词", async () => {
+    const primary = {
+      score: 0.8,
+      words: [
+        { word: "君", startTime: 1100, endTime: 1500 },
+        { word: "と", startTime: 1700, endTime: 1900 },
+      ],
+    };
+    mocks.primary.mockResolvedValue([{ id: 0, primary }]);
+    const input = {
+      ...request,
+      primary: { trackId: "song", language: "ja" as const },
+      lines: [{ ...request.lines[0], words: ["君と"], primary: { startTime: 500, endTime: 2500 } }],
+    };
+    const result = await runLocalAlignment(input, new AbortController().signal);
+    expect(result.lines[0]).toMatchObject({ primary, romanization });
+    expect(JSON.parse(mocks.run.mock.calls[0][3]).lines[0].words).toEqual(["君", "と"]);
+    expect(mocks.primary.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.acquire.mock.invocationCallOrder[0],
+    );
+    mocks.run.mockRejectedValue(new Error("model crashed"));
+    expect(
+      await runLocalAlignment({ ...input, romanization: false }, new AbortController().signal),
+    ).toEqual({ lines: [{ id: 0, primary }], translationError: "model crashed" });
+  });
   it("整个任务持有模型使用权，只将已有歌词和固定模型目录传入原生进程", async () => {
     const signal = new AbortController().signal;
     const result = await runLocalAlignment(request, signal);

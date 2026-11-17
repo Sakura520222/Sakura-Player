@@ -26,24 +26,33 @@ let currentRange: {
   startMs: number;
   endMs: number;
   source?: string;
+  trackId?: string;
   analyzed: boolean;
   tailEndMs?: number;
 } | null = null;
+
+/**
+ * 读取当前实际解码音源与 CUE 边界，供离线声学分析复用
+ * @returns 当前源的独立快照，尚未加载时为空
+ */
+export const getCurrentAudioRange = () => (currentRange ? { ...currentRange } : null);
 
 /**
  * 只保留当前曲目的尾部判定，加载和停止时清空
  * @param startMs - 曲目或 CUE 分轨起点，省略时清空
  * @param endMs - 曲目或 CUE 分轨终点
  * @param source - 当前曲目的实际本地或完整缓存音源
+ * @param trackId - 当前完成加载的歌曲身份
  */
 export const setCurrentTransitionRange = (
   startMs?: number,
   endMs?: number,
   source?: string,
+  trackId?: string,
 ): void => {
   prepared?.analysis.abort();
   currentRange =
-    startMs != null && endMs != null ? { startMs, endMs, source, analyzed: false } : null;
+    startMs != null && endMs != null ? { startMs, endMs, source, trackId, analyzed: false } : null;
 };
 
 /**

@@ -24,6 +24,7 @@ let settings: {
     showWordTranslation?: boolean;
     showRomanization?: boolean;
     showWordRomanization?: boolean;
+    autoGenerateWordByWord?: boolean;
   };
 };
 const mocks = vi.hoisted(() => ({ transform: vi.fn(), update: vi.fn() }));
@@ -73,6 +74,123 @@ const translations = new Map([
   [0, "灯光"],
   [1, "雨声"],
 ]);
+
+describe("主歌词声学结果存储", () => {
+  it("单行翻译重做写入新译文与对齐，保留该行原语言及未重做行", () => {
+    const media = load();
+    media.parsedLyric = [
+      {
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        translatedLyric: "古い訳文",
+        translationLanguage: "ja",
+      },
+    ];
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: false,
+    };
+    const result = new Map([
+      [
+        0,
+        {
+          translation: [
+            { text: "あなたと", from: 0, to: 1 },
+            { text: "歩こう", from: 2, to: 2 },
+          ],
+        },
+      ],
+    ]);
+    expect(
+      media.applyGeneratedLyric(
+        media.lyricRevision,
+        result,
+        options,
+        "zh-CN",
+        "missing",
+        undefined,
+        new Set([0]),
+      ),
+    ).toBe(true);
+    expect(media.parsedLyric[0].translatedLyric).toBe("あなたと歩こう");
+    expect(media.parsedLyric[0].translationLanguage).toBe("ja");
+    expect(media.lyricContent?.auxiliary?.translation?.[0].text).toBe("あなたと歩こう");
+  });
+  it("未选行的显示均分不会在 TTML 中变成不可重做的真实时间", () => {
+    settings.lyric.autoGenerateWordByWord = true;
+    const media = useMediaStore();
+    media.setTrack({ id: "song", source: "local", title: "Fixture", artists: [], duration: 5000 });
+    media.setLyric({ source: "embedded", format: "lrc" }, { content: "[00:01]你好\n[00:03]世界" });
+    expect(media.parsedLyric[1].estimatedTiming).toBe(true);
+    expect(
+      media.applyLocalLyricAlignment(media.lyricRevision, [
+        {
+          id: 0,
+          primary: {
+            score: 0.8,
+            words: [
+              { word: "你", startTime: 1000, endTime: 1300 },
+              { word: "好", startTime: 1800, endTime: 2400 },
+            ],
+          },
+        },
+      ]),
+    ).toBe(true);
+    media.setLyric({ ...media.activeLyric! }, { ...media.lyricContent! });
+    expect(media.parsedLyric[1].words).toHaveLength(1);
+    expect(
+      media.applyLocalLyricAlignment(media.lyricRevision, [
+        {
+          id: 1,
+          primary: {
+            score: 0.8,
+            words: [
+              { word: "世", startTime: 3100, endTime: 3500 },
+              { word: "界", startTime: 3800, endTime: 4200 },
+            ],
+          },
+        },
+      ]),
+    ).toBe(true);
+  });
+  it("应用后序列化主歌词，重新加载仍保留字词时间与未选行", () => {
+    const media = useMediaStore();
+    media.setTrack({ id: "song", source: "local", title: "Fixture", artists: [], duration: 5000 });
+    media.setLyric({ source: "embedded", format: "lrc" }, { content: "[00:01]你好\n[00:03]世界" });
+    const before = media.parsedLyric[1];
+    const revision = media.lyricRevision;
+    expect(
+      media.applyLocalLyricAlignment(revision, [
+        {
+          id: 0,
+          primary: {
+            score: 0.8,
+            words: [
+              { word: "你", startTime: 900, endTime: 1400 },
+              { word: "好", startTime: 1700, endTime: 2600 },
+            ],
+          },
+        },
+      ]),
+    ).toBe(true);
+    expect(media.activeLyric?.wordTimed).toBe(true);
+    expect(media.activeLyric?.format).toBe("ttml");
+    expect(media.parsedLyric[1]).toEqual(before);
+    const source = { ...media.activeLyric! };
+    const input = { ...media.lyricContent! };
+    media.setLyric(source, input);
+    expect(
+      media.parsedLyric[0].words.map((word) => [word.word, word.startTime, word.endTime]),
+    ).toEqual([
+      ["你", 900, 1400],
+      ["好", 1700, 2600],
+    ]);
+    expect(
+      media.applyLocalLyricAlignment(revision, [{ id: 0, primary: { score: 1, words: [] } }]),
+    ).toBe(false);
+  });
+});
 
 describe("AI 歌词排除", () => {
   it.each([true, false])("复用播放排除规则并按原歌词下标回写（播放排除 %s）", (enabled) => {

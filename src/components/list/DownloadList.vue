@@ -208,7 +208,6 @@ defineExpose({ playAll });
                 <IconLucideTriangleAlert
                   v-if="item.tagWarning"
                   class="size-3.5 shrink-0 self-center text-amber-500"
-                  :title="t('download.tagWarning')"
                 />
               </div>
               <div
@@ -263,7 +262,7 @@ defineExpose({ playAll });
               variant="ghost"
               circle
               size="small"
-              :title="t('download.cancel')"
+              :aria-label="t('download.cancel')"
               @click="downloadStore.cancel(item.taskId)"
             >
               <template #icon><IconLucideX /></template>
@@ -273,7 +272,7 @@ defineExpose({ playAll });
                 variant="ghost"
                 circle
                 size="small"
-                :title="t('download.retry')"
+                :aria-label="t('download.retry')"
                 @click="retry(item)"
               >
                 <template #icon><IconLucideRotateCcw /></template>
@@ -282,7 +281,7 @@ defineExpose({ playAll });
                 variant="ghost"
                 circle
                 size="small"
-                :title="t('download.remove')"
+                :aria-label="t('download.remove')"
                 @click="downloadStore.remove(item.taskId)"
               >
                 <template #icon><IconLucideTrash2 /></template>
@@ -293,7 +292,7 @@ defineExpose({ playAll });
                 variant="ghost"
                 circle
                 size="small"
-                :title="t('download.openFolder')"
+                :aria-label="t('download.openFolder')"
                 @click="openFolder(item)"
               >
                 <template #icon><IconLucideFolderOpen /></template>
@@ -302,7 +301,7 @@ defineExpose({ playAll });
                 variant="ghost"
                 circle
                 size="small"
-                :title="t('download.deleteFile')"
+                :aria-label="t('download.deleteFile')"
                 @click="confirmDelete(item)"
               >
                 <template #icon><IconLucideTrash2 /></template>

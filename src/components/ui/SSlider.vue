@@ -12,7 +12,7 @@ export interface SSliderProps {
   disabled?: boolean;
   /** 始终显示拖拽点 */
   alwaysShowThumb?: boolean;
-  /** 是否在拖拽点 hover/拖拽时显示 pop 弹窗 */
+  /** 是否在拖拽时显示当前数值 */
   showPopover?: boolean;
   /** pop 弹窗位置 */
   popoverSide?: "top" | "bottom" | "left" | "right";
@@ -108,8 +108,6 @@ const popoverContentRef = ref<HTMLElement>();
 const isDragging = ref(false);
 /** 鼠标是否悬停在整个滑块上 */
 const isHovering = ref(false);
-/** 鼠标是否悬停在拖拽点上 */
-const isThumbHovering = ref(false);
 /** 拖拽过程中的临时值（松手前不同步给父组件） */
 const dragValue = ref(props.modelValue);
 /** popover 为避免贴边溢出的水平修正量 */
@@ -184,10 +182,8 @@ const onMarkClick = (value: number): void => {
   emit("update:modelValue", value);
 };
 
-/** popover 是否可见（拖拽点 hover 或拖拽中） */
-const popoverVisible = computed(
-  () => props.showPopover && (isThumbHovering.value || isDragging.value),
-);
+/** 仅在实际拖拽过程中显示数值 */
+const popoverVisible = computed(() => props.showPopover && isDragging.value);
 
 /** 更新 popover 边缘避让偏移 */
 const updatePopoverShift = (): void => {
@@ -341,8 +337,6 @@ const onPointerUp = (): void => {
           left: 'clamp(calc(var(--s-slider-thumb-half) - 2px), var(--s-slider-progress), calc(100% - var(--s-slider-thumb-half) + 2px))',
           translate: '-50% 0',
         }"
-        @mouseenter="isThumbHovering = true"
-        @mouseleave="isThumbHovering = false"
       />
     </div>
 
@@ -402,8 +396,6 @@ const onPointerUp = (): void => {
             'clamp(calc(var(--s-slider-thumb-half) - 2px), var(--s-slider-progress), calc(100% - var(--s-slider-thumb-half) + 2px))',
           translate: '0 50%',
         }"
-        @mouseenter="isThumbHovering = true"
-        @mouseleave="isThumbHovering = false"
       />
     </div>
 

@@ -110,18 +110,23 @@ const requestClearAll = async (): Promise<void> => {
     >
       <div class="min-w-0 flex-1">
         <div class="text-base">{{ t("settings.cacheDir.label") }}</div>
-        <div class="text-sm text-on-surface-variant/70 mt-0.5 truncate font-mono" :title="cacheDir">
+        <div class="text-sm text-on-surface-variant/70 mt-0.5 truncate font-mono">
           {{ cacheDir || "—" }}
         </div>
       </div>
       <div class="shrink-0 flex items-center gap-2">
-        <SButton variant="ghost" circle :title="t('settings.cacheDir.open')" @click="handleOpenDir">
+        <SButton
+          variant="ghost"
+          circle
+          :aria-label="t('settings.cacheDir.open')"
+          @click="handleOpenDir"
+        >
           <template #icon><IconLucideFolderOpen /></template>
         </SButton>
         <SButton
           variant="ghost"
           circle
-          :title="t('settings.cacheDir.reset')"
+          :aria-label="t('settings.cacheDir.reset')"
           @click="handleResetDir"
         >
           <template #icon><IconLucideRotateCcw /></template>
@@ -148,7 +153,7 @@ const requestClearAll = async (): Promise<void> => {
           variant="ghost"
           circle
           :loading="loading"
-          :title="t('settings.cacheUsage.refresh')"
+          :aria-label="t('settings.cacheUsage.refresh')"
           @click="refresh"
         >
           <template #icon><IconLucideRefreshCw /></template>
@@ -164,7 +169,7 @@ const requestClearAll = async (): Promise<void> => {
             />
             <div class="flex-1 min-w-0">
               <div class="text-sm">{{ t(`settings.cacheCategory.${stat.id}`) }}</div>
-              <div class="text-xs text-on-surface-variant/60 truncate font-mono" :title="stat.path">
+              <div class="text-xs text-on-surface-variant/60 truncate font-mono">
                 {{ stat.path || "—" }}
               </div>
             </div>
@@ -176,7 +181,7 @@ const requestClearAll = async (): Promise<void> => {
               circle
               :loading="clearingId === stat.id"
               :disabled="stat.size === 0"
-              :title="t('settings.cacheCategoryClear.label')"
+              :aria-label="t('settings.cacheCategoryClear.label')"
               @click="requestClear(stat.id)"
             >
               <template #icon><IconLucideTrash2 /></template>

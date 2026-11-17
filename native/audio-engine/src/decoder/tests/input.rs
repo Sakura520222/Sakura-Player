@@ -1,6 +1,6 @@
 use super::*;
 use ffmpeg_audio::{AudioReader, SeekMode};
-use std::io::Cursor;
+use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::time::Duration;
 
 const MP4: &[u8] = b"\x00\x00\x00\x10ftypM4A \x00\x00\x00\x00";

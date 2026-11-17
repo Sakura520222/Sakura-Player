@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CSSProperties } from "vue";
+import type { ComponentPublicInstance, CSSProperties } from "vue";
 import { usePopupZIndex } from "@/composables/useZIndex";
 
 export interface SDialogProps {
@@ -42,16 +42,19 @@ const props = withDefaults(defineProps<SDialogProps>(), {
 });
 
 const DESTROY_DELAY_MS = 180;
+const dialogContent = ref<ComponentPublicInstance>();
+const closingHeight = ref<number>();
 
 const containerStyle = computed(() => ({
   width: props.width,
-  height: props.height === "auto" ? undefined : props.height,
+  height: props.height === "auto" ? closingHeight.value : props.height,
   maxHeight: props.height === "auto" ? "85vh" : undefined,
   top: props.top,
 }));
 
 const emit = defineEmits<{
   "update:open": [value: boolean];
+  "after-close": [];
 }>();
 
 const isOpen = ref(props.open ?? false);
@@ -60,7 +63,10 @@ let destroyTimer: ReturnType<typeof setTimeout> | undefined;
 
 const { zIndex: activeZIndex, onOpenChange } = usePopupZIndex(toRef(props, "zIndex"));
 
-/** 更新内容挂载状态与动态层级 */
+/**
+ * 更新挂载与层级，关闭时固定高度，避免内容清理使淡出中的弹窗位移
+ * @param open - 本次显示状态
+ */
 const syncMounted = (open: boolean): void => {
   if (destroyTimer) {
     clearTimeout(destroyTimer);
@@ -70,9 +76,14 @@ const syncMounted = (open: boolean): void => {
   onOpenChange(open);
 
   if (open) {
+    closingHeight.value = undefined;
     mounted.value = true;
     return;
   }
+
+  const element = dialogContent.value?.$el;
+  if (props.height === "auto" && element instanceof HTMLElement)
+    closingHeight.value = element.offsetHeight;
 
   if (!props.destroyOnClose) return;
 
@@ -119,6 +130,7 @@ const setOpen = (val: boolean): void => {
         ]"
       />
       <DialogContent
+        ref="dialogContent"
         data-dialog-content
         :style="[containerStyle, { zIndex: activeZIndex }]"
         :class="[
@@ -134,6 +146,7 @@ const setOpen = (val: boolean): void => {
             ? 'bg-black/55 backdrop-blur-xl backdrop-saturate-160 border border-solid border-white/10 text-cover'
             : 'bg-surface-alt border border-solid border-outline-variant/30 text-on-surface',
         ]"
+        @close-auto-focus="!isOpen && emit('after-close')"
       >
         <!-- 标题 + 描述 -->
         <div v-if="title" class="shrink-0 px-5 pt-4 pb-3 pr-12">

@@ -84,7 +84,6 @@ const handleChange = (val: string): void => {
             v-for="opt in options"
             :key="String(opt.value)"
             :value="String(opt.value)"
-            :title="opt.label"
             :class="[
               'relative flex items-center h-8 px-2.5 pr-7 rounded-md cursor-pointer outline-none focus-visible:outline-none transition-colors duration-200',
               cover ? 'data-[highlighted]:bg-white/10' : 'data-[highlighted]:bg-on-surface/8',

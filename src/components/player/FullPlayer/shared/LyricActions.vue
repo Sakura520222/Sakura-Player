@@ -26,6 +26,8 @@ const hasLyric = computed(() => media.parsedLyric.length > 0);
 const copyDialogOpen = ref(false);
 const translationDialogOpen = ref(false);
 const alignmentDialogOpen = ref(false);
+const translationDialogMounted = ref(false);
+const alignmentDialogMounted = ref(false);
 
 /** 歌词匹配弹窗是否打开 */
 const matchDialogOpen = ref(false);
@@ -69,7 +71,10 @@ const resetLyricOffset = (): void => writeOffset(0);
       :size="40"
       :disabled="!hasTrack || !hasLyric || media.lyricLoading"
       :aria-label="t('player.aiTranslation.title')"
-      @click="translationDialogOpen = true"
+      @click="
+        translationDialogMounted = true;
+        translationDialogOpen = true;
+      "
     >
       <template #icon><IconLucideLanguages /></template>
     </SButton>
@@ -80,7 +85,10 @@ const resetLyricOffset = (): void => writeOffset(0);
       :size="40"
       :disabled="!hasTrack || !hasLyric || media.lyricLoading"
       :aria-label="t('player.localAlignment.title')"
-      @click="alignmentDialogOpen = true"
+      @click="
+        alignmentDialogMounted = true;
+        alignmentDialogOpen = true;
+      "
     >
       <template #icon><IconLucideScanText /></template>
     </SButton>
@@ -100,7 +108,7 @@ const resetLyricOffset = (): void => writeOffset(0);
       circle
       :size="40"
       :disabled="!hasTrack"
-      :title="t('player.lyricMatch.title')"
+      :aria-label="t('player.lyricMatch.title')"
       @click="matchDialogOpen = true"
     >
       <template #icon><IconLucideTextSearch /></template>
@@ -167,8 +175,16 @@ const resetLyricOffset = (): void => writeOffset(0);
       <template #icon><IconLucideSettings2 /></template>
     </SButton>
     <CopyLyricsDialog v-model:open="copyDialogOpen" />
-    <AiLyricTranslationDialog v-if="translationDialogOpen" v-model:open="translationDialogOpen" />
-    <LocalLyricAlignmentDialog v-if="alignmentDialogOpen" v-model:open="alignmentDialogOpen" />
+    <AiLyricTranslationDialog
+      v-if="translationDialogMounted"
+      v-model:open="translationDialogOpen"
+      @after-close="translationDialogMounted = translationDialogOpen"
+    />
+    <LocalLyricAlignmentDialog
+      v-if="alignmentDialogMounted"
+      v-model:open="alignmentDialogOpen"
+      @after-close="alignmentDialogMounted = alignmentDialogOpen"
+    />
     <LyricMatchDialog v-model:open="matchDialogOpen" />
   </div>
 </template>

@@ -200,11 +200,12 @@ export const readRomanizationAlignment = (
   line: AlignmentLine,
   value: unknown,
 ): AlignedTranslation["romanization"] => {
-  if (!Array.isArray(value) || !value.length || value.length > line.words.length)
-    throw new Error("音译字词数量无效");
+  if (!Array.isArray(value)) throw new Error("音译需要字词数组");
   const positional = value.every((part) => typeof part === "string");
   if (positional && value.length !== line.words.length)
     throw new Error(`音译字符串数组需要 ${line.words.length} 项，实际为 ${value.length} 项`);
+  if (!value.length || value.length > line.words.length)
+    throw new Error(`音译范围数组需要 1–${line.words.length} 项，实际为 ${value.length} 项`);
   const indices = new Set(line.words.map((word) => word.index));
   const romanized = new Set<number>();
   const romanization = value.map((input: unknown, position) => {

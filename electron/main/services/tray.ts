@@ -139,11 +139,10 @@ const buildMenu = (): Menu => {
   return Menu.buildFromTemplate(items);
 };
 
-/** 刷新菜单和 tooltip */
+/** 刷新系统托盘菜单 */
 export const refreshTray = (): void => {
   if (!tray) return;
   tray.setContextMenu(buildMenu());
-  tray.setToolTip(songName || appName);
 };
 
 /** 初始化系统托盘 */
@@ -159,7 +158,6 @@ export const initTray = (): void => {
     icon = loadIcon("tray/tray@32.png", { width: 20, height: 20 });
   }
   tray = new Tray(icon);
-  tray.setToolTip(appName);
   tray.setContextMenu(buildMenu());
   // 单击托盘图标显示窗口
   tray.on("click", () => focusMainWindow());

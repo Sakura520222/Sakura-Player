@@ -9,6 +9,7 @@ import { getExistingRomanization, type GeneratedLyric } from "./aiGeneration";
 import { hasCompleteAuxiliary } from "./auxiliaryCoverage";
 import { applyLyricResult } from "@/utils/lyric/alignment";
 import { getRomanizationSpans } from "@/utils/lyric/romanization";
+import { applyPrimaryAlignment } from "./primaryAlignment";
 
 /**
  * 收集真实逐字主歌词的辅助文本，按选择保留或重做已有完整对齐
@@ -25,6 +26,7 @@ export const collectLocalAlignmentLines = (
   for (const [id, line] of lines.entries()) {
     const words = line.words.filter((word) => word.word.trim());
     if (
+      line.estimatedTiming ||
       words.length < 2 ||
       words.length > 256 ||
       words.some(
@@ -158,7 +160,7 @@ const validateAlignmentParts = (
 };
 
 /**
- * 原子应用选中的可靠行；主歌词、空白、声部及未处理辅助轨道原样保留
+ * 原子应用选中的主歌词时间和辅助轨道，保留原文、声部及未处理行
  * @param lines - 当前歌词
  * @param results - 用户预览后选中的可靠对齐行
  * @param realignExisting - 是否允许替换已有完整逐字对齐
@@ -172,13 +174,28 @@ export const applyLocalAlignment = (
   if (!results.length || new Set(results.map((line) => line.id)).size !== results.length)
     return null;
   const planned = new Map(
-    collectLocalAlignmentLines(lines, realignExisting).map((line) => [line.id, line]),
+    results
+      .filter((result) => !result.primary && lines[result.id])
+      .flatMap((result) =>
+        collectLocalAlignmentLines([lines[result.id]], realignExisting).map(
+          (line) => [result.id, line] as const,
+        ),
+      ),
   );
   const next = lines.slice();
   for (const result of results) {
-    const source = planned.get(result.id);
+    let line = lines[result.id];
+    if (!line) return null;
+    let source = planned.get(result.id);
+    if (result.primary) {
+      const aligned = applyPrimaryAlignment(line, result.primary);
+      if (!aligned) return null;
+      line = aligned;
+      source = collectLocalAlignmentLines([line], realignExisting)[0];
+      next[result.id] = line;
+      if (!result.translation && !result.romanization) continue;
+    }
     if (!source || (!result.translation && !result.romanization)) return null;
-    const line = lines[result.id];
     const update: GeneratedLyric = {};
     if (result.translation) {
       const parts = validateAlignmentParts(

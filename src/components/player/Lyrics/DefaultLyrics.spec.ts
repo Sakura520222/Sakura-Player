@@ -63,6 +63,66 @@ describe("默认歌词引擎显示与配置", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  it("旧均分音译重做后保存重读仍留在主词下方，不再落到译文后面", async () => {
+    const line: LyricLine = {
+      ...makeLine(""),
+      startTime: 1000,
+      endTime: 5000,
+      words: [
+        { word: "春", startTime: 1100, endTime: 1400 },
+        { word: "の", startTime: 1700, endTime: 1800 },
+        { word: "空", startTime: 2400, endTime: 4200 },
+      ],
+      romanLyric: "haru no sora",
+      romanizationWords: [
+        { word: "haru ", startTime: 1000, endTime: 2000 },
+        { word: "no ", startTime: 2000, endTime: 3000 },
+        { word: "sora", startTime: 3000, endTime: 5000 },
+      ],
+    };
+    const wrapper = mount(DefaultLyrics, { props: { lyricLines: [line], playing: false } });
+    try {
+      expect(wrapper.findAll(".lp-sub").map((node) => node.text())).toEqual([
+        "译文",
+        "haru no sora",
+      ]);
+      const aligned = applyLocalAlignment(
+        [line],
+        [
+          {
+            id: 0,
+            romanization: {
+              score: 1,
+              parts: [
+                { text: "haru ", from: 0, to: 0 },
+                { text: "no ", from: 1, to: 1 },
+                { text: "sora", from: 2, to: 2 },
+              ],
+            },
+          },
+        ],
+      )!;
+      expect(aligned).not.toBeNull();
+      const saved = createLyricSaveContent(
+        { id: "stale", source: "local", title: "旧时间回归", artists: [], duration: 5000 },
+        aligned,
+        { content: toTTML([line]), format: "ttml" },
+      );
+      const reloaded = parseExportTtml(saved.ttml).lines;
+      restoreAuxiliaryTracks(reloaded, saved.auxiliary);
+      await wrapper.setProps({ lyricLines: reloaded });
+      expect(wrapper.findAll(".lp-roman-word").map((node) => node.text())).toEqual([
+        "haru",
+        "no",
+        "sora",
+      ]);
+      expect(wrapper.findAll(".lp-sub").map((node) => node.text())).toEqual(["译文"]);
+      expect(reloaded[0].words.map(({ romanWord: _, ...word }) => word)).toEqual(line.words);
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it.each(["，", "。", "？"])("句末 %s 保留显示，逐字拼音锚定在发音原词", (mark) => {
     const line: LyricLine = {
       ...makeLine("见"),

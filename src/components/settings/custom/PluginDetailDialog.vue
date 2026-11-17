@@ -84,7 +84,7 @@ const setOpen = (value: boolean): void => emit("update:open", value);
             circle
             size="tiny"
             variant="text"
-            :title="info.manifest.homepage"
+            :aria-label="info.manifest.homepage"
             @click="openExternal(info.manifest.homepage)"
           >
             <template #icon><IconLucideExternalLink /></template>

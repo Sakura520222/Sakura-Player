@@ -3,6 +3,10 @@ import { mount } from "@vue/test-utils";
 import { defineComponent, h, ref, type PropType } from "vue";
 
 let state: Record<string, unknown>;
+const settingsShow = vi.hoisted(() => vi.fn());
+vi.mock("@/settings/useSettingsDialog", () => ({
+  useSettingsDialog: () => ({ show: settingsShow }),
+}));
 const install = vi.fn(),
   uninstall = vi.fn(),
   cancelInstall = vi.fn();
@@ -15,7 +19,11 @@ beforeEach(() => {
   install.mockClear();
   uninstall.mockClear();
   cancelInstall.mockClear();
+  settingsShow.mockClear();
   state = {
+    primary: ref(false),
+    language: ref("ja"),
+    acousticEnvironment: { ready: ref(false), loading: ref(false) },
     translation: ref(true),
     romanization: ref(true),
     realignExisting: ref(false),
@@ -53,6 +61,7 @@ beforeEach(() => {
     select: vi.fn(),
     apply: vi.fn(),
     environment: {
+      ready: ref(false),
       status: ref({
         installed: false,
         hasFiles: false,
@@ -120,6 +129,8 @@ const render = () =>
           },
         }),
         SLoading: true,
+        SSelect: true,
+        STag: true,
       },
     },
   });
@@ -138,42 +149,41 @@ describe("算法对齐环境界面", () => {
     expect(wrapper.text()).not.toContain("localAlignment.uncertain");
     wrapper.unmount();
   });
-  it("提供手动安装入口，打开弹窗不安装且不再出现路径、命令和悬浮标题", async () => {
+  it("模型管理跳到设置，对齐弹窗不直接安装或卸载", async () => {
     const wrapper = render();
     expect(install).not.toHaveBeenCalled();
-    expect(wrapper.findAll("[title]")).toHaveLength(0);
     expect(wrapper.findAll("input")).toHaveLength(0);
     expect(wrapper.text()).not.toContain("pip install");
+    expect(wrapper.text()).not.toContain("installEnvironment");
     await wrapper
       .findAll("button")
-      .find((button) => button.text().includes("installEnvironment"))!
+      .find((button) => button.text().includes("openModelSettings"))!
       .trigger("click");
-    expect(install).toHaveBeenCalledTimes(1);
+    expect(wrapper.emitted("update:open")).toEqual([[false]]);
+    expect(settingsShow).toHaveBeenCalledWith("lyric", "lyricAlignmentModels");
+    expect(install).not.toHaveBeenCalled();
+    expect(uninstall).not.toHaveBeenCalled();
     wrapper.unmount();
   });
-  it("已安装时显示卸载入口，取消安装按钮只在安装期间出现", async () => {
+  it("模型检查不闪现缺失提示，就绪与缺失状态共用同一行", async () => {
     const env = state.environment as {
-      status: { value: Record<string, unknown> };
-      canUninstall: { value: boolean };
-      installing: { value: boolean };
+      loading: { value: boolean };
+      ready: { value: boolean };
     };
-    env.status.value = { ...env.status.value, phase: "ready", installed: true, hasFiles: true };
-    env.canUninstall.value = true;
+    env.loading.value = true;
     const wrapper = render();
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text().includes("uninstallEnvironment"))!
-      .trigger("click");
-    expect(uninstall).toHaveBeenCalledTimes(1);
-    expect(wrapper.text()).not.toContain("cancelInstall");
-    env.status.value = { ...env.status.value, phase: "downloading-model", installed: false };
-    env.installing.value = true;
+    const statusRow = wrapper.get("[data-alignment-status]").element;
+    expect(wrapper.text()).not.toContain("modelsMissing");
+    env.loading.value = false;
+    env.ready.value = true;
     await wrapper.vm.$nextTick();
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text().includes("cancelInstall"))!
-      .trigger("click");
-    expect(cancelInstall).toHaveBeenCalledTimes(1);
+    expect(wrapper.get("[data-alignment-status]").element).toBe(statusRow);
+    expect(wrapper.text()).not.toContain("modelsMissing");
+    env.ready.value = false;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.get("[data-alignment-status]").element).toBe(statusRow);
+    expect(wrapper.get("[data-alignment-status]").text()).toContain("modelsMissing");
+    expect(wrapper.get("[data-alignment-status]").text()).toContain("openModelSettings");
     wrapper.unmount();
   });
 });

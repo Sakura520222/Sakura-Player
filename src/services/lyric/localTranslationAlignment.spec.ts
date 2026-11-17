@@ -76,7 +76,7 @@ describe("日文和英文歌曲的本地翻译对齐回归", () => {
     expect(reloaded[0].translatedLyric).toBe(line.translatedLyric);
     expect(reloaded[0].translationWords).toEqual(updated[0].translationWords);
     expect(
-      hasCompleteAuxiliary(reloaded[0], reloaded[0].translationWords, line.translatedLyric),
+      hasCompleteAuxiliary(reloaded[0], reloaded[0].translationWords, line.translatedLyric, true),
     ).toBe(true);
     expect(
       collectLocalAlignmentLines(reloaded).filter((source) => source.translation.trim()),

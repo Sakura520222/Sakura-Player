@@ -193,19 +193,12 @@ const alignItems = computed(() => {
         <IconSpLossless v-if="showLosslessIcon" class="text-[1.4em] -my-[0.4em]" />
         {{ qualityLabel }}
       </span>
-      <STooltip
+      <span
         v-if="manualPicked"
-        :content="t('player.lyricMatch.preferenceIgnored')"
-        :side-offset="8"
-        side="top"
-        cover
+        class="inline-flex items-center justify-center leading-none px-1.5 py-1.2 rounded-md border border-solid border-cover/30"
       >
-        <span
-          class="inline-flex items-center justify-center leading-none px-1.5 py-1.2 rounded-md border border-solid border-cover/30"
-        >
-          {{ lyricLabel }}
-        </span>
-      </STooltip>
+        {{ lyricLabel }}
+      </span>
       <SPopselect
         v-else
         v-model="settings.lyric.lyricSourcePreference"

@@ -34,15 +34,15 @@ onMounted(load);
   >
     <div class="min-w-0 flex-1">
       <div class="text-base">{{ t("settings.downloadDir.label") }}</div>
-      <div class="mt-0.5 truncate font-mono text-sm text-on-surface-variant/70" :title="dir">
+      <div class="mt-0.5 truncate font-mono text-sm text-on-surface-variant/70">
         {{ dir || "—" }}
       </div>
     </div>
     <div class="shrink-0 flex items-center gap-2">
-      <SButton variant="ghost" circle :title="t('settings.cacheDir.open')" @click="openDir">
+      <SButton variant="ghost" circle :aria-label="t('settings.cacheDir.open')" @click="openDir">
         <template #icon><IconLucideFolderOpen /></template>
       </SButton>
-      <SButton variant="ghost" circle :title="t('common.reset')" @click="reset">
+      <SButton variant="ghost" circle :aria-label="t('common.reset')" @click="reset">
         <template #icon><IconLucideRotateCcw /></template>
       </SButton>
       <SButton variant="secondary" @click="change">{{ t("settings.downloadDir.change") }}</SButton>

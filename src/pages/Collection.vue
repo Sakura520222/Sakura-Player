@@ -297,23 +297,19 @@ onBeforeUnmount(() => {
                 class="flex shrink-0 items-center gap-1 text-primary"
                 :aria-label="`${scopeLabel} · ${typeLabel}`"
               >
-                <STooltip :content="scopeLabel">
-                  <span class="inline-flex size-6 cursor-default items-center justify-center">
-                    <IconLucideHardDrive v-if="source === 'local'" class="size-4" />
-                    <IconLucideGlobe2 v-else class="size-4" />
-                  </span>
-                </STooltip>
+                <span class="inline-flex size-6 cursor-default items-center justify-center">
+                  <IconLucideHardDrive v-if="source === 'local'" class="size-4" />
+                  <IconLucideGlobe2 v-else class="size-4" />
+                </span>
                 <SDivider vertical />
-                <STooltip :content="typeLabel">
-                  <span
-                    class="inline-flex size-6 cursor-default items-center justify-center text-primary/65"
-                  >
-                    <IconLucideDisc3 v-if="type === 'album'" class="size-4" />
-                    <IconLucideListMusic v-else-if="type === 'playlist'" class="size-4" />
-                    <IconLucideRadio v-else-if="type === 'radio'" class="size-4" />
-                    <IconLucideCloud v-else class="size-4" />
-                  </span>
-                </STooltip>
+                <span
+                  class="inline-flex size-6 cursor-default items-center justify-center text-primary/65"
+                >
+                  <IconLucideDisc3 v-if="type === 'album'" class="size-4" />
+                  <IconLucideListMusic v-else-if="type === 'playlist'" class="size-4" />
+                  <IconLucideRadio v-else-if="type === 'radio'" class="size-4" />
+                  <IconLucideCloud v-else class="size-4" />
+                </span>
               </div>
             </div>
             <div

@@ -79,6 +79,7 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     responseSizes: Map<number, number>;
     retryFeedback: GenerationRetryFeedback | null;
     regenerateRomanization?: Set<number>;
+    regenerateTranslation?: Set<number>;
   } | null = null;
   let job: {
     revision: number;
@@ -141,6 +142,27 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
         line?.options?.wordRomanization &&
         !line.options.romanization &&
         line.existingRomanization.trim()
+      )
+        return lineId;
+    }
+    return null;
+  });
+  const repairTranslationLine = computed(() => {
+    const saved = progress;
+    const feedback = saved?.retryFeedback;
+    if (!canResume.value || phase.value !== "error" || !saved || !feedback) return null;
+    for (const { lineId, message } of [feedback, ...(feedback.previousErrors ?? [])]) {
+      if (
+        lineId === null ||
+        saved.results.has(lineId) ||
+        !/^(?:译文|翻译|逐字对齐不得改写已有译文)/.test(message)
+      )
+        continue;
+      const line = saved.lines.find(({ id }) => id === lineId);
+      if (
+        line?.options?.wordTranslation &&
+        !line.options.translation &&
+        line.existingTranslation.trim()
       )
         return lineId;
     }
@@ -378,15 +400,30 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
         let end = offset,
           characters = 0,
           words = 0;
-        // 字词映射和已有文本也计入批次预算，避免对齐请求超出模型输出上限。
+        const failedIds = new Set(
+          resuming && saved.retryFeedback
+            ? [saved.retryFeedback, ...(saved.retryFeedback.previousErrors ?? [])]
+                .filter(({ message }) => /^音译/.test(message))
+                .map(({ lineId }) => lineId)
+                .filter((id): id is number => id !== null)
+            : [],
+        );
+        // 失败行单独重试，避免混用其他行的字词数量；其余行继续按预算分批
         while (end < remaining.length && end - offset < (aligned ? 6 : MAX_BATCH_LINES)) {
           const line = remaining[end];
+          if (
+            options.wordRomanization &&
+            end > offset &&
+            (failedIds.has(remaining[offset].id) || failedIds.has(line.id))
+          )
+            break;
           if (optionsKey(line.options!) !== optionsKey(options)) break;
           const length =
             line.text.length +
             (options.wordTranslation && !options.translation
               ? line.existingTranslation.length
               : 0) +
+            (options.translation ? (line.referenceTranslation?.length ?? 0) : 0) +
             (options.wordRomanization && !options.romanization
               ? line.existingRomanization.length
               : 0);
@@ -526,10 +563,29 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       saved.mode,
       saved.regenerateRomanization,
       media.aiLyricExcludedIds,
+      saved.regenerateTranslation,
     );
     await runWithRetries(true);
   };
 
+  /** 重译并对齐失败行，沿用该行原译文语言并保留其余已校验结果 */
+  const repairTranslation = async (): Promise<void> => {
+    const id = repairTranslationLine.value;
+    const saved = progress;
+    if (id === null || !saved) return;
+    (saved.regenerateTranslation ??= new Set()).add(id);
+    saved.lines = createGenerationPlan(
+      media.parsedLyric,
+      saved.options,
+      saved.mode,
+      saved.regenerateRomanization,
+      media.aiLyricExcludedIds,
+      saved.regenerateTranslation,
+    );
+    await runWithRetries(true);
+  };
+
+  /** 应用当前版本的已校验结果及用户指定的单行重做选择 */
   const apply = (): boolean => {
     if (!canApply.value || !progress) return false;
     const saved = progress;
@@ -539,24 +595,27 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
       saved.options,
       saved.language,
       saved.mode,
-      ...(saved.regenerateRomanization ? ([saved.regenerateRomanization] as const) : []),
+      ...(saved.regenerateTranslation
+        ? ([saved.regenerateRomanization, saved.regenerateTranslation] as const)
+        : saved.regenerateRomanization
+          ? ([saved.regenerateRomanization] as const)
+          : []),
     );
   };
 
   watch(
     open,
     (visible) => {
-      if (visible) generationMode.value = "missing";
-      reset();
       if (visible) {
+        generationMode.value = "missing";
+        reset();
         selected.value = Object.fromEntries(
           GENERATION_TASKS.map((key) => [key, coverage.value.existing[key] < coverage.value.total]),
         ) as GenerationOptions;
         void refreshModel();
       } else {
+        cancel();
         modelVersion++;
-        loadingModel.value = false;
-        model.value = null;
       }
     },
     { immediate: true },
@@ -582,6 +641,8 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     progress = null;
     rows.value = [];
     planned.value = [];
+    model.value = null;
+    loadingModel.value = false;
   });
 
   return {
@@ -607,6 +668,8 @@ export const useAiLyricTranslation = (open: Ref<boolean>) => {
     runWithRetries,
     repairRomanizationLine,
     repairRomanization,
+    repairTranslationLine,
+    repairTranslation,
     cancel,
     apply,
   };

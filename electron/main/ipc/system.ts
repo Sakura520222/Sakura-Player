@@ -8,7 +8,6 @@ import type { LocaleCode } from "@shared/types/settings";
 import { setLocale } from "@main/utils/i18n";
 import { systemLog } from "@main/utils/logger";
 import { refreshTray } from "@main/services/tray";
-import { getThumbar } from "@main/services/thumbar";
 import { getMainWindow, focusMainWindow } from "@main/window";
 import { fetchBytes } from "@main/utils/fetchBytes";
 import { logsDir } from "@main/utils/paths";
@@ -73,7 +72,6 @@ export const registerSystemIpc = (): void => {
   ipcMain.on("system:setLocale", (_event, locale: LocaleCode) => {
     if (setLocale(locale)) {
       refreshTray();
-      getThumbar()?.refreshLocale();
     }
   });
 

@@ -1,0 +1,14 @@
+主歌词声学模型使用说明
+
+权重来源：Meta MMS_FA，ONNX 量化转换由 xycld 提供
+模型主页：https://huggingface.co/xycld/lyric-align-mms-fa
+固定修订：06e6cbfa5c257d23981c922f6406f5def958eb95
+模型许可：Creative Commons Attribution-NonCommercial 4.0 International
+许可全文：https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+本播放器不随包分发该权重，用户显式下载时同时保留模型作者 README
+模型许可与播放器代码许可独立；非商业使用需按模型许可署名，商业使用需另行取得授权
+
+原始工作：Vineel Pratap, Andros Tjandra, Bowen Shi, et al.
+Scaling Speech Technology to 1,000+ Languages (2023)
+https://arxiv.org/abs/2305.13516

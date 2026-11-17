@@ -85,10 +85,7 @@ const store = useCloudUploadStore();
                   :style="{ width: `${item.progress}%` }"
                 />
               </div>
-              <span
-                class="shrink-0 truncate text-xs text-on-surface-variant/60"
-                :title="item.status === 'error' ? item.error : undefined"
-              >
+              <span class="shrink-0 truncate text-xs text-on-surface-variant/60">
                 <template v-if="item.status === 'error'">{{ item.error }}</template>
                 <template v-else-if="item.status === 'instant'">
                   {{ t("cloud.upload.instant") }}
@@ -112,7 +109,7 @@ const store = useCloudUploadStore();
               variant="ghost"
               circle
               size="small"
-              :title="t('cloud.upload.retry')"
+              :aria-label="t('cloud.upload.retry')"
               @click="store.retry(item.id)"
             >
               <template #icon>
@@ -124,7 +121,7 @@ const store = useCloudUploadStore();
               variant="ghost"
               circle
               size="small"
-              :title="t('cloud.upload.remove')"
+              :aria-label="t('cloud.upload.remove')"
               @click="store.remove(item.id)"
             >
               <template #icon>

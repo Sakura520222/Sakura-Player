@@ -14,6 +14,8 @@ let media: {
   lyricRevision: number;
   lyricLoading: boolean;
   applyLocalLyricAlignment: ReturnType<typeof vi.fn>;
+  getLyricExportLines?: () => LyricLine[];
+  aiLyricExcludedIds?: Set<number>;
 };
 vi.mock("@/stores/media", () => ({ useMediaStore: () => media }));
 vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
@@ -84,7 +86,103 @@ afterEach(() => {
   for (const wrapper of wrappers.splice(0)) wrapper.unmount();
 });
 
+describe("声学主歌词流程", () => {
+  it("超过单次行数的歌词一次开始并在内部处理全部批次", async () => {
+    media.parsedLyric = Array.from({ length: 1100 }, () => ({
+      startTime: 1000,
+      endTime: 3000,
+      words: [{ word: "Hello world", startTime: 1000, endTime: 3000 }],
+      translatedLyric: "",
+      romanLyric: "",
+      isBG: false,
+      isDuet: false,
+    }));
+    media.getLyricExportLines = () => media.parsedLyric;
+    media.aiLyricExcludedIds = new Set();
+    api.align.mockImplementation(async (request) => ({
+      status: "completed",
+      lines: request.lines.map((line) => ({
+        id: line.id,
+        primary: {
+          score: 0.01,
+          warnings: ["需要检查"],
+          words: [
+            { word: "Hello ", startTime: 1100, endTime: 1500 },
+            { word: "world", startTime: 1800, endTime: 2500 },
+          ],
+        },
+      })),
+    }));
+    const state = setup();
+    state.primary.value = true;
+    state.translation.value = false;
+    state.romanization.value = false;
+    expect(state.rows.value).toHaveLength(1100);
+    await state.start();
+    expect(api.align).toHaveBeenCalledTimes(2);
+    expect(state.results.value).toHaveLength(1100);
+    expect(state.selected.value.size).toBe(1100);
+    expect(state.canApply.value).toBe(true);
+  });
+  it("不需要辅助文本也可处理逐行歌词，选择语言后传入稳定歌曲身份", async () => {
+    media.parsedLyric = [
+      {
+        startTime: 1000,
+        endTime: 3000,
+        words: [{ word: "Hello world", startTime: 1000, endTime: 3000 }],
+        translatedLyric: "",
+        romanLyric: "",
+        isBG: false,
+        isDuet: false,
+      },
+    ];
+    media.getLyricExportLines = () => media.parsedLyric;
+    media.aiLyricExcludedIds = new Set();
+    api.align.mockResolvedValue({
+      status: "completed",
+      lines: [
+        {
+          id: 0,
+          primary: {
+            score: 0.8,
+            words: [
+              { word: "Hello ", startTime: 1100, endTime: 1700 },
+              { word: "world", startTime: 2000, endTime: 2700 },
+            ],
+          },
+        },
+      ],
+    });
+    const state = setup();
+    state.primary.value = true;
+    state.language.value = "en";
+    state.translation.value = false;
+    state.romanization.value = false;
+    expect(state.canStart.value).toBe(true);
+    await state.start();
+    expect(api.align.mock.calls[0][0]).toMatchObject({
+      primary: { trackId: "song", language: "en" },
+      lines: [{ primary: { startTime: 500, endTime: 3500 } }],
+    });
+    expect(state.results.value[0].primary?.words).toHaveLength(2);
+    expect(state.canApply.value).toBe(true);
+    expect(state.apply()?.count).toBe(1);
+  });
+});
+
 describe("本地歌词对齐任务生命周期", () => {
+  it("关闭后立即禁止应用，淡出结束卸载时才释放预览", async () => {
+    const state = setup();
+    await state.start();
+    const results = state.results.value;
+    expect(results.length).toBeGreaterThan(0);
+    state.open.value = false;
+    await flushPromises();
+    expect(state.canApply.value).toBe(false);
+    expect(state.results.value).toBe(results);
+    wrappers.at(-1)!.unmount();
+    expect(state.results.value).toEqual([]);
+  });
   it("预览不自动应用，选中的现有文本结果可应用", async () => {
     const state = setup();
     await state.start();
@@ -157,8 +255,8 @@ describe("本地歌词对齐任务生命周期", () => {
       { word: "你", startTime: 1500, endTime: 2000 },
     ];
     line.romanizationWords = [
-      { word: "kimi ", startTime: 1000, endTime: 1200 },
-      { word: "to", startTime: 1200, endTime: 2000 },
+      { word: "kimi ", startTime: line.words[0].startTime, endTime: line.words[0].endTime },
+      { word: "to", startTime: line.words[1].startTime, endTime: line.words[1].endTime },
     ];
     const state = setup();
     expect(state.rows.value).toEqual([]);
@@ -176,6 +274,17 @@ describe("本地歌词对齐任务生命周期", () => {
     );
     state.realignExisting.value = false;
     expect(state.canApply.value).toBe(false);
+  });
+  it("旧时间虽然覆盖全行，默认仍列为需要处理的音译", () => {
+    media.parsedLyric[0].romanizationWords = [
+      { word: "kimi ", startTime: 1000, endTime: 1200 },
+      { word: "to", startTime: 1200, endTime: 2000 },
+    ];
+    const state = setup();
+    state.translation.value = false;
+    expect(state.rows.value).toHaveLength(1);
+    expect(state.rows.value[0].romanization).toBe("kimi to");
+    expect(state.canStart.value).toBe(true);
   });
   it("更改选项清空预览，未选择的辅助文本不传入后台", async () => {
     const state = setup();

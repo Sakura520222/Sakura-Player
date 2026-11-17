@@ -673,10 +673,7 @@ defineExpose({
               class="size-4 translate-y-px shrink-0 text-primary/70"
               aria-hidden="true"
             />
-            <h2
-              class="min-w-0 flex-1 truncate text-sm font-semibold"
-              :title="discLayout.headers.get(index)!.title"
-            >
+            <h2 class="min-w-0 flex-1 truncate text-sm font-semibold">
               {{ t("collection.disc", { disc: discLayout.headers.get(index)!.disc }) }}
               <span
                 v-if="discLayout.headers.get(index)!.title"

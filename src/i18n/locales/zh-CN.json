@@ -603,21 +603,13 @@
     },
     "localAlignment": {
       "title": "算法智能对齐",
-      "hint": "将已有翻译、音译匹配到主歌词的逐字时间轴，保留原有文本。音译匹配日语读音与中文拼音，翻译按跨语言语义匹配；默认保留已有完整对齐，也可选择重新对齐",
-      "realignExisting": "重新对齐已有逐字翻译和音译",
-      "realignHint": "对上方勾选的辅助轨道重算时间映射，未选项目和匹配不足的行保留原有对齐",
-      "translation": "对齐已有翻译",
-      "romanization": "对齐已有音译",
-      "environment": "本地翻译对齐模型",
-      "environmentHint": "点击下载模型后即可离线对齐翻译，无需配置运行环境。已有模型会先校验，仅下载缺失或损坏的文件。关闭弹窗或主窗口后继续后台下载；明确退出播放器会取消。音译无需下载模型",
-      "environmentLoading": "正在读取状态…",
-      "installEnvironment": "下载或校验模型",
-      "cancelInstall": "取消下载",
-      "uninstallEnvironment": "移除模型",
+      "realignExisting": "重新对齐已有翻译和音译",
+      "translation": "翻译",
+      "romanization": "音译",
+      "environmentLoading": "检查中…",
       "installProgress": "当前阶段下载进度",
-      "installWaiting": "正在准备，请稍候…",
-      "environmentInUse": "对齐使用中，结束后可卸载",
-      "unsupported": "当前平台暂不支持本地翻译模型",
+      "environmentInUse": "使用中",
+      "unsupported": "暂不支持",
       "environmentPhases": {
         "not-installed": "未下载",
         "downloading-model": "正在下载模型",
@@ -627,25 +619,35 @@
         "uninstalling": "正在移除…",
         "error": "模型未就绪"
       },
-      "running": "正在本地对齐，加载模型可能需要一些时间…",
-      "ready": "可处理 {count} 行",
-      "summary": "本次已检查 {total} 行，{done} 行生成候选；请勾选要应用的结果",
-      "trackSummary": "本次匹配 {done} / {total} 行，保留 {existing} 行已有对齐",
-      "translationUnavailable": "翻译对齐未完成，请检查上方模型状态，必要时移除后重新下载。已完成的音译仍可应用，原翻译保持不变",
+      "running": "正在对齐…",
+      "ready": "{count} 行",
+      "summary": "{done} / {total} 行已完成",
+      "trackSummary": "已对齐 {done}/{total} · 保留 {existing}",
+      "translationUnavailable": "翻译对齐失败",
       "details": "查看原因",
       "tooLarge": "歌词过长，无法进行本地对齐",
       "invalidResult": "对齐结果无效，请重新运行",
-      "alreadyAligned": "已有逐字时间，保留原对齐",
-      "noText": "没有现成文本可对齐",
-      "matched": "已生成候选，待应用",
-      "uncertain": "未找到可靠匹配，保留原内容",
-      "waiting": "等待对齐",
-      "noLyrics": "需要已有逐字主歌词及翻译或音译；已有完整对齐时可勾选重新对齐",
-      "applyHint": "开始前选择要处理的翻译或音译；计算后可逐行勾选候选，再点击应用。未匹配或未勾选的行保留原内容。应用后立即更新歌词显示，保存歌词才会写入文件",
+      "alreadyAligned": "已对齐",
+      "noText": "无内容",
+      "matched": "已生成",
+      "uncertain": "未匹配",
+      "waiting": "待处理",
+      "noLyrics": "暂无可处理的歌词",
       "cancel": "取消对齐",
       "start": "开始对齐",
-      "apply": "应用勾选的行",
-      "applied": "已应用 {count} 行对齐并刷新歌词，尚未保存到文件"
+      "apply": "应用所选",
+      "applied": "已应用 {count} 行，尚未保存",
+      "primary": "主歌词转逐字",
+      "language": "歌词语言",
+      "languages": {
+        "zh": "汉语（普通话）",
+        "ja": "日语",
+        "en": "英语"
+      },
+      "primaryWarning": "时间可能不准，请试听检查",
+      "modelsMissing": "{models}未就绪",
+      "openModelSettings": "去设置",
+      "needsReview": "需检查"
     },
     "aiTranslation": {
       "mode": "生成方式",
@@ -654,36 +656,34 @@
       "alignmentHint": "按主歌词字词对齐译文和音译；只有行时间的歌词沿用整行范围。",
       "applyAligned": "应用并显示逐字翻译与音译",
       "title": "AI 歌词翻译",
-      "hint": "将所选内容所需的当前歌词和已有文本发送至已启用的模型，流式预览结果。取消不会修改当前歌词。",
       "target": "目标语言",
-      "model": "当前模型：{name}",
-      "noModel": "请先启用一个 AI 模型",
-      "configure": "配置 AI 模型",
+      "model": "歌词发送至 {name}",
+      "noModel": "未选择 AI 模型",
+      "configure": "去设置",
       "modelLoadFailed": "无法读取模型配置，请关闭后重试",
-      "progress": "已处理 {done} / {total} 行",
+      "progress": "{done} / {total} 行",
       "completed": "生成完成",
       "cancelled": "已取消",
       "cancelling": "正在取消…",
-      "waiting": "等待生成",
-      "noLyrics": "当前没有可翻译的歌词",
+      "waiting": "待生成",
+      "noLyrics": "暂无可处理的歌词",
       "tooLarge": "歌词过长，暂时无法翻译",
       "invalidOutput": "模型返回的所选内容不完整或格式无效，请继续生成或重试。",
       "invalidOutputDetail": "模型输出校验失败：{reason}",
       "invalidOutputLine": "第 {line} 行校验失败：{reason}",
       "outputTruncated": "模型响应达到输出上限，可从失败处继续生成",
       "sourceChanged": "歌曲或歌词已更新，请重新开始翻译",
-      "applyHint": "应用后仅更新所选辅助轨道并同步外部歌词窗口，不会自动写入音频文件。",
       "start": "开始生成",
       "retry": "重新生成",
-      "resume": "从失败处继续",
+      "resume": "继续生成",
       "resumeCancelled": "继续生成",
-      "repairRomanization": "重做第 {line} 行音译",
-      "repairRomanizationHint": "如果第 {line} 行的已有音译有误，可以只重做这一行。应用后才会替换原音译",
-      "resumeHint": "已保留校验通过的完整行，可继续处理剩余部分。关闭弹窗或更改歌词、语言、生成项目和方式会清除进度。",
+      "repairRomanization": "重试第 {line} 行音译",
+      "repairRomanizationHint": "重新生成本行音译，其余结果保留",
+      "resumeHint": "保留已有结果，继续处理未完成的行",
       "cancel": "取消生成",
       "apply": "应用译文",
       "applyAndShow": "应用并显示译文",
-      "applied": "所选 AI 歌词内容已应用",
+      "applied": "已应用，尚未保存",
       "languages": {
         "zh-CN": "简体中文",
         "zh-TW": "繁體中文",
@@ -698,22 +698,23 @@
         "wordRomanization": "逐字音译",
         "wordTranslation": "逐字翻译"
       },
-      "existingCount": "已有 {done} / {total} 行",
+      "existingCount": "已有 {done}/{total} 行",
       "missing": "尚未提供",
       "selectionHint": "默认勾选缺失或不完整的项目，未勾选的内容会保留。单独勾选逐字项时对齐已有文本，缺失文本会一起生成。",
-      "selectAtLeastOne": "请选择至少一项需要生成的内容。",
-      "applySelected": "应用所选内容",
-      "resetAlignmentHint": "重新生成逐行文本会清除其旧逐字对齐，同时勾选逐字项可一起更新。",
+      "selectAtLeastOne": "请选择生成内容",
+      "applySelected": "应用所选",
+      "resetAlignmentHint": "将清除所选轨道的逐字时间",
       "modes": {
-        "missing": "补齐缺失（保留已有）",
-        "full": "从头完整生成"
+        "missing": "补齐缺失",
+        "full": "重新生成"
       },
-      "modeHints": {
-        "missing": "复用已有译文和音译，仅为缺失或不完整的行生成所选内容。逐字项直接对齐已有文本。",
-        "full": "从主歌词重新生成所选内容，替换对应的已有文本和对齐；未勾选的内容保留。"
-      },
-      "nothingMissing": "所选内容已完整，可切换为“从头完整生成”。",
-      "preserved": "保留 {count} 行已有内容"
+      "nothingMissing": "所选内容已齐全",
+      "preserved": "保留 {count} 行",
+      "pendingCount": "待处理 {count} 行",
+      "needsRepair": "音译待修复",
+      "repairTranslation": "重做第 {line} 行翻译",
+      "repairTranslationHint": "沿用原译文语言重译并对齐本行，保留其余结果",
+      "translationNeedsRepair": "译文待重做"
     }
   },
   "songList": {
@@ -1003,7 +1004,8 @@
       "backupReset": "备份与重置",
       "debug": "调试",
       "preset": "强迫症配置",
-      "envInfo": "环境信息"
+      "envInfo": "环境信息",
+      "lyricAlignment": "歌词对齐模型"
     },
     "about": {
       "checkUpdate": "检查更新",
@@ -1183,12 +1185,12 @@
       "currentRemaining": "播放时间 / 剩余时间"
     },
     "showProgressTooltip": {
-      "label": "显示进度条悬浮信息",
-      "description": "拖拽进度条时显示悬浮提示框"
+      "label": "拖动时显示时间",
+      "description": "拖动进度条时显示目标时间"
     },
     "showProgressLyric": {
-      "label": "进度条悬浮时显示歌词",
-      "description": "悬浮提示框中同时显示当前时间对应的歌词"
+      "label": "拖动时显示歌词",
+      "description": "拖动进度条时同时显示对应歌词"
     },
     "snapToLyric": {
       "label": "进度调节吸附最近歌词",
@@ -2545,6 +2547,22 @@
     "dynamicIslandHideWhenPaused": {
       "label": "暂停时自动隐藏",
       "description": "暂停音乐播放后隐藏灵动岛歌词，恢复播放时自动显示"
+    },
+    "lyricAlignmentModels": {
+      "label": "歌词对齐模型",
+      "description": "主歌词与翻译的本地模型",
+      "download": "下载",
+      "verify": "校验",
+      "remove": "移除",
+      "nonCommercial": "仅限非商业使用"
+    },
+    "lyricAlignmentAcoustic": {
+      "label": "主歌词模型",
+      "description": "中文 / 日语 / 英语"
+    },
+    "lyricAlignmentTranslation": {
+      "label": "翻译模型",
+      "description": "多语言译文对齐"
     }
   },
   "collection": {

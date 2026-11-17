@@ -279,7 +279,7 @@ const sections = computed<InfoSection[]>(() => [
             :class="item.colSpan && 'col-span-2'"
           >
             <span class="shrink-0 text-on-surface-variant">{{ item.label }}</span>
-            <span class="text-on-surface font-medium truncate" :title="item.value">
+            <span class="text-on-surface font-medium truncate">
               {{ item.value }}
             </span>
           </div>

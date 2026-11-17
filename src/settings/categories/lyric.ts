@@ -6,6 +6,7 @@ import LocalLyricRepoConfig from "@/components/settings/custom/LocalLyricRepoCon
 import LyricSourceOrderConfig from "@/components/settings/custom/LyricSourceOrderConfig.vue";
 import LyricFormatOrderConfig from "@/components/settings/custom/LyricFormatOrderConfig.vue";
 import ExcludeLyricsConfig from "@/components/settings/custom/ExcludeLyricsConfig.vue";
+import LyricAlignmentModels from "@/components/settings/custom/LyricAlignmentModels.vue";
 import IconLucideMic2 from "~icons/lucide/mic-2";
 
 /** 来源偏好选项：auto + 全部平台（来自平台总表）+ self */
@@ -25,6 +26,22 @@ const lyricCategory: SettingCategory = {
   id: "lyric",
   icon: IconLucideMic2,
   sections: [
+    {
+      id: "lyricAlignment",
+      tag: { text: "Beta" },
+      items: [
+        {
+          key: "lyricAlignmentModels",
+          type: "custom",
+          component: LyricAlignmentModels,
+          fullWidth: true,
+          keywords: [
+            "settings.lyricAlignmentAcoustic.label",
+            "settings.lyricAlignmentTranslation.label",
+          ],
+        },
+      ],
+    },
     {
       id: "lyricContent",
       items: [

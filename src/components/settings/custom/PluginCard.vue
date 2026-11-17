@@ -97,7 +97,7 @@ const onMenuSelect = (key: string): void => {
         circle
         size="tiny"
         variant="text"
-        :title="info.manifest.homepage"
+        :aria-label="info.manifest.homepage"
         @click.stop="openExternal(info.manifest.homepage)"
       >
         <template #icon><IconLucideExternalLink /></template>

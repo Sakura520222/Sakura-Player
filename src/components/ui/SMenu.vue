@@ -101,16 +101,11 @@ const handleSelect = (item: SMenuItem) => {
         <component :is="item.render" />
       </div>
       <!-- 菜单项 -->
-      <STooltip
-        v-else-if="!item.type || item.type === 'item'"
-        :content="item.label ?? ''"
-        :disabled="!collapsed"
-        :side-offset="12"
-        side="right"
-      >
+      <template v-else-if="!item.type || item.type === 'item'">
         <div
           :ref="(el) => setItemEl(item.key, el)"
           :data-menu-key="item.key"
+          :aria-label="item.label"
           class="relative flex items-center rounded-lg cursor-pointer select-none overflow-hidden whitespace-nowrap transition-[background-color,color,height,padding] duration-250"
           :class="[
             item.showCover ? sizeClass.coverItem : sizeClass.item,
@@ -155,7 +150,7 @@ const handleSelect = (item: SMenuItem) => {
             />
           </Transition>
         </div>
-      </STooltip>
+      </template>
     </template>
   </nav>
 </template>

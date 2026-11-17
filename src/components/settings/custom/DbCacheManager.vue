@@ -79,7 +79,7 @@ const requestClearAll = async (): Promise<void> => {
           variant="ghost"
           circle
           :loading="loading"
-          :title="t('settings.cacheUsage.refresh')"
+          :aria-label="t('settings.cacheUsage.refresh')"
           @click="refresh"
         >
           <template #icon><IconLucideRefreshCw /></template>
@@ -95,7 +95,7 @@ const requestClearAll = async (): Promise<void> => {
             />
             <div class="flex-1 min-w-0">
               <div class="text-sm">{{ t(`settings.cacheCategory.${stat.id}`) }}</div>
-              <div class="text-xs text-on-surface-variant/60 truncate font-mono" :title="stat.path">
+              <div class="text-xs text-on-surface-variant/60 truncate font-mono">
                 {{ stat.path || "—" }}
               </div>
             </div>
@@ -107,7 +107,7 @@ const requestClearAll = async (): Promise<void> => {
               circle
               :loading="clearingId === stat.id"
               :disabled="stat.size === 0"
-              :title="t('settings.cacheCategoryClear.label')"
+              :aria-label="t('settings.cacheCategoryClear.label')"
               @click="requestClear(stat.id)"
             >
               <template #icon><IconLucideTrash2 /></template>

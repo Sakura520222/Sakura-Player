@@ -186,7 +186,6 @@ onBeforeUnmount(() => {
         ? { top: `${pos.y}px`, left: `${pos.x}px`, right: 'auto' }
         : { top: '5rem', right: '1rem' }
     "
-    :title="`click to switch · ${rangeText}`"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"

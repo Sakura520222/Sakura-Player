@@ -4,9 +4,8 @@ import { findLyricIndex } from "lyric-kit";
 import { formatTime } from "@/utils/time";
 
 /**
- * 进度条歌词相关功能
- * - 悬浮提示显示歌词
- * - 进度调节吸附歌词
+ * 提供进度拖动时的歌词预览和时间吸附
+ * @returns 预览文本格式化和歌词吸附方法
  */
 export const useProgressLyric = () => {
   const settingsStore = useSettingsStore();

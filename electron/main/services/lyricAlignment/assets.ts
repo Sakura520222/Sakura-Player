@@ -5,6 +5,21 @@ export interface AlignmentDownload {
 }
 
 export const ALIGNMENT_ENVIRONMENT_VERSION = 1;
+export const ACOUSTIC_MODEL_REVISION = "06e6cbfa5c257d23981c922f6406f5def958eb95";
+export const ACOUSTIC_MODEL_FILES = [
+  {
+    name: "README.md",
+    size: 3015,
+    sha256: "94aefd97be40f5781fc0106877b8bb493949e3f75f49ef28a68d9d68e64d70c1",
+    url: `https://huggingface.co/xycld/lyric-align-mms-fa/resolve/${ACOUSTIC_MODEL_REVISION}/README.md`,
+  },
+  {
+    name: "mms_fa_uint8.onnx",
+    size: 316795521,
+    sha256: "3949a7957375d802a9f813ef2a26315a44a30cd65da647f9405f82cd9f55d42a",
+    url: `https://huggingface.co/xycld/lyric-align-mms-fa/resolve/${ACOUSTIC_MODEL_REVISION}/mms_fa_uint8.onnx`,
+  },
+];
 export const ALIGNMENT_MODEL_REVISION = "3f076fdb1ab68d5b2880cb87a0886f315b8146f8";
 export const ALIGNMENT_MODEL_FILES = [
   {

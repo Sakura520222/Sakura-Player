@@ -207,7 +207,7 @@ const conflictReasonText = (reason: "os-occupied" | "duplicate" | "invalid"): st
  * @param scope - 应用内或全局作用域
  * @returns 当前错误对应的提示文案
  */
-const errorTitleOf = (id: HotkeyActionId, scope: Scope): string => {
+const errorTextOf = (id: HotkeyActionId, scope: Scope): string => {
   const err = errorFor.value;
   if (err && err.id === id && err.scope === scope) {
     if (err.kind === "osOccupied") return t("settings.hotkeys.osOccupied");
@@ -263,7 +263,7 @@ const errorTitleOf = (id: HotkeyActionId, scope: Scope): string => {
           <div class="px-4 py-2.5 flex items-center gap-3">
             <span class="flex-1 text-sm">{{ t(action.labelKey) }}</span>
 
-            <div class="w-48" :title="errorTitleOf(action.id, 'inApp')">
+            <div class="w-48">
               <SInput
                 readonly
                 :model-value="valueOf(action.id, 'inApp')"
@@ -272,9 +272,16 @@ const errorTitleOf = (id: HotkeyActionId, scope: Scope): string => {
                 @click="startRecord(action.id, 'inApp')"
                 @blur="stopRecord"
               />
+              <p
+                v-if="statusOf(action.id, 'inApp') === 'error'"
+                class="mt-1 text-xs text-error"
+                role="alert"
+              >
+                {{ errorTextOf(action.id, "inApp") }}
+              </p>
             </div>
 
-            <div v-if="action.allowGlobal" class="w-48" :title="errorTitleOf(action.id, 'global')">
+            <div v-if="action.allowGlobal" class="w-48">
               <SInput
                 readonly
                 :disabled="!hotkey.globalEnabled"
@@ -284,13 +291,20 @@ const errorTitleOf = (id: HotkeyActionId, scope: Scope): string => {
                 @click="startRecord(action.id, 'global')"
                 @blur="stopRecord"
               />
+              <p
+                v-if="statusOf(action.id, 'global') === 'error'"
+                class="mt-1 text-xs text-error"
+                role="alert"
+              >
+                {{ errorTextOf(action.id, "global") }}
+              </p>
             </div>
             <div v-else class="w-48 text-center text-sm text-on-surface-variant/30">—</div>
 
             <SButton
               variant="ghost"
               circle
-              :title="t('settings.hotkeys.resetRow')"
+              :aria-label="t('settings.hotkeys.resetRow')"
               @click="resetSingle(action.id)"
             >
               <template #icon><IconLucideRotateCcw /></template>

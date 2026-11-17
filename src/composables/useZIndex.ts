@@ -16,7 +16,7 @@ export const nextZIndex = (): number => {
 
 /**
  * 弹出层/浮动层动态层级管理
- * 弹出层（Dialog/Select/Popover/Tooltip/Dropdown 等）展开时自动获取最新最高层级
+ * 弹出层（Dialog/Select/Popover/Dropdown 等）展开时自动获取最新最高层级
  * @param customZIndex - 自定义层级
  */
 export const usePopupZIndex = (customZIndex?: Ref<number | undefined> | number) => {

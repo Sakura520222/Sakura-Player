@@ -88,7 +88,7 @@ const onMenuSelect = (key: string): void => {
         circle
         :size="40"
         :icon-size="20"
-        :title="t('update.dialogTitle')"
+        :aria-label="t('update.dialogTitle')"
         @click="update.openDialog()"
       >
         <template #icon><IconLucideCircleArrowUp /></template>

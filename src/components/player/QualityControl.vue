@@ -78,22 +78,15 @@ const onQualityChange = (value: string | number | boolean): void => {
       </span>
     </template>
   </SPopselect>
-  <STooltip
+  <span
     v-else-if="media.track"
-    :content="t('settings.songLevel.unsupportedHint')"
-    :side-offset="16"
-    side="top"
-    :cover="cover"
+    :class="[
+      chipBase,
+      cover
+        ? 'border-cover/25 text-cover/55'
+        : 'border-on-surface-variant/25 text-on-surface-variant/80',
+    ]"
   >
-    <span
-      :class="[
-        chipBase,
-        cover
-          ? 'border-cover/25 text-cover/55'
-          : 'border-on-surface-variant/25 text-on-surface-variant/80',
-      ]"
-    >
-      {{ qualityLabel }}
-    </span>
-  </STooltip>
+    {{ qualityLabel }}
+  </span>
 </template>

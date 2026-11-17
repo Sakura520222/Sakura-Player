@@ -17,17 +17,46 @@ fn main() {
 fn run() -> Result<()> {
     let mut directory = None;
     let mut verify = false;
+    let mut acoustic = false;
+    let mut runtime = None;
     let mut args = std::env::args_os().skip(1);
     while let Some(argument) = args.next() {
         if argument == "--model-dir" {
             ensure!(directory.is_none(), "模型目录重复");
             directory = Some(PathBuf::from(args.next().context("缺少模型目录")?));
+        } else if argument == "--acoustic" {
+            ensure!(!acoustic, "声学选项重复");
+            acoustic = true;
+        } else if argument == "--runtime" {
+            ensure!(runtime.is_none(), "运行库路径重复");
+            runtime = Some(PathBuf::from(args.next().context("缺少运行库路径")?));
         } else if argument == "--verify" {
             ensure!(!verify, "验证选项重复");
             verify = true;
         } else {
             anyhow::bail!("未知工作进程参数");
         }
+    }
+    if acoustic {
+        let mut model = lyric_alignment::acoustic::AcousticModel::load(
+            directory.as_deref().context("缺少声学模型目录")?,
+            runtime.as_deref().context("缺少声学运行库")?,
+        )?;
+        if verify {
+            model.verify()?;
+            println!("{{\"ready\":true}}");
+        } else {
+            let mut input = Vec::new();
+            std::io::stdin()
+                .take(1024 * 1024 + 1)
+                .read_to_end(&mut input)?;
+            ensure!(input.len() <= 1024 * 1024, "对齐输入超过大小限制");
+            let request = serde_json::from_slice(&input).context("声学请求格式无效")?;
+            let output = serde_json::to_vec(&serde_json::json!({"lines": model.align(request)?}))?;
+            ensure!(output.len() <= 1024 * 1024, "对齐输出超过大小限制");
+            std::io::stdout().write_all(&output)?;
+        }
+        return Ok(());
     }
     if verify {
         let model = SemanticModel::load(directory.as_deref().context("缺少模型目录")?)?;

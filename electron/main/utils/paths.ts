@@ -39,6 +39,8 @@ export const pluginsDir = path.join(dataRoot, "plugins");
 
 /** 原生歌词对齐专用模型目录 */
 export const lyricAlignmentRuntimeDir = path.join(dataRoot, "runtimes", "lyric-alignment");
+/** 主歌词声学模型独立存放，移除时不影响翻译模型和 AutoMix */
+export const lyricAcousticRuntimeDir = path.join(dataRoot, "runtimes", "lyric-acoustic");
 
 /** 用户手动下载的模型和独立推理运行时 */
 export const modelsDir = path.join(dataRoot, "models");

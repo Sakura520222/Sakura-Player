@@ -233,7 +233,7 @@ const handleSave = async (): Promise<void> => {
               circle
               size="small"
               :disabled="!draft[target.key]"
-              :title="t('settings.fontConfig.resetRow')"
+              :aria-label="t('settings.fontConfig.resetRow')"
               @click="handleResetField(target.key)"
             >
               <template #icon><IconLucideRotateCcw /></template>

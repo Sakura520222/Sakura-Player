@@ -16,8 +16,8 @@ export const registerLyricAlignmentIpc = (): void => {
   app.once("before-quit", () => {
     pending?.controller.abort();
     cancelAlignmentEnvironmentInstall();
+    cancelAlignmentEnvironmentInstall("acoustic");
   });
-  let previousPhase = "";
   ipcMain.handle("lyricAlignment:continueInBackground", (event) => {
     if (event.sender.isDestroyed() || event.senderFrame !== event.sender.mainFrame) return false;
     if (!isAlignmentEnvironmentBusy()) return false;
@@ -26,29 +26,39 @@ export const registerLyricAlignmentIpc = (): void => {
     window.hide();
     return true;
   });
-  setAlignmentEnvironmentListener((state) => {
-    const phaseChanged = state.phase !== previousPhase;
-    previousPhase = state.phase;
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (window.isDestroyed() || window.webContents.isDestroyed()) continue;
-      try {
-        if (phaseChanged || window.isVisible())
-          window.webContents.send("lyricAlignment:environment-status", state);
-      } catch {
-        // 窗口崩溃或导航不影响安装，重建后会重新查询状态
+  for (const kind of ["translation", "acoustic"] as const) {
+    let previousPhase = "";
+    setAlignmentEnvironmentListener((state) => {
+      const phaseChanged = state.phase !== previousPhase;
+      previousPhase = state.phase;
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (window.isDestroyed() || window.webContents.isDestroyed()) continue;
+        try {
+          if (phaseChanged || window.isVisible())
+            window.webContents.send(
+              kind === "acoustic"
+                ? "lyricAlignment:acoustic-status"
+                : "lyricAlignment:environment-status",
+              state,
+            );
+        } catch {
+          // 窗口崩溃或导航不影响安装，重建后会重新查询状态
+        }
       }
-    }
-  });
+    }, kind);
+  }
   for (const [channel, handler] of [
     ["environmentStatus", getAlignmentEnvironmentStatus],
     ["installEnvironment", installAlignmentEnvironment],
     ["cancelEnvironmentInstall", cancelAlignmentEnvironmentInstall],
     ["uninstallEnvironment", uninstallAlignmentEnvironment],
   ] as const) {
-    ipcMain.handle(`lyricAlignment:${channel}`, (event) => {
+    ipcMain.handle(`lyricAlignment:${channel}`, (event, kind: unknown) => {
       if (event.sender.isDestroyed() || event.senderFrame !== event.sender.mainFrame)
         throw new Error("环境请求来源无效");
-      return handler();
+      if (kind !== undefined && kind !== "translation" && kind !== "acoustic")
+        throw new Error("模型类型无效");
+      return handler(kind);
     });
   }
   ipcMain.handle(

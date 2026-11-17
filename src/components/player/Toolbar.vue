@@ -141,7 +141,7 @@ const onMoreMenuSelect = (key: string): void => {
       circle
       size="large"
       :class="fmModeOpen ? undefined : mutedClass"
-      :title="t('player.fm.modeTooltip')"
+      :aria-label="t('player.fm.modeTooltip')"
       @click="fmModeOpen = true"
     >
       <template #icon><IconLucideRadio /></template>

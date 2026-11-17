@@ -45,7 +45,7 @@ const clear = () => emit("update:modelValue", "");
         <SButton
           variant="ghost"
           size="small"
-          :title="t('settings.localLyricRepoDir.clear')"
+          :aria-label="t('settings.localLyricRepoDir.clear')"
           @click="clear"
         >
           <template #icon><IconLucideTrash2 /></template>

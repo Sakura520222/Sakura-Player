@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IpcMainInvokeEvent } from "electron";
 import { alignmentRequestSchema } from "@main/services/lyricAlignment";
+vi.mock("@main/services/lyricAlignment/acoustic", () => ({ runPrimaryAlignment: vi.fn() }));
 
 const mocks = vi.hoisted(() => ({
   handle: vi.fn(),
@@ -102,7 +103,8 @@ describe("本地算法 IPC 生命周期与输入边界", () => {
     finish({ phase: "ready" });
     expect(await pending).toEqual({ phase: "ready" });
     mocks.once.mock.calls.find(([event]) => event === "before-quit")![1]();
-    expect(mocks.cancelInstall).toHaveBeenCalledTimes(1);
+    expect(mocks.cancelInstall).toHaveBeenCalledTimes(2);
+    expect(mocks.cancelInstall).toHaveBeenCalledWith("acoustic");
   });
   it("隐藏窗口只接收阶段变化，推送失败不会中断安装", () => {
     const send = vi.fn();

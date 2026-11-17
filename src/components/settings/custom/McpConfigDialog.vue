@@ -103,7 +103,7 @@ const handleInject = async (agent: McpAgentApp) => {
           />
           <div class="flex-1 min-w-0 flex flex-col">
             <span class="text-sm text-on-surface font-medium truncate">{{ agent.name }}</span>
-            <span class="text-xs text-on-surface-variant/70 truncate" :title="agent.configPath">
+            <span class="text-xs text-on-surface-variant/70 truncate">
               {{ agent.configPath }}
             </span>
           </div>

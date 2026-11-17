@@ -1,14 +1,12 @@
 import { BrowserWindow, nativeTheme, ThumbarButton } from "electron";
 import { sendToMain } from "@main/utils/broadcast";
 import { loadThemedIcon } from "@main/utils/icon";
-import { t } from "@main/utils/i18n";
 import { thumbarLog } from "@main/utils/logger";
 
 export interface Thumbar {
   clearThumbar(): void;
   updateThumbar(playing: boolean): void;
   updateLike(liked: boolean): void;
-  refreshLocale(): void;
 }
 
 let thumbar: Thumbar | null = null;
@@ -34,30 +32,34 @@ class ThumbarImpl implements Thumbar {
   private hasRegistered: boolean = false;
   private disposed: boolean = false;
 
+  /**
+   * 初始化主窗口的任务栏播放按钮
+   * @param win - 播放器主窗口
+   */
   constructor(win: BrowserWindow) {
     this.win = win;
     this.like = {
-      tooltip: t("addToLiked"),
+      tooltip: "",
       icon: thumbarIcon("unlike"),
       click: () => sendToMain("player:event", { type: "toggleLike" }),
     };
     this.prev = {
-      tooltip: t("prev"),
+      tooltip: "",
       icon: thumbarIcon("prev"),
       click: () => sendToMain("player:event", { type: "prev" }),
     };
     this.next = {
-      tooltip: t("next"),
+      tooltip: "",
       icon: thumbarIcon("next"),
       click: () => sendToMain("player:event", { type: "next" }),
     };
     this.play = {
-      tooltip: t("play"),
+      tooltip: "",
       icon: thumbarIcon("play"),
       click: () => sendToMain("player:event", { type: "play" }),
     };
     this.pause = {
-      tooltip: t("pause"),
+      tooltip: "",
       icon: thumbarIcon("pause"),
       click: () => sendToMain("player:event", { type: "pause" }),
     };
@@ -93,7 +95,10 @@ class ThumbarImpl implements Thumbar {
     });
   }
 
-  // 下发当前按钮组，喜欢按钮随状态切换图标与提示
+  /**
+   * 下发当前播放状态对应的任务栏按钮
+   * @param retryCount - 窗口恢复后注册失败的重试次数
+   */
   private renderButtons(retryCount = 0): void {
     if (this.disposed || this.win.isDestroyed()) return;
     if (this.retryTimeout) {
@@ -104,7 +109,6 @@ class ThumbarImpl implements Thumbar {
     if (!this.win.isVisible() && !this.win.isMinimized()) return;
 
     this.like.icon = thumbarIcon(this.isLiked ? "like" : "unlike");
-    this.like.tooltip = t(this.isLiked ? "removeFromLiked" : "addToLiked");
     const buttons = [this.prev, this.isPlaying ? this.pause : this.play, this.next, this.like];
     const success = this.win.setThumbarButtons(buttons);
 
@@ -135,15 +139,6 @@ class ThumbarImpl implements Thumbar {
   updateLike(liked: boolean): void {
     this.isLiked = liked;
     this.renderButtons();
-  }
-
-  // 语言变更后刷新 tooltip
-  refreshLocale(): void {
-    this.prev.tooltip = t("prev");
-    this.next.tooltip = t("next");
-    this.play.tooltip = t("play");
-    this.pause.tooltip = t("pause");
-    this.updateThumbar(this.isPlaying);
   }
 
   // 清除工具栏

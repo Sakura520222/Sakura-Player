@@ -16,6 +16,74 @@ import { restoreAuxiliaryTracks } from "@shared/utils/lyricAuxiliary";
 import { createLyricSaveContent } from "./save";
 
 describe("逐字辅助歌词对齐与重载", () => {
+  it("单行翻译重做只放开该行的原文保护，保存重载保留新逐字范围", () => {
+    const lines = [
+      {
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        translatedLyric: "一緒に歩く",
+        id: "kept",
+        translationLanguage: "ja",
+      },
+      {
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        translatedLyric: "古い訳文",
+        id: "redone",
+        translationLanguage: "ja",
+      },
+    ];
+    const options = {
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: false,
+    };
+    const results = new Map([
+      [
+        0,
+        {
+          translation: [
+            { text: "一緒に", from: 0, to: 1 },
+            { text: "歩く", from: 2, to: 2 },
+          ],
+        },
+      ],
+      [
+        1,
+        {
+          translation: [
+            { text: "あなたと", from: 0, to: 1 },
+            { text: "歩こう", from: 2, to: 2 },
+          ],
+        },
+      ],
+    ]);
+    expect(applyGeneratedLyrics(lines, results, options)).toBeNull();
+    const updated = applyGeneratedLyrics(
+      lines,
+      results,
+      options,
+      "missing",
+      undefined,
+      undefined,
+      new Set([1]),
+    )!;
+    expect(updated.map((line) => line.translatedLyric)).toEqual(["一緒に歩く", "あなたと歩こう"]);
+    expect(updated[1].translationWords?.map((word) => [word.from, word.to])).toEqual([
+      [0, 1],
+      [2, 2],
+    ]);
+    const saved = createLyricSaveContent(
+      { id: "redo", source: "local", title: "翻译重做", artists: [], duration: 5000 },
+      updated,
+      { content: toTTML(lines), format: "ttml" },
+    );
+    const loaded = parseExportTtml(saved.ttml).lines;
+    restoreAuxiliaryTracks(loaded, saved.auxiliary);
+    expect(loaded[1].translatedLyric).toBe("あなたと歩こう");
+    expect(loaded[1].translationLanguage).toBe("ja");
+    expect(loaded[1].translationWords).toEqual(updated[1].translationWords);
+    expect(lines[1].translatedLyric).toBe("古い訳文");
+  });
   it("只在用户选中失败行后替换错误的既有音译", () => {
     const original: LyricLine = {
       ...structuredClone(ALIGNMENT_LINES[0]),

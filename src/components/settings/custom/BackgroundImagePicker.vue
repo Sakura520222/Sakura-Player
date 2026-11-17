@@ -50,7 +50,7 @@ const handleClear = (): void => {
       size="small"
       circle
       :loading="picking"
-      :title="
+      :aria-label="
         theme.imageBackground.src
           ? t('settings.backgroundImage.replace')
           : t('settings.backgroundImage.select')
@@ -64,7 +64,7 @@ const handleClear = (): void => {
       variant="ghost"
       size="small"
       circle
-      :title="t('settings.backgroundImage.clear')"
+      :aria-label="t('settings.backgroundImage.clear')"
       @click="handleClear"
     >
       <template #icon><IconLucideX /></template>

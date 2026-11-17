@@ -100,6 +100,178 @@ afterEach(() => {
 });
 
 describe("AI 歌词翻译任务生命周期", () => {
+  it("音译数量出错后按实际字词填槽，单独重试失败行并继续其余行", async () => {
+    media.parsedLyric = Array.from({ length: 10 }, () => ({
+      ...structuredClone(ALIGNMENT_LINES[0]),
+      romanLyric: "kimi to aruku",
+    }));
+    media.aiLyricExcludedIds = new Set([1, 2, 3, 4, 5, 6, 7]);
+    media.parsedLyric[8].words = [..."戸惑いも喜びも 情熱のウォブル"].map((word, index) => ({
+      word,
+      startTime: 1000 + index * 100,
+      endTime: 1100 + index * 100,
+    }));
+    media.parsedLyric[8].romanLyric = "tomowai mo yorokobi mo jōnetsu no uoburu";
+    const state = await setup(false);
+    state.selected.value = {
+      translation: false,
+      romanization: false,
+      wordTranslation: false,
+      wordRomanization: true,
+    };
+    api.stream.mockImplementationOnce(async (_request, delta) => {
+      delta(
+        JSON.stringify({ id: 0, romanization: ALIGNMENT_RESULT.romanization }) +
+          "\n" +
+          JSON.stringify({ id: 8, romanization: Array(15).fill("wrong") }) +
+          "\n",
+      );
+      return { status: "cancelled" };
+    });
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.lines.map(({ id }) => id)).toEqual([8]);
+      expect(payload.retryFeedback).toMatchObject({
+        lineId: 8,
+        message: "音译字符串数组需要 14 项，实际为 15 项",
+      });
+      expect(payload.lines[0]).toMatchObject({
+        romanizationSlots: 14,
+        romanizationTemplate: Array(14).fill(""),
+      });
+      expect(request.messages[0].content).toContain(
+        "Do not add slots for skipped whitespace indices",
+      );
+      return result(
+        JSON.stringify({
+          id: 8,
+          romanization: [
+            "to",
+            "mowa",
+            "i",
+            "mo",
+            "yoroko",
+            "bi",
+            "mo",
+            "jō",
+            "netsu",
+            "no",
+            "uo",
+            "",
+            "bu",
+            "ru",
+          ],
+        }),
+      );
+    });
+    api.stream.mockImplementationOnce(async (request) => {
+      expect(JSON.parse(request.messages[1].content).lines.map(({ id }) => id)).toEqual([9]);
+      return result(JSON.stringify({ id: 9, romanization: ALIGNMENT_RESULT.romanization }));
+    });
+    await state.runWithRetries(false);
+    expect(api.stream).toHaveBeenCalledTimes(3);
+    expect(state.translatedCount.value).toBe(3);
+    expect(state.canApply.value).toBe(true);
+    expect(state.apply()).toBe(true);
+    expect(media.applyGeneratedLyric.mock.lastCall?.[1].get(8).romanization).toContainEqual({
+      index: 11,
+      to: 12,
+      text: "uo",
+    });
+    expect(state.rows.value.find(({ id }) => id === 8)?.romanization).toBe(
+      media.parsedLyric[8].romanLyric,
+    );
+  });
+
+  it("只重译失败的逐字翻译行，保留已完成结果并沿用原译文语言", async () => {
+    media.parsedLyric = [
+      {
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        translatedLyric: "一緒に歩く",
+        translationLanguage: "ja",
+      },
+      {
+        ...structuredClone(ALIGNMENT_LINES[0]),
+        translatedLyric: "古い訳文",
+        translationLanguage: "ja",
+      },
+    ];
+    const state = await setup(false);
+    state.selected.value = {
+      translation: false,
+      romanization: false,
+      wordTranslation: true,
+      wordRomanization: false,
+    };
+    const good = {
+      id: 0,
+      translation: [
+        { text: "一緒に", from: 0, to: 1 },
+        { text: "歩く", from: 2, to: 2 },
+      ],
+    };
+    const rewritten = {
+      id: 1,
+      translation: [
+        { text: "あなたと", from: 0, to: 1 },
+        { text: "歩こう", from: 2, to: 2 },
+      ],
+    };
+    api.stream.mockImplementationOnce(async (_request, delta) => {
+      delta(JSON.stringify(good) + "\n" + JSON.stringify(rewritten) + "\n");
+      return { status: "cancelled" };
+    });
+    await state.start();
+    expect(state.repairTranslationLine.value).toBe(1);
+    expect(state.repairRomanizationLine.value).toBeNull();
+    expect(state.translatedCount.value).toBe(1);
+    expect(media.parsedLyric[1].translatedLyric).toBe("古い訳文");
+    api.stream.mockImplementationOnce(async (request) => {
+      const payload = JSON.parse(request.messages[1].content);
+      expect(payload.lines.map((line) => line.id)).toEqual([1]);
+      expect(payload.lines[0].referenceTranslation).toBe("古い訳文");
+      expect(payload.lines[0]).not.toHaveProperty("existingTranslation");
+      expect(request.messages[0].content).toContain("language of referenceTranslation");
+      expect(request.messages[0].content).not.toContain(
+        "Translate naturally into Simplified Chinese",
+      );
+      return result(JSON.stringify(rewritten));
+    });
+    await state.repairTranslation();
+    expect(state.rows.value[0].translation).toBe("一緒に歩く");
+    expect(state.rows.value[1].translation).toBe("あなたと歩こう");
+    expect(state.canApply.value).toBe(true);
+    expect(state.apply()).toBe(true);
+    expect(media.applyGeneratedLyric.mock.lastCall?.[6]).toEqual(new Set([1]));
+    expect(media.applyGeneratedLyric.mock.lastCall?.[1].size).toBe(2);
+    expect(state.selected.value.translation).toBe(false);
+  });
+
+  it.each(["close", "song", "selection"])(
+    "%s 使失败翻译重做失效，不再请求旧歌词",
+    async (change) => {
+      media.parsedLyric = [{ ...structuredClone(ALIGNMENT_LINES[0]), translatedLyric: "旧译文" }];
+      const state = await setup(false);
+      state.selected.value = {
+        translation: false,
+        romanization: false,
+        wordTranslation: true,
+        wordRomanization: false,
+      };
+      api.stream.mockResolvedValueOnce(
+        result(JSON.stringify({ id: 0, translation: [{ text: "改写", from: 0, to: 2 }] })),
+      );
+      await state.start();
+      expect(state.repairTranslationLine.value).toBe(0);
+      if (change === "close") state.open.value = false;
+      else if (change === "song") media.lyricRevision++;
+      else state.selected.value.wordTranslation = false;
+      await nextTick();
+      await state.repairTranslation();
+      expect(api.stream).toHaveBeenCalledTimes(1);
+      expect(state.canApply.value).toBe(false);
+    },
+  );
   it.each(["missing", "full"] as const)(
     "在 %s 模式中跳过元数据行并保留原歌词行号",
     async (mode) => {
@@ -181,7 +353,7 @@ describe("AI 歌词翻译任务生命周期", () => {
     api.stream.mockImplementationOnce(async (request) => {
       const payload = JSON.parse(request.messages[1].content);
       expect(request.messages[0].content).toContain(
-        "Romanization retry: return one string for each entry",
+        "Romanization retry: fill romanizationTemplate",
       );
       expect(payload.lines).toMatchObject([
         { id: 1, romanizationSlots: 7, existingRomanization: "ki me po zu sa da ka be" },
@@ -502,7 +674,7 @@ describe("AI 歌词翻译任务生命周期", () => {
         expect(payload.retryFeedback).toEqual({
           lineId: 7,
           lineNumber: 8,
-          message: "音译字词数量无效",
+          message: "音译字符串数组需要 3 项，实际为 0 项",
         });
       else expect(payload).not.toHaveProperty("retryFeedback");
       return result(
@@ -1239,6 +1411,10 @@ describe("AI 歌词翻译任务生命周期", () => {
       await nextTick();
       expect(api.stream).toHaveBeenCalledOnce();
       expect(state.canResume.value).toBe(false);
+      if (change === "close") {
+        expect(state.translatedCount.value).toBe(1);
+        state.wrapper.unmount();
+      }
       expect(state.translatedCount.value).toBe(0);
     },
   );

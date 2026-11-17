@@ -603,21 +603,13 @@
     },
     "localAlignment": {
       "title": "Algorithmic lyric alignment",
-      "hint": "Match existing translations and romanization to the original word timings without rewriting text. Romanization matches Japanese readings and Chinese pinyin; translation uses cross-language word alignment. Complete alignments are preserved by default or can be realigned",
-      "realignExisting": "Realign existing word-timed translation and romanization",
-      "realignHint": "Recalculate timings for the auxiliary tracks selected above. Unselected tracks and lines without a reliable match keep their existing alignment",
-      "translation": "Align existing translation",
-      "romanization": "Align existing romanization",
-      "environment": "Local translation alignment model",
-      "environmentHint": "Download the model to align translations offline. No runtime setup is needed. Existing model files are verified; only missing or damaged files are downloaded. Downloads continue when this dialog or the main window closes. Quitting cancels the download. Romanization needs no model download",
-      "environmentLoading": "Reading status…",
-      "installEnvironment": "Download or verify model",
-      "cancelInstall": "Cancel download",
-      "uninstallEnvironment": "Remove model",
+      "realignExisting": "Realign existing translation and romanization",
+      "translation": "Translation",
+      "romanization": "Romanization",
+      "environmentLoading": "Checking…",
       "installProgress": "Download progress for this stage",
-      "installWaiting": "Preparing, please wait…",
-      "environmentInUse": "In use by alignment; uninstall when it finishes",
-      "unsupported": "Local translation alignment is unavailable on this platform",
+      "environmentInUse": "In use",
+      "unsupported": "Not supported",
       "environmentPhases": {
         "not-installed": "Not downloaded",
         "downloading-model": "Downloading the model",
@@ -627,25 +619,35 @@
         "uninstalling": "Removing…",
         "error": "Model unavailable"
       },
-      "running": "Aligning locally. Loading the model may take a while…",
-      "ready": "{count} lines available",
-      "summary": "Checked {total} lines and generated candidates for {done}. Select results to apply",
-      "trackSummary": "Matched {done} / {total} requested lines; kept {existing} existing alignments",
-      "translationUnavailable": "Translation alignment could not finish. Check the model above and download it again if needed. Completed romanization can still be applied; existing translations remain unchanged",
+      "running": "Aligning…",
+      "ready": "{count} lines",
+      "summary": "{done} / {total} lines completed",
+      "trackSummary": "Aligned {done}/{total} · Kept {existing}",
+      "translationUnavailable": "Translation alignment failed",
       "details": "Show details",
       "tooLarge": "These lyrics are too long for local alignment",
       "invalidResult": "Invalid alignment result; please retry",
-      "alreadyAligned": "Existing word timing kept",
-      "noText": "No existing text to align",
-      "matched": "Candidate ready to apply",
-      "uncertain": "No reliable match; existing content kept",
-      "waiting": "Waiting for alignment",
-      "noLyrics": "Word-timed original lyrics and an existing translation or romanization are required. Enable realignment to process fully aligned lyrics",
-      "applyHint": "Choose translation or romanization before starting. Once candidates are ready, select lines and click Apply. Unmatched and unchecked lines stay unchanged. Applied results appear immediately; saving lyrics writes them to a file",
+      "alreadyAligned": "Aligned",
+      "noText": "No text",
+      "matched": "Generated",
+      "uncertain": "Unmatched",
+      "waiting": "Pending",
+      "noLyrics": "No lyrics to align",
       "cancel": "Cancel alignment",
       "start": "Start alignment",
-      "apply": "Apply checked lines",
-      "applied": "Applied {count} lines and refreshed lyrics. Not yet saved to a file"
+      "apply": "Apply selected",
+      "applied": "Applied {count} lines; not saved yet",
+      "primary": "Generate primary word timing",
+      "language": "Lyric language",
+      "languages": {
+        "zh": "Chinese (Mandarin)",
+        "ja": "Japanese",
+        "en": "English"
+      },
+      "primaryWarning": "Timing may be inaccurate; check by listening",
+      "modelsMissing": "{models} not ready",
+      "openModelSettings": "Open settings",
+      "needsReview": "Review"
     },
     "aiTranslation": {
       "mode": "Generation mode",
@@ -654,36 +656,34 @@
       "alignmentHint": "Align translation and pronunciation to the original words. Line-timed lyrics use the whole line interval.",
       "applyAligned": "Apply and show aligned lyrics",
       "title": "AI Lyric Translation",
-      "hint": "Send the lyrics and existing text needed for selected tasks to the active model and preview streamed results. Cancelling leaves your lyrics unchanged.",
       "target": "Translate to",
-      "model": "Active model: {name}",
-      "noModel": "Enable an AI model first",
-      "configure": "Configure AI model",
+      "model": "Lyrics sent to {name}",
+      "noModel": "No AI model selected",
+      "configure": "Open settings",
       "modelLoadFailed": "Could not read the model configuration. Close this dialog and try again.",
-      "progress": "Processed {done} / {total} lines",
+      "progress": "{done} / {total} lines",
       "completed": "Complete",
       "cancelled": "Cancelled",
       "cancelling": "Cancelling…",
-      "waiting": "Waiting for generation",
-      "noLyrics": "No lyrics available to translate",
+      "waiting": "Pending",
+      "noLyrics": "No lyrics to process",
       "tooLarge": "These lyrics are too long to translate",
       "invalidOutput": "The model returned incomplete or invalid selected content. Resume or try again.",
       "invalidOutputDetail": "Model output validation failed: {reason}",
       "invalidOutputLine": "Line {line} failed validation: {reason}",
       "outputTruncated": "The response reached its token limit. Resume generation to continue.",
       "sourceChanged": "The song or lyrics changed. Start a new translation.",
-      "applyHint": "Applying updates only the selected auxiliary tracks and syncs lyric windows. Audio files are not modified automatically.",
       "start": "Generate",
-      "retry": "Generate again",
-      "resume": "Resume translation",
-      "resumeCancelled": "Resume generation",
-      "repairRomanization": "Redo romanization for line {line}",
-      "repairRomanizationHint": "If the existing romanization for line {line} is incorrect, regenerate just that line. The old text is replaced when you apply the result.",
-      "resumeHint": "Validated lines are kept so you can process the remaining lyrics. Closing this dialog or changing the lyrics, language, selected tasks or generation mode clears progress.",
+      "retry": "Regenerate",
+      "resume": "Continue",
+      "resumeCancelled": "Continue",
+      "repairRomanization": "Retry romanization, line {line}",
+      "repairRomanizationHint": "Regenerate this line’s romanization and keep other results",
+      "resumeHint": "Keep current results and continue unfinished lines",
       "cancel": "Cancel generation",
       "apply": "Apply translation",
       "applyAndShow": "Apply and show translation",
-      "applied": "Selected AI lyric content applied",
+      "applied": "Applied; not saved yet",
       "languages": {
         "zh-CN": "Simplified Chinese",
         "zh-TW": "Traditional Chinese",
@@ -698,22 +698,23 @@
         "wordRomanization": "Word romanization",
         "wordTranslation": "Word translation"
       },
-      "existingCount": "Available for {done} / {total} lines",
+      "existingCount": "{done}/{total} lines available",
       "missing": "Not available",
       "selectionHint": "Missing or incomplete items are selected by default; unselected content is kept. Word-only tasks align existing text and generate missing text when needed.",
-      "selectAtLeastOne": "Select at least one item to generate.",
-      "applySelected": "Apply selected content",
-      "resetAlignmentHint": "Regenerating line text clears its old word alignment. Select the word task too to update both.",
+      "selectAtLeastOne": "Choose content to generate",
+      "applySelected": "Apply selected",
+      "resetAlignmentHint": "Word timing will be cleared for the selected tracks",
       "modes": {
-        "missing": "Fill missing (keep existing)",
-        "full": "Regenerate all"
+        "missing": "Fill missing",
+        "full": "Regenerate"
       },
-      "modeHints": {
-        "missing": "Reuse existing text and generate selected content only for missing or incomplete lines. Word tasks align the existing translation or romanization.",
-        "full": "Regenerate selected content from the original lyrics, replacing its text and alignment. Unselected content is kept."
-      },
-      "nothingMissing": "Selected content is complete. Choose Regenerate all to replace it.",
-      "preserved": "Keeping {count} existing lines"
+      "nothingMissing": "Selected content is complete",
+      "preserved": "Keep {count} lines",
+      "pendingCount": "{count} lines pending",
+      "needsRepair": "Repair romanization",
+      "repairTranslation": "Redo translation, line {line}",
+      "repairTranslationHint": "Retranslate and align this line in its original language; keep other results",
+      "translationNeedsRepair": "Redo translation"
     }
   },
   "songList": {
@@ -1003,7 +1004,8 @@
       "backupReset": "Backup & Reset",
       "debug": "Debug",
       "preset": "OCD Settings",
-      "envInfo": "Environment Info"
+      "envInfo": "Environment Info",
+      "lyricAlignment": "Lyric alignment models"
     },
     "about": {
       "checkUpdate": "Check for Updates",
@@ -1183,12 +1185,12 @@
       "currentRemaining": "Elapsed / Remaining"
     },
     "showProgressTooltip": {
-      "label": "Show Progress Tooltip",
-      "description": "Show a tooltip when dragging the progress bar"
+      "label": "Show Time While Dragging",
+      "description": "Display the target time while dragging the progress bar"
     },
     "showProgressLyric": {
-      "label": "Show Lyric in Tooltip",
-      "description": "Display the current lyric line in the progress tooltip"
+      "label": "Show Lyrics While Dragging",
+      "description": "Display the corresponding lyric while dragging the progress bar"
     },
     "snapToLyric": {
       "label": "Snap to Nearest Lyric",
@@ -2545,6 +2547,22 @@
     "dynamicIslandHideWhenPaused": {
       "label": "Hide when paused",
       "description": "Hide Dynamic Island lyrics when music is paused and show them again when playback resumes"
+    },
+    "lyricAlignmentModels": {
+      "label": "Lyric alignment models",
+      "description": "Local models for primary lyrics and translation",
+      "download": "Download",
+      "verify": "Verify",
+      "remove": "Remove",
+      "nonCommercial": "Non-commercial use only"
+    },
+    "lyricAlignmentAcoustic": {
+      "label": "Primary lyric model",
+      "description": "Chinese / Japanese / English"
+    },
+    "lyricAlignmentTranslation": {
+      "label": "Translation model",
+      "description": "Multilingual text alignment"
     }
   },
   "collection": {
