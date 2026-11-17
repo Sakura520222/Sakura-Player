@@ -11,7 +11,7 @@ export const XML_NS = "http://www.w3.org/XML/1998/namespace";
 export const XMLNS_NS = "http://www.w3.org/2000/xmlns/";
 
 /**
- * 在主进程和渲染进程以相同规则验证 XML、根节点与歌词时间表达
+ * 统一验证 XML 与时间，并修复旧文件中被空命名空间隔断的 TTML 节点
  * @param content - 待保存的 TTML 歌词
  * @returns 已校验的歌词 XML 文档
  */
@@ -24,10 +24,38 @@ export const readTtmlDocument = (content: string): Document => {
     "application/xml",
   ) as unknown as Document;
   const root = doc.documentElement;
+  if (doc.doctype || root.localName !== "tt" || root.namespaceURI !== TTML_NS)
+    throw new Error("TTML 歌词缺少有效的 tt 或 body");
+  // 旧编辑器可能在 div、metadata 上写入 xmlns=""，仅恢复 TTML 结构内的标准元素
+  const names = new Set([
+    "head",
+    "metadata",
+    "styling",
+    "style",
+    "layout",
+    "region",
+    "body",
+    "div",
+    "p",
+    "span",
+    "br",
+  ]);
+  for (const element of Array.from(doc.getElementsByTagName("*"))) {
+    if (
+      element.namespaceURI ||
+      !names.has(element.localName) ||
+      (element.parentNode as Element | null)?.namespaceURI !== TTML_NS
+    )
+      continue;
+    const normalized = doc.createElementNS(TTML_NS, element.localName);
+    for (const attr of Array.from(element.attributes)) {
+      if (attr.name === "xmlns" && !attr.value) continue;
+      normalized.setAttributeNS(attr.namespaceURI, attr.name, attr.value);
+    }
+    while (element.firstChild) normalized.appendChild(element.firstChild);
+    element.parentNode!.replaceChild(normalized, element);
+  }
   if (
-    doc.doctype ||
-    root.localName !== "tt" ||
-    root.namespaceURI !== TTML_NS ||
     Array.from(root.children).filter(
       (element) => element.localName === "body" && element.namespaceURI === TTML_NS,
     ).length !== 1
