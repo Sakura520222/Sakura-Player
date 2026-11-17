@@ -89,7 +89,20 @@ jobs:
 
       # 安装项目依赖
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              exit 0
+            else
+              install_status=$?
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit "$install_status"
+            fi
+            echo "::warning::依赖安装失败（第 ${attempt} 次），10 秒后重试"
+            sleep 10
+          done
 
       # 注入 -dev 版本号，使其低于同基准的 Nightly，可通过 Nightly 通道更新
       - name: Generate Dev Version
