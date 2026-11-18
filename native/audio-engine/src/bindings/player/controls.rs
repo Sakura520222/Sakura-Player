@@ -2,18 +2,20 @@ use super::*;
 
 #[napi]
 impl AudioPlayer {
-    /// 恢复播放；如果已停止或播放结束，自动从头重新加载
+    /// 恢复暂停的曲目，已经播完时从本曲目起点重播
     #[napi]
     pub async fn play(&self) -> Result<()> {
-        let (revival_source, position) = {
+        let (revival_source, range) = {
             let mut player = self.inner.lock();
-            let pos = player.position();
+            let resume = (player.state() == PlayerState::Paused && !player.is_finished())
+                .then(|| player.position());
+            let range = player.playback_range(resume);
             let src = player.play().into_napi()?;
-            (src, pos)
+            (src, range)
         };
         if let Some(source) = revival_source {
             let is_remote = source.starts_with("http://") || source.starts_with("https://");
-            if let Err(e) = self.load(source, Some(true), None).await {
+            if let Err(e) = self.load(source, Some(true), None, Some(range)).await {
                 // 复活加载被更新的 load/stop 取代不是错误：已有更新的操作接管播放
                 if is_cancelled_napi_error(&e) {
                     return Ok(());
@@ -24,9 +26,6 @@ impl AudioPlayer {
                     return Ok(());
                 }
                 return Err(e);
-            }
-            if position > 0.0 {
-                let _ = self.seek(position).await;
             }
         }
         Ok(())

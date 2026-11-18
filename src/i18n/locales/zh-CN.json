@@ -777,7 +777,7 @@
     }
   },
   "quality": {
-    "outputInfo": "输出信息",
+    "outputInfo": "音质与输出",
     "outputSection": "输出信息",
     "outputMode": "输出模式",
     "dspSection": "音频处理",
@@ -792,7 +792,58 @@
     "multiChannel": "多声道",
     "tempoPitch": "变速变调",
     "limiter": "输出限幅器",
-    "resampling": "重采样"
+    "resampling": "重采样",
+    "sourceSection": "源文件",
+    "validBitDepth": "有效位深",
+    "container": "容器",
+    "channelLayout": "声道布局",
+    "containerBitRate": "容器总码率",
+    "decoderSection": "解码 PCM",
+    "sampleFormat": "样本格式",
+    "appliedGain": "采用的标签增益",
+    "backend": "音频后端",
+    "noOutput": "未打开输出流",
+    "containerBits": "容器位宽",
+    "outputPrecision": "流样本格式",
+    "softwareVolume": "播放器音量",
+    "bypassed": "已旁路",
+    "hardwareFormat": "硬件实际格式",
+    "hardwareUnknown": "设备未提供实际格式",
+    "inspecting": "正在读取本地音频…",
+    "inspectError": "无法读取完整的文件参数",
+    "spectrum": "源频谱",
+    "analyze": "分析频谱",
+    "analyzeAgain": "重新分析",
+    "analysisError": "无法分析该音频，请检查文件后重试",
+    "partialSpectrum": "部分片段读取失败，频谱根据可读的音频生成",
+    "spectrumChart": "源音频频谱，幅度相对最高频带",
+    "suspectCutoff": "约 {frequency} 出现稳定的高频截止，疑似经过有损转码或低通处理",
+    "insufficientSpectrum": "有效片段不足，无法判断高频截止",
+    "noCutoffEvidence": "采样片段中未发现一致的高频截止",
+    "analyzedDuration": "采样时长 {seconds}",
+    "observedBits": "最高使用 {bits} 位整数精度",
+    "chapters": "章节",
+    "chapterNumber": "第 {number} 章",
+    "trackGain": "曲目增益",
+    "albumGain": "专辑增益",
+    "trackPeak": "曲目峰值",
+    "albumPeak": "专辑峰值",
+    "r128Track": "R128 曲目增益",
+    "r128Album": "R128 专辑增益",
+    "verifiedFrames": "逐样本核对并提交至 WASAPI 的 PCM 帧数 {count}",
+    "underruns": "缓冲欠载次数 {count}",
+    "direct": {
+      "pending": "Bit-Perfect 等待 PCM 提交",
+      "verified": "Bit-Perfect 已验证至 WASAPI",
+      "interrupted": "Bit-Perfect 连续性校验中断",
+      "unavailable": "当前无法启用 Bit-Perfect"
+    },
+    "directReason": {
+      "sourceUnsupported": "直通支持本地单声道和立体声无损整数 PCM，当前使用常规播放链路",
+      "formatMismatch": "设备不支持当前声道、采样率或精度组合，已使用可用格式",
+      "endpointUnavailable": "无法打开兼容的独占流，已使用常规播放链路",
+      "platformUnsupported": "此平台没有可验证的独占直通链路"
+    }
   },
   "playlist": {
     "title": "播放列表",
@@ -1171,7 +1222,8 @@
         "deviceBusy": "设备无法以独占模式打开，已回退共享模式",
         "formatUnsupported": "设备不支持独占模式所需的音频格式，已回退共享模式",
         "unavailable": "独占模式暂不可用，已回退共享模式"
-      }
+      },
+      "direct": "WASAPI 独占直通"
     },
     "pauseOnDeviceSwitch": {
       "label": "切换时暂停播放",
@@ -1361,7 +1413,7 @@
       "kugouLoginVersionTitle": "切换 KG 登录版本",
       "kugouLoginVersionContent": "切换后当前登录凭据与新版本不匹配，需退出登录并重新扫码，否则会员权益与高音质解析会失效。确定切换吗？",
       "exclusiveModeTitle": "切换到独占模式",
-      "exclusiveModeContent": "独占模式绕过系统混音器，优先使用音源采样率与位深，适合外接 DAC / Hi-Fi 设备。播放器的音量、均衡器等处理仍然生效，不保证逐位无损输出。独占期间其他应用可能无法播放声音；独占不可用时会尝试共享模式，若设备被其他应用独占，共享模式也可能无法播放。确定切换吗？",
+      "exclusiveModeContent": "独占模式会占用当前设备。独占直通时，播放器音量与音效会停用，请先调整设备音量。",
       "preloadCacheTitle": "开启预载所需的缓存？",
       "preloadCacheContent": "歌曲预载需要缓存下一首音频。继续将同时开启歌曲缓存和流媒体缓存，可能增加网络流量和磁盘占用",
       "disableSongCacheTitle": "关闭歌曲缓存？",
@@ -2719,8 +2771,19 @@
       "genre": "流派",
       "trackNumber": "音轨号",
       "discNumber": "碟号",
-      "lyrics": "内嵌歌词"
-    }
+      "lyrics": "内嵌歌词",
+      "date": "日期",
+      "comment": "备注",
+      "composers": "作曲者",
+      "trackTotal": "曲目总数",
+      "discTotal": "碟片总数"
+    },
+    "loading": "正在读取文件标签…",
+    "readOnly": "此文件的标签当前仅支持读取",
+    "readFailed": "无法读取文件标签，请检查文件后重试",
+    "multiValueHint": "歌手、专辑歌手、流派和作曲者可分行输入",
+    "removeCover": "移除内嵌封面",
+    "undoRemoveCover": "撤回移除"
   },
   "songHighlight": {
     "sources": {

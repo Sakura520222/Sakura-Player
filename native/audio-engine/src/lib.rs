@@ -11,6 +11,7 @@ mod metadata;
 mod output;
 mod player;
 mod priority;
+mod quality;
 mod scanner;
 
 #[cfg(test)]

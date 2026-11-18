@@ -5,13 +5,14 @@ fn common_tags_are_matched_case_insensitively() {
     let dict = HashMap::from([
         ("TITLE".to_string(), "Track".to_string()),
         ("Album_Artist".to_string(), "Artist".to_string()),
-        ("TRACK".to_string(), "7".to_string()),
+        ("TRACK".to_string(), "7/13".to_string()),
     ]);
 
-    let tags = extract_tags(&dict);
+    let tags = file_tags::from_ffmpeg(&dict);
     assert_eq!(tags.title.as_deref(), Some("Track"));
     assert_eq!(tags.artist.as_deref(), Some("Artist"));
-    assert_eq!(tags.track, Some(7));
+    assert_eq!(tags.track_number, Some(7));
+    assert_eq!(tags.track_total, Some(13));
 }
 
 #[test]

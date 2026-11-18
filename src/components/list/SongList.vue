@@ -964,6 +964,11 @@ defineExpose({
     <!-- 添加到歌单 -->
     <PlaylistPickerDialog v-model:open="pickerOpen" :mode="pickerMode" :tracks="pickerTracks" />
     <!-- 编辑元数据 -->
-    <TagEditorDialog v-model:open="tagEditorOpen" :track="tagEditorTrack" />
+    <TagEditorDialog
+      v-if="tagEditorTrack"
+      v-model:open="tagEditorOpen"
+      :track="tagEditorTrack"
+      @after-close="!tagEditorOpen && (tagEditorTrack = null)"
+    />
   </div>
 </template>

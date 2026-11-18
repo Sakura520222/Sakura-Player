@@ -293,10 +293,11 @@ const playerCategory: SettingCategory = {
           options: [
             { value: "shared", labelKey: "settings.audioOutputMode.shared" },
             { value: "exclusive", labelKey: "settings.audioOutputMode.exclusive" },
+            { value: "bit-perfect", labelKey: "settings.audioOutputMode.direct" },
           ],
           defaultValue: "shared",
           confirm: {
-            when: (next) => next === "exclusive",
+            when: (next) => next === "exclusive" || next === "bit-perfect",
             titleKey: "settings.confirm.exclusiveModeTitle",
             contentKey: "settings.confirm.exclusiveModeContent",
             type: "warning",

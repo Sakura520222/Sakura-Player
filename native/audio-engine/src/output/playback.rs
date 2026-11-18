@@ -21,6 +21,7 @@ pub struct PlaybackHandle {
     volume: Arc<AtomicU32>,
     stopped: Arc<AtomicBool>,
     playing: AtomicBool,
+    direct: bool,
     transition: TransitionControl,
 }
 
@@ -43,8 +44,15 @@ impl PlaybackHandle {
             .filter(|shared| {
                 shared.sample_rate() == output.sample_rate()
                     && shared.channels() == output.channels()
+                    && shared.integer_bits() == output.integer_bits()
             })
-            .unwrap_or_else(|| Shared::new(output.sample_rate(), output.channels()));
+            .unwrap_or_else(|| {
+                Shared::with_integer_bits(
+                    output.sample_rate(),
+                    output.channels(),
+                    output.integer_bits(),
+                )
+            });
 
         let source = DecoderSource::new(Arc::clone(&shared), Arc::clone(&fft));
         match Self::attach(&output, source, 1.0, true) {
@@ -86,7 +94,10 @@ impl PlaybackHandle {
         let volume = Arc::new(AtomicU32::new(volume.to_bits()));
         let stopped = Arc::new(AtomicBool::new(false));
         let transition = source.control();
-        source.fade_in();
+        let direct = output.integer_bits().is_some();
+        if !direct {
+            source.fade_in();
+        }
         let stream =
             output.build_stream(source, Arc::clone(&volume), Arc::clone(&stopped), paused)?;
         if !paused {
@@ -100,8 +111,14 @@ impl PlaybackHandle {
             volume,
             stopped,
             playing: AtomicBool::new(!paused),
+            direct,
             transition,
         })
+    }
+
+    /// 播放句柄是否直接提交原始整数 PCM
+    pub fn is_direct(&self) -> bool {
+        self.direct
     }
 
     /// 将备用 PCM 提交到现有输出流，由回调按音频帧执行过渡
@@ -110,6 +127,7 @@ impl PlaybackHandle {
         shared: Arc<Shared>,
         plan: TransitionPlan,
     ) -> Result<TransitionSignals> {
+        anyhow::ensure!(!self.direct, "直通模式不执行混音过渡");
         self.transition.drain_retired();
         self.transition.queue(shared, plan)
     }
@@ -160,7 +178,7 @@ impl PlaybackHandle {
 impl Drop for PlaybackHandle {
     fn drop(&mut self) {
         self.transition.fade_out();
-        if self.playing.load(Ordering::Acquire) {
+        if !self.direct && self.playing.load(Ordering::Acquire) {
             // 设备失效时可能不再回调，限制等待以免资源回收永久阻塞。
             let deadline = Instant::now() + Duration::from_millis(100);
             while !self.transition.is_silent() && Instant::now() < deadline {

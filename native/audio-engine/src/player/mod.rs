@@ -47,6 +47,8 @@ pub struct InnerPlayer {
     state: PlayerState,
     /// seek 偏移基准（秒），采样计数在此基础上累加
     seek_base: f64,
+    playback_start: f64,
+    playback_end: Option<f64>,
     /// 当前音频源路径/地址
     current_source: Option<String>,
     /// 用户设置的目标音量（fade 期间 sink 音量会变化，需要记住目标值）
@@ -87,8 +89,14 @@ pub struct InnerPlayer {
     original_sample_rate: u32,
     /// 当前音频源的有效位深，独占模式协商候选的优先依据
     original_bits: u32,
+    source_channels: u32,
+    source_bit_rate: f64,
+    source_codec: Option<String>,
+    decode_format: Option<String>,
+    replay_gain_db: Option<f64>,
     /// WASAPI 独占模式开关（仅 Windows 生效，重建设备时生效）
     exclusive_mode: bool,
+    direct_requested: bool,
     /// 正在打开的网络音源中断句柄，确保切歌和 stop 能取消元数据探测
     pending_load_handle: Option<HttpCancelHandle>,
 }
@@ -159,6 +167,8 @@ impl InnerPlayer {
             cover_raw: None,
             state: PlayerState::Idle,
             seek_base: 0.0,
+            playback_start: 0.0,
+            playback_end: None,
             current_source: None,
             target_volume: 1.0,
             fade_duration_ms: 200,
@@ -183,9 +193,15 @@ impl InnerPlayer {
             ))),
             load_token: Arc::new(AtomicU64::new(0)),
             output_generation: Arc::new(AtomicU64::new(0)),
-            original_sample_rate: decoder::DEFAULT_TARGET_SAMPLE_RATE,
-            original_bits: 16,
+            original_sample_rate: 0,
+            original_bits: 0,
+            source_channels: 0,
+            source_bit_rate: 0.0,
+            source_codec: None,
+            decode_format: None,
+            replay_gain_db: None,
             exclusive_mode: false,
+            direct_requested: false,
             pending_load_handle: None,
         })
     }
@@ -196,10 +212,33 @@ impl InnerPlayer {
         self.selected_device = device_id;
     }
 
-    /// 设置独占模式开关（下一次重建设备时生效）
-    pub fn set_exclusive_mode(&mut self, enabled: bool) {
-        info!(enabled, "切换音频输出模式");
+    /// 保存输出模式，下次开流时按设备能力协商
+    /// @param enabled - 是否启用 Windows 独占
+    /// @param direct - 是否尝试未经音量和 DSP 处理的整数输出
+    pub fn set_exclusive_mode(&mut self, enabled: bool, direct: bool) {
+        info!(enabled, direct, "切换音频输出模式");
         self.exclusive_mode = enabled;
+        self.direct_requested = enabled && direct;
+    }
+
+    /// 根据当前输出偏好和解码精度决定是否协商直通
+    /// @param spec - 音源确实具备的整数输出规格
+    pub fn direct_request(
+        &self,
+        spec: Option<crate::decoder::direct::IntegerPcmSpec>,
+    ) -> crate::output::DirectRequest {
+        if self.direct_requested {
+            crate::output::DirectRequest::Requested(spec)
+        } else {
+            crate::output::DirectRequest::Off
+        }
+    }
+
+    /// 获取是否正在使用未经处理的整数输出
+    pub fn is_direct_playback(&self) -> bool {
+        self.playback
+            .as_ref()
+            .is_some_and(|playback| playback.is_direct())
     }
 
     /// 独占模式开关是否已启用
@@ -270,6 +309,19 @@ impl InnerPlayer {
         self.normalization_enabled
     }
 
+    /// 获取原曲目重播或恢复时需要的完整 CUE 区间
+    /// @param position - 文件内恢复位置，空值表示从曲目起点重播
+    pub fn playback_range(&self, position: Option<f64>) -> crate::bindings::JsPlaybackRange {
+        let start = position.unwrap_or(self.playback_start);
+        crate::bindings::JsPlaybackRange {
+            start: self
+                .playback_end
+                .map_or(start, |end| start.clamp(self.playback_start, end)),
+            end: self.playback_end,
+            cue_start: self.playback_end.map(|_| self.playback_start),
+        }
+    }
+
     /// 当前音频源路径/地址
     pub fn current_source(&self) -> Option<&str> {
         self.current_source.as_deref()
@@ -280,7 +332,7 @@ impl InnerPlayer {
     pub fn play(&mut self) -> Result<Option<String>> {
         // 如果当前在"播放"状态但实际已结束，先标记为停止
         // 此时解码线程已自然退出，stop_internal 的 join 立即返回，不会阻塞
-        if self.state == PlayerState::Playing && self.is_finished() {
+        if self.is_finished() {
             self.stop_internal();
             self.state = PlayerState::Stopped;
         }
@@ -311,7 +363,9 @@ impl InnerPlayer {
                 self.start_fft_timer();
 
                 // 非阻塞渐入
-                self.start_fade(0.0, self.target_volume, None);
+                if !self.is_direct_playback() {
+                    self.start_fade(0.0, self.target_volume, None);
+                }
                 Ok(None)
             }
             // 停止/空闲/播放结束：交给调用方异步从头重新加载
@@ -322,6 +376,11 @@ impl InnerPlayer {
     /// 暂停播放（非阻塞渐出，渐出完成后 sink.pause）
     pub fn pause(&mut self) {
         if self.state != PlayerState::Playing {
+            return;
+        }
+
+        if self.is_direct_playback() {
+            self.pause_immediately();
             return;
         }
 
@@ -390,6 +449,9 @@ impl InnerPlayer {
         }
         self.stop_internal();
         self.current_source = None;
+        self.playback_start = 0.0;
+        self.playback_end = None;
+        self.update_source_spec(&crate::metadata::AudioMetadata::default());
         self.state = PlayerState::Stopped;
         self.emit(PlayerEvent::StateChanged {
             state: PlayerState::Stopped,
@@ -575,12 +637,20 @@ impl InnerPlayer {
 
     /// 获取当前播放速度
     pub fn speed(&self) -> f32 {
-        self.tempo.lock().speed()
+        if self.is_direct_playback() {
+            1.0
+        } else {
+            self.tempo.lock().speed()
+        }
     }
 
     /// 获取当前音调（半音）
     pub fn pitch(&self) -> i8 {
-        self.tempo.lock().pitch()
+        if self.is_direct_playback() {
+            0
+        } else {
+            self.tempo.lock().pitch()
+        }
     }
 
     /// 获取"音调同步"开关
@@ -588,10 +658,41 @@ impl InnerPlayer {
         self.tempo.lock().pitch_sync()
     }
 
+    /// 保存当前曲目的小型解码规格供输出诊断读取
+    /// @param metadata - 播放器返回的曲目元数据
+    fn update_source_spec(&mut self, metadata: &crate::metadata::AudioMetadata) {
+        self.original_sample_rate = metadata.original_sample_rate;
+        self.original_bits = metadata.bits_per_sample;
+        self.source_channels = u32::from(metadata.channels);
+        self.source_bit_rate = metadata.bit_rate as f64;
+        self.source_codec = Some(metadata.codec.clone()).filter(|codec| !codec.is_empty());
+        self.decode_format = metadata.decode_format.clone();
+        self.replay_gain_db = metadata.replay_gain_db.map(f64::from);
+    }
+
     /// 获取当前真实的音频流与输出信息
     pub fn stream_info(&self) -> crate::bindings::JsAudioStreamInfo {
+        let live_output = self.output.as_ref().filter(|_| self.playback.is_some());
+        let verification = self
+            .shared
+            .as_ref()
+            .and_then(|shared| shared.pcm_verification());
+        let is_direct = verification.is_some();
+        let (verified_frames, discontinuities, invalid) = verification.unwrap_or_default();
+        let direct_reason = live_output.and_then(AudioOutput::direct_reason);
+        let direct_status = if invalid || discontinuities > 0 {
+            "interrupted"
+        } else if verified_frames > 0 {
+            "verified"
+        } else if is_direct {
+            "pending"
+        } else if direct_reason.is_some() {
+            "unavailable"
+        } else {
+            "off"
+        };
         let (device_name, is_exclusive, output_sample_rate, output_channels, output_bits) =
-            if let Some(output) = &self.output {
+            if let Some(output) = live_output {
                 (
                     output.device_name(),
                     output.is_exclusive(),
@@ -600,7 +701,7 @@ impl InnerPlayer {
                     output.bits(),
                 )
             } else {
-                ("System Default".to_string(), false, 0, 0, 0)
+                (String::new(), false, 0, 0, 0)
             };
 
         let is_resampling = if output_sample_rate > 0 && self.original_sample_rate > 0 {
@@ -609,16 +710,36 @@ impl InnerPlayer {
             false
         };
 
-        let is_equalizer_active = self.equalizer.lock().enabled();
+        let processed = live_output.is_some() && !is_direct;
+        let is_equalizer_active = processed && self.equalizer.lock().enabled();
         let tempo_locked = self.tempo.lock();
-        let is_tempo_active = !tempo_locked.is_bypass();
-        let speed = tempo_locked.speed() as f64;
+        let is_tempo_active = processed && !tempo_locked.is_bypass();
+        let speed = if is_direct {
+            1.0
+        } else {
+            f64::from(tempo_locked.speed())
+        };
         drop(tempo_locked);
 
-        let is_normalization_active = self.normalization_enabled;
+        let is_normalization_active = processed && self.normalization_enabled;
         let is_limiter_active = is_equalizer_active || is_tempo_active || is_normalization_active;
 
         crate::bindings::JsAudioStreamInfo {
+            has_output: live_output.is_some(),
+            backend: live_output
+                .and_then(AudioOutput::backend)
+                .map(str::to_owned),
+            output_format: live_output.map(AudioOutput::sample_format),
+            output_container_bits: live_output.map_or(0, AudioOutput::container_bits),
+            source_channels: self.source_channels,
+            source_bit_rate: self.source_bit_rate,
+            source_codec: self.source_codec.clone(),
+            decode_format: self.decode_format.clone(),
+            replay_gain_db: self.replay_gain_db,
+            direct_status: direct_status.into(),
+            direct_reason: direct_reason.map(str::to_owned),
+            verified_frames: verified_frames as f64,
+            discontinuities: discontinuities as f64,
             device_name,
             is_exclusive,
             output_sample_rate,

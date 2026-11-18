@@ -33,6 +33,7 @@ fn pipewire_real_output_rate_matrix() {
                 errors.fetch_add(1, Ordering::Relaxed);
             }),
             None,
+            crate::output::DirectRequest::Off,
         )
         .unwrap();
         let (output, shared, playback) =

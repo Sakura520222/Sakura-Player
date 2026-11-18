@@ -9,6 +9,8 @@ pub struct DecoderSampleReader {
     shared: Arc<Shared>,
     /// DSP 后样本缓冲，直接接管 chunk 的 Vec，不复制也不扩容
     local_buffer: Vec<f32>,
+    #[cfg(target_os = "windows")]
+    integer_buffer: Vec<i32>,
     stem_buffer: Option<Box<[Vec<f32>; 3]>>,
     current_stems: [f32; 3],
     local_index: usize,
@@ -29,6 +31,8 @@ impl DecoderSampleReader {
             end_sample: shared.end_sample(),
             shared,
             local_buffer: Vec::new(),
+            #[cfg(target_os = "windows")]
+            integer_buffer: Vec::new(),
             stem_buffer: None,
             current_stems: [0.0; 3],
             local_index: 0,
@@ -41,10 +45,81 @@ impl DecoderSampleReader {
 
     /// 每次设备请求新缓冲时解除欠载，避免静音跨越多个回调。
     pub fn begin_callback(&mut self) {
+        #[cfg(target_os = "windows")]
+        if self.shared.integer_bits().is_some() {
+            self.shared
+                .advance_consumed(self.local_index as u64 - self.reported_source_samples);
+            self.reported_source_samples = self.local_index as u64;
+        } else {
+            self.sync_position();
+        }
+        #[cfg(not(target_os = "windows"))]
         self.sync_position();
         self.end_sample = self.shared.end_sample();
         self.started = self.started || self.shared.output_ready();
         self.underrun = !self.started;
+    }
+
+    /// 取出未经处理的整数 PCM，保持与现有 CUE 终点和欠载语义一致
+    #[cfg(target_os = "windows")]
+    pub fn next_integer(&mut self) -> Option<i32> {
+        if self.underrun {
+            return None;
+        }
+        let pending = self.local_index as u64 - self.reported_source_samples;
+        if self.end_sample != u64::MAX
+            && self
+                .local_index
+                .is_multiple_of(usize::from(self.shared.channels()))
+            && self.shared.samples_consumed_count() + pending >= self.end_sample
+        {
+            self.shared.advance_consumed(pending);
+            self.reported_source_samples = self.local_index as u64;
+            self.shared.mark_all_consumed();
+            return None;
+        }
+        if self.local_index == self.integer_buffer.len() {
+            self.shared.advance_consumed(pending);
+            self.reported_source_samples = 0;
+            self.local_index = 0;
+            self.shared
+                .recycle_integer_buffer(std::mem::take(&mut self.integer_buffer));
+            match self.shared.try_pop() {
+                PopResult::Integer(samples) => self.integer_buffer = samples,
+                PopResult::Pending => {
+                    self.underrun = true;
+                    self.shared.record_underrun();
+                    return None;
+                }
+                PopResult::Finished => {
+                    self.shared.mark_all_consumed();
+                    return None;
+                }
+                PopResult::Chunk(_) => unreachable!("直通队列只能包含整数样本"),
+            }
+        }
+        let sample = self.integer_buffer[self.local_index];
+        self.local_index += 1;
+        Some(sample)
+    }
+
+    /// 返回直通有效位深供设备写入时核对
+    #[cfg(target_os = "windows")]
+    pub fn integer_bits(&self) -> Option<u32> {
+        self.shared.integer_bits()
+    }
+
+    /// 发布已提交给设备的实际 PCM 样本数
+    /// @param samples - 通过比较的样本数
+    #[cfg(target_os = "windows")]
+    pub fn report_verified_samples(&self, samples: u64) {
+        self.shared.report_verified_samples(samples);
+    }
+
+    /// 记录设备缓冲与解码样本不一致
+    #[cfg(target_os = "windows")]
+    pub fn mark_pcm_invalid(&self) {
+        self.shared.mark_pcm_invalid();
     }
 
     pub fn is_underrun(&self) -> bool {
@@ -126,10 +201,7 @@ impl Iterator for DecoderSampleReader {
         // 慢速路径：从共享缓冲区非阻塞获取，跳过空数据块
         loop {
             match self.shared.try_pop() {
-                PopResult::Chunk(mut chunk) => {
-                    self.shared
-                        .recycle_fft_buffer(std::mem::take(&mut chunk.fft_samples));
-
+                PopResult::Chunk(chunk) => {
                     if !chunk.player_samples.is_empty() {
                         self.local_source_samples = chunk.source_sample_count;
                         self.reported_source_samples = 0;
@@ -144,6 +216,7 @@ impl Iterator for DecoderSampleReader {
                     self.shared.advance_consumed(chunk.source_sample_count);
                     self.shared.recycle_player_buffer(chunk.player_samples);
                 }
+                PopResult::Integer(_) => unreachable!("处理队列只能包含浮点样本"),
                 PopResult::Pending => {
                     self.underrun = true;
                     self.shared.record_underrun();

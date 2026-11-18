@@ -48,7 +48,7 @@ pub struct SeekTake {
     /// 归一化开关（继承到新 Shared）
     pub normalization_enabled: bool,
     /// 归一化增益（继承到新 Shared）
-    pub normalization_gain: f32,
+    pub normalization_gain: Option<f32>,
     /// 当前音频源（seek 失败时 fallback 到 load）
     pub current_source: Option<String>,
     /// seek 前是否在播放（fallback 到 load 时保留状态）
@@ -70,6 +70,8 @@ pub struct SeekTake {
 /// 完成音源准备后一次性提交给播放器的资源
 pub struct LoadedPlayback {
     pub start_position: f64,
+    pub playback_start: f64,
+    pub end_position: Option<f64>,
     pub metadata: AudioMetadata,
     pub decode_handle: JoinHandle<decoder::DecoderData>,
     pub shared: Arc<Shared>,
@@ -164,6 +166,7 @@ impl InnerPlayer {
         self.transition_dsp = None;
         self.decoder_thread.as_ref()?;
         let output = self.output.take()?;
+        self.seek_base = self.position();
 
         // 与 load 共用同一 token 序列：commit_seeked 时比对，防止 seek 期间发生的
         // load/stop 完成后被本次 seek 的 commit 覆盖（旧曲复活 + 新解码线程泄漏）
@@ -199,7 +202,7 @@ impl InnerPlayer {
                 s.drain_buffer();
                 (s.is_normalization_enabled(), s.normalization_gain())
             }
-            None => (self.normalization_enabled, 0.0),
+            None => (self.normalization_enabled, None),
         };
 
         self.fft.reset();
@@ -241,6 +244,9 @@ impl InnerPlayer {
             return Ok(false);
         }
 
+        if let Some(end) = self.playback_end {
+            shared.set_end_position(end - position_secs);
+        }
         let was_paused = self.state == PlayerState::Paused;
         if let Err(error) = playback.activate(self.target_volume, was_paused) {
             shared.stop();
@@ -285,6 +291,8 @@ impl InnerPlayer {
     ) -> Result<Option<AudioMetadata>> {
         let LoadedPlayback {
             start_position,
+            playback_start,
+            end_position,
             mut metadata,
             decode_handle,
             shared,
@@ -305,6 +313,9 @@ impl InnerPlayer {
             return Ok(None);
         }
 
+        if let Some(end) = end_position {
+            shared.set_end_position(end - start_position);
+        }
         shared.set_normalization_enabled(self.normalization_enabled);
         if let Err(error) = playback.activate(self.target_volume, !auto_play) {
             if let Some(handle) = cancel {
@@ -320,11 +331,12 @@ impl InnerPlayer {
         self.shared = Some(shared);
         self.decoder_thread = Some(decode_handle);
         self.seek_base = start_position;
+        self.playback_start = playback_start;
+        self.playback_end = end_position;
         self.current_source = Some(source.to_string());
 
         self.audio_duration = metadata.duration_secs;
-        self.original_sample_rate = metadata.original_sample_rate;
-        self.original_bits = metadata.bits_per_sample;
+        self.update_source_spec(&metadata);
         self.cover_raw = metadata.cover_raw.take();
 
         if auto_play {

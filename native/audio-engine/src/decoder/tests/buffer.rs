@@ -9,7 +9,6 @@ fn parked_standby_output_wakes_on_activation_or_cancellation() {
             normalization_gain: 1.0,
             stem_samples: None,
             player_samples: vec![0.5; 100],
-            fft_samples: vec![],
             source_sample_count: 100,
         });
         let worker_shared = Arc::clone(&shared);
@@ -19,7 +18,6 @@ fn parked_standby_output_wakes_on_activation_or_cancellation() {
                 normalization_gain: 1.0,
                 stem_samples: None,
                 player_samples: vec![0.5; 100],
-                fft_samples: vec![],
                 source_sample_count: 100,
             });
             send.send(()).unwrap();
@@ -46,7 +44,6 @@ fn standby_decode_queue_resumes_when_promoted() {
             normalization_gain: 1.0,
             stem_samples: None,
             player_samples: vec![0.0; 128],
-            fft_samples: vec![],
             source_sample_count: 128,
         });
     }
@@ -71,7 +68,6 @@ fn cancelling_standby_wakes_blocked_decoder() {
             normalization_gain: 1.0,
             stem_samples: None,
             player_samples: vec![0.0; 128],
-            fft_samples: vec![],
             source_sample_count: 128,
         });
     }
@@ -87,11 +83,9 @@ fn sample_buffer_pools_are_bounded() {
 
     for _ in 0..(BUFFER_POOL_CAPACITY + 20) {
         shared.recycle_player_buffer(Vec::with_capacity(16));
-        shared.recycle_fft_buffer(Vec::with_capacity(16));
     }
 
     assert_eq!(shared.player_buffer_pool.len(), BUFFER_POOL_CAPACITY);
-    assert_eq!(shared.fft_buffer_pool.len(), BUFFER_POOL_CAPACITY);
 }
 #[test]
 fn high_rate_buffer_is_limited_by_duration_and_stop_unblocks_producer() {
@@ -103,7 +97,6 @@ fn high_rate_buffer_is_limited_by_duration_and_stop_unblocks_producer() {
                 normalization_gain: 1.0,
                 stem_samples: None,
                 player_samples: vec![0.25; samples],
-                fft_samples: vec![],
                 source_sample_count: samples as u64,
             });
         }
@@ -119,7 +112,6 @@ fn high_rate_buffer_is_limited_by_duration_and_stop_unblocks_producer() {
                 normalization_gain: 1.0,
                 stem_samples: None,
                 player_samples: vec![0.5; samples],
-                fft_samples: vec![],
                 source_sample_count: samples as u64,
             });
             tx.send(()).unwrap();
@@ -144,7 +136,6 @@ fn concurrent_consumer_keeps_every_sample_in_order_through_eof() {
                 normalization_gain: 1.0,
                 stem_samples: None,
                 player_samples: vec![i as f32; 32],
-                fft_samples: vec![],
                 source_sample_count: 32,
             });
         }
@@ -159,6 +150,7 @@ fn concurrent_consumer_keeps_every_sample_in_order_through_eof() {
             }
             PopResult::Pending => std::thread::yield_now(),
             PopResult::Finished => break,
+            PopResult::Integer(_) => panic!("普通播放应输出浮点样本"),
         }
     }
     worker.join().unwrap();

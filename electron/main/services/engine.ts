@@ -111,10 +111,14 @@ export const setPreampGain = (preampDb: number): void => {
   }
 };
 
-/** 同步 WASAPI 独占模式开关到播放器（仅 Windows 生效） */
-export const setExclusiveMode = (enabled: boolean): void => {
+/**
+ * 同步 WASAPI 独占模式及整数直通偏好
+ * @param enabled - 是否请求独占设备
+ * @param direct - 是否请求逐位输出
+ */
+export const setExclusiveMode = (enabled: boolean, direct = false): void => {
   if (playerInstance) {
-    playerInstance.setExclusiveMode(enabled).catch((error) => {
+    playerInstance.setExclusiveMode(enabled, direct).catch((error) => {
       playerLog.warn("切换音频输出模式失败:", error);
     });
   }

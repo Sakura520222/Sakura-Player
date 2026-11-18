@@ -105,6 +105,7 @@ impl InnerPlayer {
         };
         let seek_base = self.seek_base;
         let duration = self.duration();
+        let playback_end = self.playback_end.unwrap_or(duration);
         let playback = self.playback.as_ref().map(Arc::clone);
 
         let handle = thread::spawn(move || {
@@ -138,7 +139,7 @@ impl InnerPlayer {
                     // 距末尾 3s 内的失败按正常结束处理——Content-Length 偏大的转码源
                     // 在曲尾必然提前 EOF，整曲重载只会带来一轮无意义抖动。
                     // duration 未知（直播流等）时无"末尾"概念，失败一律上报
-                    cb(playback_completion_event(&shared, duration, position));
+                    cb(playback_completion_event(&shared, playback_end, position));
                     cb(PlayerEvent::StateChanged {
                         state: PlayerState::Stopped,
                     });

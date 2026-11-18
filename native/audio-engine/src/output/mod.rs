@@ -12,6 +12,7 @@ use cpal::traits::{DeviceTrait, HostTrait};
 use cpal::{FromSample, Sample, SampleFormat, SizedSample, StreamConfig, SupportedStreamConfig};
 use tracing::{debug, info, warn};
 
+use crate::decoder::direct::IntegerPcmSpec;
 use crate::decoder::transition_source::TransitionSource as DecoderSource;
 use crate::error::{AudioErrorKind, AudioResultExt};
 
@@ -30,6 +31,25 @@ pub(crate) enum OutputStream {
     Exclusive(crate::output::wasapi::ExclusiveStream),
 }
 
+/// 请求直通时保留音源是否能提供准确的整数 PCM
+#[derive(Clone, Copy, Default)]
+pub enum DirectRequest {
+    #[default]
+    Off,
+    Requested(Option<IntegerPcmSpec>),
+}
+
+impl DirectRequest {
+    /// 只在选择直通时读取当前解码器规格
+    /// @param source - 获取兼容 PCM 规格的函数
+    pub fn with_source(self, source: impl FnOnce() -> Option<IntegerPcmSpec>) -> Self {
+        match self {
+            Self::Off => Self::Off,
+            Self::Requested(_) => Self::Requested(source()),
+        }
+    }
+}
+
 /// 输出设备与配置句柄。`Send`，可放进 `InnerPlayer` 而不需 `unsafe impl Send`。
 ///
 /// 不持有输出流——输出流由每次加载音源时的 `PlaybackHandle::attach` 按此配置创建，
@@ -42,6 +62,8 @@ pub struct AudioOutput {
     exclusive: Option<crate::output::wasapi::ExclusiveFormat>,
     /// 该输出流的单调代次，用于诊断和过滤销毁后迟到的流错误
     generation: u64,
+    integer_bits: Option<u32>,
+    direct_reason: Option<&'static str>,
     on_failure: OutputFailureCallback,
     #[cfg(target_os = "windows")]
     on_fallback: Option<ExclusiveFallbackCallback>,
@@ -69,10 +91,41 @@ impl AudioOutput {
         generation: u64,
         on_failure: OutputFailureCallback,
         exclusive: Option<&ExclusiveFallbackCallback>,
+        direct: DirectRequest,
     ) -> Result<Self> {
-        let (device, config, _exclusive_format) =
-            open_device(device_id, requested_sample_rate, source_bits, exclusive)
-                .with_audio_kind(AudioErrorKind::Device)?;
+        let direct_spec = match direct {
+            DirectRequest::Requested(spec) => spec,
+            DirectRequest::Off => None,
+        };
+        let (device, config, _exclusive_format) = open_device(
+            device_id,
+            requested_sample_rate,
+            source_bits,
+            exclusive,
+            direct_spec,
+        )
+        .with_audio_kind(AudioErrorKind::Device)?;
+        #[cfg(target_os = "windows")]
+        let (integer_bits, direct_reason) = match direct {
+            DirectRequest::Off => (None, None),
+            DirectRequest::Requested(None) => (None, Some("sourceUnsupported")),
+            DirectRequest::Requested(Some(spec)) => match _exclusive_format {
+                Some(format)
+                    if format.channels == spec.channels
+                        && u32::from(format.valid_bits) >= spec.bits
+                        && Some(format.sample_rate) == requested_sample_rate =>
+                {
+                    (Some(spec.bits), None)
+                }
+                Some(_) => (None, Some("formatMismatch")),
+                None => (None, Some("endpointUnavailable")),
+            },
+        };
+        #[cfg(not(target_os = "windows"))]
+        let (integer_bits, direct_reason) = (
+            None,
+            matches!(direct, DirectRequest::Requested(_)).then_some("platformUnsupported"),
+        );
         #[cfg(target_os = "windows")]
         if let Some(format) = _exclusive_format {
             info!(
@@ -106,6 +159,8 @@ impl AudioOutput {
             #[cfg(target_os = "windows")]
             exclusive: _exclusive_format,
             generation,
+            integer_bits,
+            direct_reason,
             on_failure,
             #[cfg(target_os = "windows")]
             on_fallback: exclusive.cloned(),
@@ -153,6 +208,39 @@ impl AudioOutput {
         if let Some(format) = &self.exclusive {
             return format.valid_bits as u32;
         }
+        self.config.sample_format().bits_per_sample()
+    }
+
+    /// 获取源有效位深，仅在已协商无损直通时有值
+    pub fn integer_bits(&self) -> Option<u32> {
+        self.integer_bits
+    }
+
+    /// 获取直通不可用原因，供音质面板显示
+    pub fn direct_reason(&self) -> Option<&'static str> {
+        self.direct_reason
+    }
+
+    /// 获取流使用的系统后端
+    pub fn backend(&self) -> Option<&'static str> {
+        self.device.id().ok().map(|id| id.host().name())
+    }
+
+    /// 获取输出流样本表示
+    pub fn sample_format(&self) -> String {
+        #[cfg(target_os = "windows")]
+        if let Some(format) = &self.exclusive {
+            return format!("s{}", format.container_bits);
+        }
+        self.config.sample_format().to_string()
+    }
+
+    /// 获取输出样本的容器大小
+    pub fn container_bits(&self) -> u32 {
+        #[cfg(target_os = "windows")]
+        if let Some(format) = &self.exclusive {
+            return u32::from(format.container_bits);
+        }
         self.config.sample_format().sample_size() as u32 * 8
     }
 
@@ -164,6 +252,9 @@ impl AudioOutput {
         #[cfg(target_os = "windows")]
         if self.exclusive.take().is_some() {
             let reason = crate::output::wasapi::fallback_reason(error);
+            if self.integer_bits.take().is_some() {
+                self.direct_reason = Some("endpointUnavailable");
+            }
             warn!(reason, error = %error, "独占模式开流失败，尝试共享模式");
             return self.on_fallback.clone().map(|callback| (callback, reason));
         }

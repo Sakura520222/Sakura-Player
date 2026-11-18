@@ -64,14 +64,18 @@ pub(super) fn build_wave_format(format: &ExclusiveFormat) -> WAVEFORMATEXTENSIBL
     let block_align = format.channels * format.container_bits / 8;
     WAVEFORMATEXTENSIBLE {
         Format: WAVEFORMATEX {
-            wFormatTag: WAVE_FORMAT_EXTENSIBLE,
+            wFormatTag: if format.basic_pcm {
+                1
+            } else {
+                WAVE_FORMAT_EXTENSIBLE
+            },
             nChannels: format.channels,
             nSamplesPerSec: format.sample_rate,
             wBitsPerSample: format.container_bits,
             nBlockAlign: block_align,
             nAvgBytesPerSec: format.sample_rate * u32::from(block_align),
             // WAVEFORMATEXTENSIBLE 扩展部分固定 22 字节
-            cbSize: 22,
+            cbSize: if format.basic_pcm { 0 } else { 22 },
         },
         Samples: WAVEFORMATEXTENSIBLE_0 {
             wValidBitsPerSample: format.valid_bits,
@@ -84,17 +88,43 @@ pub(super) fn build_wave_format(format: &ExclusiveFormat) -> WAVEFORMATEXTENSIBL
 /// 位深候选：优先音源位深，16bit 作通用兜底
 fn valid_bits_candidates(source_bits: u32) -> Vec<u16> {
     match source_bits {
-        0..=16 => vec![16, 24],
-        24 => vec![24, 16],
+        1..=16 => vec![16, 24, 32],
+        0 | 17..=24 => vec![24, 32, 16],
         _ => vec![32, 24, 16],
     }
 }
 
 /// 采样率候选：音源原始值优先，回退设备常见的离散值
 fn sample_rate_candidates(source_rate: u32) -> Vec<u32> {
-    let mut rates = vec![source_rate, 48_000, 44_100, 96_000, 192_000];
-    rates.dedup();
+    let mut rates = vec![source_rate];
+    rates.extend(
+        [48_000, 44_100, 96_000, 192_000]
+            .into_iter()
+            .filter(|rate| *rate != source_rate),
+    );
     rates
+}
+
+/// 构造当前精度的合法设备容器，24 位同时支持紧凑和 32 位容器
+/// @param rate - 设备流采样率
+/// @param channels - 设备流声道数
+/// @param bits - PCM 有效位深
+fn pcm_formats(rate: u32, channels: u16, bits: u16) -> impl Iterator<Item = ExclusiveFormat> {
+    let containers = [bits, if bits == 24 { 32 } else { 0 }];
+    containers
+        .into_iter()
+        .filter(|container| *container != 0)
+        .flat_map(move |container| {
+            [false, true].into_iter().filter_map(move |basic_pcm| {
+                (!basic_pcm || (channels <= 2 && container == bits)).then_some(ExclusiveFormat {
+                    sample_rate: rate,
+                    channels,
+                    container_bits: container,
+                    valid_bits: bits,
+                    basic_pcm,
+                })
+            })
+        })
 }
 
 /// 独占模式格式协商：逐个尝试候选组合，返回首个被设备接受的格式。
@@ -104,44 +134,50 @@ fn negotiate_format(
     source_rate: u32,
     source_bits: u32,
     fallback_channels: u16,
+    direct: Option<crate::decoder::direct::IntegerPcmSpec>,
 ) -> Result<ExclusiveFormat, ExclusiveOpenError> {
     unsafe {
         let probe: IAudioClient = device
             .Activate(CLSCTX_ALL, None)
             .context("激活探测音频客户端失败")?;
 
-        let mut channels_candidates = vec![fallback_channels, 2];
-        channels_candidates.dedup();
-
-        for &channels in &channels_candidates {
-            for &valid_bits in &valid_bits_candidates(source_bits) {
-                for &rate in &sample_rate_candidates(source_rate) {
-                    let format = ExclusiveFormat {
-                        sample_rate: rate,
-                        channels,
-                        container_bits: if valid_bits == 16 { 16 } else { 32 },
-                        valid_bits,
-                    };
-                    let wave = build_wave_format(&format);
-                    // windows 0.62 中 IsFormatSupported 返回原始 HRESULT
-                    let hr = probe.IsFormatSupported(
-                        AUDCLNT_SHAREMODE_EXCLUSIVE,
-                        &wave as *const WAVEFORMATEXTENSIBLE as *const WAVEFORMATEX,
-                        None,
-                    );
-                    if hr.is_ok() {
-                        info!(
-                            rate = format.sample_rate,
-                            channels = format.channels,
-                            bits = format.valid_bits,
-                            "独占模式格式协商成功"
-                        );
-                        return Ok(format);
-                    }
-                    if hr == AUDCLNT_E_DEVICE_IN_USE {
-                        return Err(ExclusiveOpenError::DeviceInUse);
-                    }
+        let mut candidates = Vec::new();
+        if let Some(spec) = direct {
+            for bits in valid_bits_candidates(spec.bits)
+                .into_iter()
+                .filter(|bits| u32::from(*bits) >= spec.bits)
+            {
+                candidates.extend(pcm_formats(source_rate, spec.channels, bits));
+            }
+        }
+        let mut channel_counts = vec![fallback_channels, 2];
+        channel_counts.dedup();
+        for rate in sample_rate_candidates(source_rate) {
+            for &channels in &channel_counts {
+                for bits in valid_bits_candidates(source_bits) {
+                    candidates.extend(pcm_formats(rate, channels, bits));
                 }
+            }
+        }
+        for format in candidates {
+            let wave = build_wave_format(&format);
+            let hr = probe.IsFormatSupported(
+                AUDCLNT_SHAREMODE_EXCLUSIVE,
+                std::ptr::addr_of!(wave.Format),
+                None,
+            );
+            if hr == windows::Win32::Foundation::S_OK {
+                info!(
+                    rate = format.sample_rate,
+                    channels = format.channels,
+                    bits = format.valid_bits,
+                    container = format.container_bits,
+                    "独占模式格式协商成功"
+                );
+                return Ok(format);
+            }
+            if hr == AUDCLNT_E_DEVICE_IN_USE {
+                return Err(ExclusiveOpenError::DeviceInUse);
             }
         }
         Err(ExclusiveOpenError::FormatUnsupported)
@@ -154,9 +190,16 @@ pub fn negotiate_exclusive_format(
     source_rate: u32,
     source_bits: u32,
     fallback_channels: u16,
+    direct: Option<crate::decoder::direct::IntegerPcmSpec>,
 ) -> Result<ExclusiveFormat, ExclusiveOpenError> {
     let endpoint = resolve_endpoint(device_id).map_err(ExclusiveOpenError::Other)?;
-    negotiate_format(&endpoint, source_rate, source_bits, fallback_channels)
+    negotiate_format(
+        &endpoint,
+        source_rate,
+        source_bits,
+        fallback_channels,
+        direct,
+    )
 }
 
 #[cfg(test)]

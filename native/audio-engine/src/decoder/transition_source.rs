@@ -322,6 +322,58 @@ impl TransitionSource {
 }
 
 impl TransitionSource {
+    /// 只读监听输出采样，频谱计算独立于实际设备数据
+    /// @param sample - 当前播放采样
+    fn analyze_sample(&mut self, sample: f32) {
+        if self.fft_enabled {
+            if self.output_channel < 2 {
+                self.output_frame[self.output_channel as usize] = sample;
+            }
+            self.output_channel += 1;
+            if self.output_channel == self.channels {
+                self.output_channel = 0;
+                self.fft_buffer[self.fft_len] = self.output_frame[0];
+                self.fft_buffer[self.fft_len + 1] = if self.channels == 1 {
+                    self.output_frame[0]
+                } else {
+                    self.output_frame[1]
+                };
+                self.fft_len += 2;
+                if self.fft_len == self.fft_buffer.len() {
+                    self.fft.push_interleaved_samples(&self.fft_buffer);
+                    self.fft_len = 0;
+                }
+            }
+        }
+    }
+
+    /// 直通模式使用同一频谱显示，设备保留原始整数
+    #[cfg(target_os = "windows")]
+    pub fn next_integer(&mut self) -> Option<i32> {
+        let sample = self.active.next_integer()?;
+        self.analyze_sample(sample as f32 / 2_147_483_648.0);
+        Some(sample)
+    }
+
+    /// 返回当前直通路径保留的原始位宽
+    #[cfg(target_os = "windows")]
+    pub fn integer_bits(&self) -> Option<u32> {
+        self.active.integer_bits()
+    }
+
+    /// 发布本次设备缓冲中逐样本校验通过的采样数
+    /// @param samples - 成功提交的源样本数
+    #[cfg(target_os = "windows")]
+    pub fn report_verified_samples(&self, samples: u64) {
+        self.active.report_verified_samples(samples);
+    }
+
+    /// 撤销当前会话的逐位输出验证状态
+    #[cfg(target_os = "windows")]
+    pub fn mark_pcm_invalid(&self) {
+        self.active.mark_pcm_invalid();
+    }
+
     /// 按源位置执行自动混音，或沿用低能量交叉过渡的搜索逻辑
     /// @returns 下一条输出采样，全部播放完成时为空
     fn next_sample(&mut self) -> Option<f32> {
@@ -561,26 +613,7 @@ impl Iterator for TransitionSource {
             sample
         } * (self.fade_frame as f32 / self.fade_frames as f32);
         self.fade_channel = (self.fade_channel + 1) % self.channels as usize;
-        if self.fft_enabled {
-            if self.output_channel < 2 {
-                self.output_frame[self.output_channel as usize] = sample;
-            }
-            self.output_channel += 1;
-            if self.output_channel == self.channels {
-                self.output_channel = 0;
-                self.fft_buffer[self.fft_len] = self.output_frame[0];
-                self.fft_buffer[self.fft_len + 1] = if self.channels == 1 {
-                    self.output_frame[0]
-                } else {
-                    self.output_frame[1]
-                };
-                self.fft_len += 2;
-                if self.fft_len == self.fft_buffer.len() {
-                    self.fft.push_interleaved_samples(&self.fft_buffer);
-                    self.fft_len = 0;
-                }
-            }
-        }
+        self.analyze_sample(sample);
         Some(sample)
     }
 }

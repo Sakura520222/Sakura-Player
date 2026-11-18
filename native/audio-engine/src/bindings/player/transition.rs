@@ -48,6 +48,7 @@ impl AudioPlayer {
     /// @param nextEndSeconds - 下一曲的 CUE 结束位置
     /// @param currentEndSeconds - 当前曲目的 CUE 结束位置
     /// @param automix - 已验证的对拍交接计划，省略时使用交叉过渡
+    /// @param nextStartSeconds - 下一曲的原始 CUE 起点
     /// @returns 成功交接时返回下一曲元信息，槽位失效时返回空值
     #[napi]
     #[allow(clippy::too_many_arguments)]
@@ -60,6 +61,7 @@ impl AudioPlayer {
         next_end_seconds: Option<f64>,
         current_end_seconds: Option<f64>,
         automix: Option<JsAutoMixPlan>,
+        next_start_seconds: Option<f64>,
     ) -> Result<Option<JsMusicMetadata>> {
         let inner = Arc::clone(&self.inner);
         let expected_token = inner.lock().load_token_handle().load(Ordering::Acquire);
@@ -93,6 +95,7 @@ impl AudioPlayer {
                                 })
                                 .collect(),
                         }),
+                        next_start_seconds,
                     )
                     .into_napi()?;
                 (armed, player.load_token_handle())

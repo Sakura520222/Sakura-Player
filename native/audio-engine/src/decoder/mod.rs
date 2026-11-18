@@ -1,10 +1,11 @@
+pub(crate) mod direct;
 pub(crate) mod input;
 mod processing;
 mod reader;
 mod stem_processing;
 use processing::run_dsp_safely;
 pub(crate) use reader::HTTP_PROXY;
-use reader::{build_resamplers, open_source, run_decoding_loop};
+use reader::{build_player_resampler, open_source, run_decoding_loop};
 
 pub(crate) mod buffer;
 pub(crate) mod source;
@@ -39,24 +40,13 @@ pub const DEFAULT_OUTPUT_CHANNELS: u16 = 2;
 /// 播放输出默认采样率
 pub const DEFAULT_TARGET_SAMPLE_RATE: u32 = 48_000;
 
-/// FFT 计算所需的目标采样率
-pub const FFT_TARGET_SAMPLE_RATE: u32 = 48_000;
-
-/// FFT 始终分析双声道视图，与真实播放输出声道链路相互独立
-const FFT_CHANNELS: u16 = 2;
-
 /// 自定义 File IO 读取失败时，ffmpeg_audio 的 read 回调可能映射为此错误码
 const AVERROR_EIO: i32 = sys::averror(libc::EIO);
 
-/// 解码会话所需的资源（跨 seek 复用，避免重建 ffmpeg_audio 上下文）
-///
-/// 此处必须进行 1-to-N 分发，因为需要两个可能存在采样率差异的音源
-///  - 播放重采样器输出设备采样率、设备声道数的交错 f32
-///  - FFT 重采样器输出 48kHz 的 stereo f32
+/// 可跨 seek 复用的解码会话，直通模式省去播放重采样器
 pub struct DecoderData {
     reader: AudioReader,
-    player_resampler: Resampler,
-    fft_resampler: Resampler,
+    player_resampler: Option<Resampler>,
     /// 网络中断句柄仅由远端源持有，stop() 取消后可在 seek 前重置
     cancel_handle: Option<HttpCancelHandle>,
 }
@@ -89,6 +79,11 @@ impl PreparedDecoder {
     /// 音源有效位深，独占模式协商候选的优先依据
     pub fn bits_per_sample(&self) -> u32 {
         self.metadata.bits_per_sample
+    }
+
+    /// 获取当前源可向设备原样提交的 PCM 规格
+    pub fn integer_spec(&self) -> Option<direct::IntegerPcmSpec> {
+        direct::IntegerPcmSpec::from_source(self.reader.source_info(), self.cancel_handle.is_none())
     }
 }
 
@@ -124,7 +119,7 @@ pub fn prepare_decode(
     let codec = info.codec_name.clone().unwrap_or_default();
 
     let raw_metadata = reader.metadata();
-    let tags = metadata::extract_tags(&raw_metadata);
+    let tags = metadata::read_summary(cancel_handle.is_none().then_some(source), &raw_metadata);
     let cover =
         cover_cache_dir.and_then(|dir| metadata::extract_cover_thumbnail(&reader, source, dir));
     let cover_raw = metadata::read_attached_pic(&reader);
@@ -144,6 +139,10 @@ pub fn prepare_decode(
         bits_per_sample: stream_info.bits_per_sample,
         bit_rate: stream_info.bit_rate,
         codec,
+        decode_format: info.sample_fmt.clone(),
+        replay_gain_db,
+        artists: tags.artists,
+        album_artists: tags.album_artists,
         embedded_lyric,
         embedded_lyric_data: metadata::dict_get(&raw_metadata, metadata::LYRIC_DATA_KEY)
             .map(str::to_owned),
@@ -178,12 +177,19 @@ pub fn start_prepared_decode(
         cancel_handle,
     } = prepared;
     let target_rate = shared.sample_rate();
-    let (player_resampler, fft_resampler) =
-        build_resamplers(&reader, target_rate, shared.channels())?;
+    let player_resampler = if shared.integer_bits().is_some() {
+        None
+    } else {
+        Some(build_player_resampler(
+            &reader,
+            target_rate,
+            shared.channels(),
+        )?)
+    };
     metadata.sample_rate = target_rate;
 
     if let Some(db) = replay_gain_db {
-        shared.set_normalization_gain(metadata::db_to_linear(db));
+        shared.set_normalization_gain(Some(metadata::db_to_linear(db)));
     }
     if let Some(handle) = &cancel_handle {
         shared.bind_cancel_handle(handle.clone());
@@ -192,35 +198,10 @@ pub fn start_prepared_decode(
     let data = DecoderData {
         reader,
         player_resampler,
-        fft_resampler,
         cancel_handle: cancel_handle.clone(),
     };
 
-    let handle = thread::Builder::new()
-        .name("audio-decoder".to_string())
-        .spawn(move || {
-            priority::boost_current_audio_thread("audio-decoder");
-            let mut data = data;
-            let dsp_shared = Arc::clone(&shared);
-            let dsp_handle = thread::Builder::new()
-                .name("audio-dsp".to_string())
-                .spawn(move || run_dsp_safely(dsp_shared, equalizer, tempo));
-            let Ok(dsp_handle) = dsp_handle else {
-                shared.mark_decode_failed();
-                shared.mark_output_eof();
-                return data;
-            };
-            run_decode_safely(&shared, || {
-                run_decoding_loop(&mut data, &shared);
-            });
-            if dsp_handle.join().is_err() {
-                shared.mark_decode_failed();
-                shared.mark_output_eof();
-            }
-            data
-        })
-        .context("启动解码线程失败")
-        .with_audio_kind(AudioErrorKind::DecodeFailed)?;
+    let handle = resume_decode(data, shared, equalizer, tempo)?;
 
     Ok((metadata, handle, cancel_handle))
 }
@@ -240,6 +221,14 @@ pub fn resume_decode(
         .spawn(move || {
             priority::boost_current_audio_thread("audio-decoder");
             let mut data = data;
+            if shared.integer_bits().is_some() {
+                run_decode_safely(&shared, || direct::decode(&mut data, &shared));
+                if shared.is_decode_failed() {
+                    shared.mark_pcm_invalid();
+                }
+                shared.mark_output_eof();
+                return data;
+            }
             let dsp_shared = Arc::clone(&shared);
             let dsp_handle = thread::Builder::new()
                 .name("audio-dsp".to_string())

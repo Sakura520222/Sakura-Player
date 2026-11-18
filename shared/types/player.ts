@@ -85,6 +85,20 @@ export interface AudioQuality {
  */
 export type TrackFee = 0 | 1 | 4 | 8;
 
+/** 只随本地曲目保存的结构化标签，歌词等大字段按需读取 */
+export interface LocalTrackTags {
+  artists: string[];
+  albumArtists: string[];
+  genres: string[];
+  composers: string[];
+  date?: string;
+  year?: number;
+  comment?: string;
+  trackTotal?: number;
+  discNumber?: number;
+  discTotal?: number;
+}
+
 /** 歌曲信息 */
 export interface Track {
   /** 服务端权威收藏状态；缺失表示尚未读取 */
@@ -103,6 +117,7 @@ export interface Track {
     source: string;
     musicInfo: MusicSearchCandidate;
   };
+  localTags?: LocalTrackTags;
   /** 本地路径 */
   path?: string;
   /** CUE 文件路径 */
@@ -273,6 +288,19 @@ export interface IpcResponse<T = void> {
 
 /** 真实音频流与硬件输出信息 */
 export interface AudioStreamInfo {
+  hasOutput: boolean;
+  backend?: string;
+  outputFormat?: string;
+  outputContainerBits: number;
+  sourceChannels: number;
+  sourceBitRate: number;
+  sourceCodec?: string;
+  decodeFormat?: string;
+  replayGainDb?: number;
+  directStatus: "off" | "pending" | "verified" | "unavailable" | "interrupted";
+  directReason?: string;
+  verifiedFrames: number;
+  discontinuities: number;
   /** 当前生效的音频输出设备名称 */
   deviceName: string;
   /** 是否为独占模式输出 */

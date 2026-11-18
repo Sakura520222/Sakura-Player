@@ -1,20 +1,7 @@
-/** 本地播放支持的音频文件后缀（含点，小写） */
-export const SUPPORTED_AUDIO_EXTENSIONS = new Set([
-  ".mp3",
-  ".flac",
-  ".wav",
-  ".ogg",
-  ".oga",
-  ".m4a",
-  ".aac",
-  ".opus",
-  ".wma",
-  ".ape",
-  ".alac",
-  ".dsf",
-  ".dff",
-  ".m4b",
-]);
+import audioFormats from "./audioFormats.json";
+
+/** 文件入口与原生扫描器共用的音频后缀 */
+export const SUPPORTED_AUDIO_EXTENSIONS = new Set(audioFormats.map((format) => `.${format}`));
 
 /**
  * 判断文件路径是否为支持的音频格式

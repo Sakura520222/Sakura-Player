@@ -40,3 +40,39 @@ describe("parseCueSheet", () => {
     assert.equal(toCueTrackPath("D:/a/b.cue", 7), "cue://D:/a/b.cue#track=07");
   });
 });
+
+describe("多文件和内嵌 CUE", () => {
+  const sheet = [
+    'TITLE "完整专辑"',
+    'PERFORMER "专辑歌手"',
+    'FILE "first.flac" WAVE',
+    "  TRACK 01 AUDIO",
+    "    TITLE 分隔 字符",
+    "    INDEX 01 00:00:01",
+    'FILE "second.flac" WAVE',
+    "  TRACK 02 AUDIO",
+    "    INDEX 01 00:00:00",
+    "  TRACK 03 MODE1/2352",
+    "    INDEX 01 00:08:00",
+  ].join("\n");
+
+  it("依照各文件时长截断，只创建音频轨", () => {
+    const cue = path.resolve("album.cue");
+    const tracks = parseCueSheet(sheet, cue, (file) =>
+      file.endsWith("first.flac") ? 12345 : 24000,
+    );
+    assert.equal(tracks.length, 2);
+    assert.equal(tracks[0].title, "分隔 字符");
+    assert.equal(tracks[0].cueStartMs, 1000 / 75);
+    assert.equal(tracks[0].cueEndMs, 12345);
+    assert.equal(tracks[1].cueEndMs, 8000);
+    assert.equal(tracks[1].path, toCueTrackPath(cue, 2));
+  });
+
+  it("内嵌 CUE 始终使用所在的实体文件", () => {
+    const source = path.resolve("container.flac");
+    const tracks = parseCueSheet(sheet.split('FILE "second.flac"')[0], source, 12345, true);
+    assert.equal(tracks[0].cueAudioPath, source);
+    assert.equal(tracks[0].path, toCueTrackPath(source, 1));
+  });
+});

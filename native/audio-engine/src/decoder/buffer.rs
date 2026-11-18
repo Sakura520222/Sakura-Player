@@ -15,8 +15,6 @@ pub struct AudioChunk {
     pub stem_samples: Option<Box<[Vec<f32>; 3]>>,
     /// 交错排列的 f32 播放样本（L R L R ...）
     pub player_samples: Vec<f32>,
-    /// 交错排列的 f32 FFT 样本（L R L R ...）
-    pub fft_samples: Vec<f32>,
     /// tempo 处理前的源样本数，用于保持变速时播放位置准确
     pub source_sample_count: u64,
 }
@@ -24,8 +22,34 @@ pub struct AudioChunk {
 /// 非阻塞弹出缓冲区的结果
 pub enum PopResult {
     Chunk(AudioChunk),
+    Integer(Vec<i32>),
     Pending,
     Finished,
+}
+
+/// 现有输出队列的两种采样表示，普通播放仍沿用 f32
+enum OutputBlock {
+    Processed(AudioChunk),
+    Integer(Vec<i32>),
+}
+
+impl OutputBlock {
+    /// 获取包含所有声道的有效样本数
+    fn len(&self) -> usize {
+        match self {
+            Self::Processed(chunk) => chunk.player_samples.len(),
+            Self::Integer(samples) => samples.len(),
+        }
+    }
+}
+
+/// 独占直通会话的有界缓冲和 PCM 提交统计
+struct DirectOutput {
+    bits: u32,
+    pool: ArrayQueue<Vec<i32>>,
+    verified_samples: AtomicU64,
+    discontinuities: AtomicU64,
+    invalid: AtomicBool,
 }
 
 /// 解码线程与播放迭代器之间的共享状态
@@ -35,13 +59,13 @@ pub struct Shared {
     decoded_capacity: AtomicUsize,
     preloading: AtomicBool,
     decoded_condvar: Condvar,
-    output_buffer: ArrayQueue<AudioChunk>,
+    output_buffer: ArrayQueue<OutputBlock>,
+    direct: Option<DirectOutput>,
     output_wait: Mutex<()>,
     output_samples: AtomicU64,
     underruns: AtomicU64,
     output_condvar: Condvar,
     player_buffer_pool: ArrayQueue<Vec<f32>>,
-    fft_buffer_pool: ArrayQueue<Vec<f32>>,
     decode_eof: AtomicBool,
     output_eof: AtomicBool,
     is_stopping: AtomicBool,
@@ -57,7 +81,7 @@ pub struct Shared {
     all_consumed: AtomicBool,
     /// 解码线程因读取失败（网络中断 / URL 失效）中止，区别于正常 EOF
     decode_failed: AtomicBool,
-    /// 音量归一化增益因子（线性值，1.0 = 无增益）
+    /// 标签的线性增益，NaN 代表没有 ReplayGain 标签
     /// 使用 AtomicU32 + f32::to_bits/from_bits 实现原子 f32
     normalization_gain: AtomicU32,
     /// 音量归一化开关
@@ -95,6 +119,14 @@ impl Shared {
     /// @param channels - 输出声道数
     /// @returns 可在解码、处理与输出线程共享的会话
     pub fn new(sample_rate: u32, channels: u16) -> Arc<Self> {
+        Self::with_integer_bits(sample_rate, channels, None)
+    }
+
+    /// 为实际开流格式创建缓冲，并按需启用整数直通
+    /// @param sample_rate - 输出采样率
+    /// @param channels - 输出声道
+    /// @param bits - 可原样送出的源有效位深
+    pub fn with_integer_bits(sample_rate: u32, channels: u16, bits: Option<u32>) -> Arc<Self> {
         assert!(
             sample_rate > 0 && channels > 0,
             "sample_rate/channels 必须为正"
@@ -106,12 +138,18 @@ impl Shared {
             preloading: AtomicBool::new(false),
             decoded_condvar: Condvar::new(),
             output_buffer: ArrayQueue::new(OUTPUT_BUFFER_CAPACITY),
+            direct: bits.map(|bits| DirectOutput {
+                bits,
+                pool: ArrayQueue::new(OUTPUT_BUFFER_CAPACITY + 2),
+                verified_samples: AtomicU64::new(0),
+                discontinuities: AtomicU64::new(0),
+                invalid: AtomicBool::new(false),
+            }),
             output_wait: Mutex::new(()),
             output_samples: AtomicU64::new(0),
             underruns: AtomicU64::new(0),
             output_condvar: Condvar::new(),
             player_buffer_pool: ArrayQueue::new(BUFFER_POOL_CAPACITY),
-            fft_buffer_pool: ArrayQueue::new(BUFFER_POOL_CAPACITY),
             decode_eof: AtomicBool::new(false),
             output_eof: AtomicBool::new(false),
             is_stopping: AtomicBool::new(false),
@@ -121,9 +159,64 @@ impl Shared {
             channels,
             all_consumed: AtomicBool::new(false),
             decode_failed: AtomicBool::new(false),
-            normalization_gain: AtomicU32::new(1.0_f32.to_bits()),
+            normalization_gain: AtomicU32::new(f32::NAN.to_bits()),
             normalization_enabled: AtomicBool::new(false),
             cancel_handle: Mutex::new(None),
+        })
+    }
+
+    /// 获取本次输出保留的整数有效位数
+    pub fn integer_bits(&self) -> Option<u32> {
+        self.direct.as_ref().map(|direct| direct.bits)
+    }
+
+    /// 复用直通解码缓冲
+    pub fn take_integer_buffer(&self) -> Vec<i32> {
+        self.direct
+            .as_ref()
+            .and_then(|direct| direct.pool.pop())
+            .unwrap_or_default()
+    }
+
+    /// 在设备回调中无锁归还已消费的帧
+    /// @param samples - 已使用的整数样本缓冲
+    pub fn recycle_integer_buffer(&self, mut samples: Vec<i32>) {
+        if !samples.is_empty() {
+            samples.clear();
+            if let Some(direct) = &self.direct {
+                let _ = direct.pool.push(samples);
+            }
+        }
+    }
+
+    /// 发布实际通过设备提交的数据样本数
+    /// @param samples - 当前缓冲通过逐样本核对的非填充样本数
+    #[cfg(target_os = "windows")]
+    pub fn report_verified_samples(&self, samples: u64) {
+        if samples > 0 {
+            if let Some(direct) = &self.direct {
+                direct
+                    .verified_samples
+                    .fetch_add(samples, Ordering::Relaxed);
+            }
+        }
+    }
+
+    /// 标记本次会话无法保持连续的逐位输出
+    pub fn mark_pcm_invalid(&self) {
+        if let Some(direct) = &self.direct {
+            direct.invalid.store(true, Ordering::Release);
+        }
+    }
+
+    /// 返回提交帧数、欠载次数及校验失败状态
+    pub fn pcm_verification(&self) -> Option<(u64, u64, bool)> {
+        self.direct.as_ref().map(|direct| {
+            (
+                direct.verified_samples.load(Ordering::Relaxed) / u64::from(self.channels),
+                direct.discontinuities.load(Ordering::Relaxed),
+                direct.invalid.load(Ordering::Acquire),
+            )
         })
     }
 
@@ -145,10 +238,11 @@ impl Shared {
         *self.cancel_handle.lock() = Some(cancel_handle);
     }
 
-    /// 设置归一化增益因子（线性值）
-    pub fn set_normalization_gain(&self, gain: f32) {
+    /// 保存标签增益，保留 0 dB 与缺少标签的区别
+    /// @param gain - 来自标签的线性增益
+    pub fn set_normalization_gain(&self, gain: Option<f32>) {
         self.normalization_gain
-            .store(gain.to_bits(), Ordering::Relaxed);
+            .store(gain.unwrap_or(f32::NAN).to_bits(), Ordering::Relaxed);
     }
 
     /// 输出采样率
@@ -172,8 +266,9 @@ impl Shared {
     }
 
     /// 获取原始增益值（不考虑开关）
-    pub fn normalization_gain(&self) -> f32 {
-        f32::from_bits(self.normalization_gain.load(Ordering::Relaxed))
+    pub fn normalization_gain(&self) -> Option<f32> {
+        let gain = f32::from_bits(self.normalization_gain.load(Ordering::Relaxed));
+        gain.is_finite().then_some(gain)
     }
 
     /// 获取可复用的播放样本缓冲
@@ -185,17 +280,6 @@ impl Shared {
     pub fn recycle_player_buffer(&self, mut buffer: Vec<f32>) {
         buffer.clear();
         let _ = self.player_buffer_pool.push(buffer);
-    }
-
-    /// 获取可复用的 FFT 样本缓冲
-    pub fn take_fft_buffer(&self) -> Vec<f32> {
-        self.fft_buffer_pool.pop().unwrap_or_default()
-    }
-
-    /// 归还 FFT 样本缓冲；池满时直接释放以保持内存有界
-    pub fn recycle_fft_buffer(&self, mut buffer: Vec<f32>) {
-        buffer.clear();
-        let _ = self.fft_buffer_pool.push(buffer);
     }
 
     /// 批量累加已消费的采样数（由 DecoderSource 按 chunk 调用）
@@ -307,9 +391,21 @@ impl Shared {
 
     /// 按输出时长背压，最多超出一个解码块
     pub fn push_output(&self, chunk: AudioChunk) {
+        self.push_block(OutputBlock::Processed(chunk));
+    }
+
+    /// 将未经 DSP 的整数采样直接交给设备缓冲
+    /// @param samples - 左对齐交错整数 PCM
+    pub fn push_integer(&self, samples: Vec<i32>) {
+        self.push_block(OutputBlock::Integer(samples));
+    }
+
+    /// 按输出时长对两种采样块施加相同背压
+    /// @param chunk - 待发布的 PCM 块
+    fn push_block(&self, chunk: OutputBlock) {
         let limit =
             u64::from(self.sample_rate) * u64::from(self.channels) * OUTPUT_BUFFER_MS / 1000;
-        let samples = chunk.player_samples.len() as u64;
+        let samples = chunk.len() as u64;
         let mut pending = chunk;
         let mut wait = self.output_wait.lock();
         loop {
@@ -339,6 +435,9 @@ impl Shared {
     /// 回调只累加计数，由低频状态线程记录欠载
     pub fn record_underrun(&self) {
         self.underruns.fetch_add(1, Ordering::Relaxed);
+        if let Some(direct) = &self.direct {
+            direct.discontinuities.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
     pub fn take_underruns(&self) -> u64 {
@@ -360,9 +459,12 @@ impl Shared {
             self.output_eof.load(Ordering::Acquire) || self.is_stopping.load(Ordering::Acquire);
         if let Some(chunk) = self.output_buffer.pop() {
             self.output_samples
-                .fetch_sub(chunk.player_samples.len() as u64, Ordering::AcqRel);
+                .fetch_sub(chunk.len() as u64, Ordering::AcqRel);
             self.output_condvar.notify_one();
-            return PopResult::Chunk(chunk);
+            return match chunk {
+                OutputBlock::Processed(chunk) => PopResult::Chunk(chunk),
+                OutputBlock::Integer(samples) => PopResult::Integer(samples),
+            };
         }
         if finished {
             PopResult::Finished
@@ -410,11 +512,15 @@ impl Shared {
         drop(decoded);
         for chunk in decoded_chunks {
             self.recycle_player_buffer(chunk.player_samples);
-            self.recycle_fft_buffer(chunk.fft_samples);
         }
-        while let PopResult::Chunk(chunk) = self.try_pop() {
-            self.recycle_player_buffer(chunk.player_samples);
-            self.recycle_fft_buffer(chunk.fft_samples);
+        loop {
+            match self.try_pop() {
+                PopResult::Chunk(chunk) => {
+                    self.recycle_player_buffer(chunk.player_samples);
+                }
+                PopResult::Integer(samples) => self.recycle_integer_buffer(samples),
+                PopResult::Pending | PopResult::Finished => break,
+            }
         }
     }
 }

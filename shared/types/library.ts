@@ -1,4 +1,5 @@
 import type { IpcResponse, Track } from "./player";
+import type { LocalAudioInfo, AudioSpectrum } from "./audioQuality";
 import type { TrackTags, TagEditRequest, TagWriteOutcome } from "./tagEditor";
 
 /** 专辑聚合项 */
@@ -39,6 +40,16 @@ export interface ScanProgress {
 
 /** 音乐库 API */
 export interface LibraryApi {
+  /** 查看实体音频文件的容器、编码和章节 */
+  inspectAudio: (path: string) => Promise<IpcResponse<LocalAudioInfo>>;
+  /** 在指定的毫秒区间计算有限时长的源频谱 */
+  analyzeSpectrum: (
+    path: string,
+    startMs: number,
+    endMs?: number,
+    id?: string,
+  ) => Promise<IpcResponse<AudioSpectrum>>;
+  cancelSpectrum: (id: string) => Promise<void>;
   /** 按本地曲目 ID 读取专辑大封面，不改变播放状态 */
   getAlbumCover: (trackId: string) => Promise<IpcResponse<string | null>>;
   /**

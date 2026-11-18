@@ -7,6 +7,7 @@ fn exclusive_format_describes_all_eight_channels() {
         channels: 8,
         container_bits: 32,
         valid_bits: 24,
+        basic_pcm: false,
     });
     let mask = wave.dwChannelMask;
     let size = wave.Format.cbSize;

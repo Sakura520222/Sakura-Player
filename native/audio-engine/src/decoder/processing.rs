@@ -140,7 +140,6 @@ fn run_dsp_loop(shared: &Shared, equalizer: &Mutex<Equalizer>, tempo: &Mutex<Str
                 normalization_gain: 1.0,
                 stem_samples,
                 player_samples: std::mem::take(&mut state.scratch),
-                fft_samples: Vec::new(),
                 source_sample_count,
             });
         }

@@ -2,9 +2,12 @@ import { ipcMain, dialog } from "electron";
 import { encodeLyricStorage, decodeLyricStorage } from "@main/services/lyricStorage";
 import { validateTtmlDocument } from "@main/services/lyricDocument";
 import fs from "node:fs/promises";
+import { isAbsolute } from "node:path";
+import { isAudioFile } from "@shared/utils/audioFile";
 import { store } from "@main/store";
 import {
   getAllTracks,
+  getDb,
   searchTracks,
   quickSearchLibrary,
   getTrackCount,
@@ -15,9 +18,11 @@ import {
   getAlbumTracks,
   getArtistTracks,
   getTracksByIds,
+  getTracksByPaths,
   getRandomTrack,
   getRandomTracks,
   upsertTracks,
+  refreshCueContainers,
 } from "@main/database";
 import { startScan, cancelScan, isScanning, scannedToUpsert } from "@main/services/scanner";
 import { getEngine } from "@main/services/engine";
@@ -29,8 +34,61 @@ import { ErrorCode } from "@shared/types/errors";
 import type { JsTagWriteRequest } from "@splayer/audio-engine";
 import type { TagEditRequest, TagWriteOutcome } from "@shared/types/tagEditor";
 
+/**
+ * 防止分析入口打开设备、网络地址或未识别的文件
+ * @param path - 请求分析的本地音频路径
+ */
+const assertAudioFile = async (path: string): Promise<void> => {
+  if (
+    typeof path !== "string" ||
+    !isAbsolute(path) ||
+    !isAudioFile(path) ||
+    !(await fs.stat(path)).isFile()
+  ) {
+    throw new Error("无法读取本地音频文件");
+  }
+};
+
 /** 注册音乐库相关 IPC */
 export const registerLibraryIpc = (): void => {
+  const activeSpectrumRequests = new Map<number, string>();
+  ipcMain.handle("library:inspectAudio", async (_event, path: string) => {
+    try {
+      await assertAudioFile(path);
+      return { success: true, data: await getEngine().inspectAudioFile(path) };
+    } catch (error) {
+      libraryLog.warn("读取音频详情失败", error);
+      return { success: false, error: ErrorCode.TAG_READ_FAILED };
+    }
+  });
+  ipcMain.handle("library:cancelSpectrum", (event, id: string) => {
+    const sender = event.sender.id;
+    if (activeSpectrumRequests.get(sender) === id) {
+      activeSpectrumRequests.delete(sender);
+      getEngine().cancelAudioSpectrum(id);
+    }
+  });
+  ipcMain.handle(
+    "library:analyzeSpectrum",
+    async (event, path: string, startMs: number, endMs?: number, id?: string) => {
+      const sender = event.sender.id;
+      if (id) activeSpectrumRequests.set(sender, id);
+      try {
+        await assertAudioFile(path);
+        if (id && activeSpectrumRequests.get(sender) !== id) return { success: false };
+        return {
+          success: true,
+          data: await getEngine().analyzeAudioSpectrum(path, startMs, endMs, id),
+        };
+      } catch (error) {
+        if (id && activeSpectrumRequests.get(sender) !== id) return { success: false };
+        libraryLog.warn("分析音频频谱失败", error);
+        return { success: false, error: ErrorCode.FILE_DECODE_ERROR };
+      } finally {
+        if (id && activeSpectrumRequests.get(sender) === id) activeSpectrumRequests.delete(sender);
+      }
+    },
+  );
   ipcMain.handle("library:getAlbumCover", async (_event, trackId: string) => {
     try {
       const track = getTracksByIds([trackId])[0];
@@ -293,7 +351,7 @@ export const registerLibraryIpc = (): void => {
           cover = (await fetchBytes(coverUrl, { requireImage: true })) ?? undefined;
           if (!cover) libraryLog.warn(`封面下载失败，跳过封面只写文本: ${coverUrl}`);
         }
-        if (cover) replacedCovers.add(edit.path);
+        if (cover || edit.removeCover) replacedCovers.add(edit.path);
         requests.push({
           ...fields,
           lyricData: storedLyric,
@@ -311,9 +369,14 @@ export const registerLibraryIpc = (): void => {
           }
           return upsert;
         });
-      if (upserts.length > 0) upsertTracks(upserts);
+      if (upserts.length > 0) {
+        getDb().transaction(() => {
+          upsertTracks(upserts);
+          refreshCueContainers(upserts);
+        })();
+      }
 
-      const tracks = getTracksByIds(upserts.map((u) => u.id));
+      const tracks = getTracksByPaths(upserts.map((u) => u.path));
       const byPath = new Map(tracks.map((t) => [t.path, t]));
       const data: TagWriteOutcome[] = results.map((r) => ({
         path: r.path,

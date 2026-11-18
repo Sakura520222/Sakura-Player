@@ -1,4 +1,22 @@
 use super::*;
+
+#[test]
+fn cue_restart_and_output_recovery_keep_the_original_track_bounds() {
+    let mut player = InnerPlayer::new().unwrap();
+    player.playback_start = 120.0;
+    player.playback_end = Some(190.0);
+    player.seek_base = 155.0;
+
+    let restart = player.playback_range(None);
+    assert_eq!(restart.start, 120.0);
+    assert_eq!(restart.end, Some(190.0));
+
+    let resume = player.playback_range(Some(player.position()));
+    assert_eq!(resume.start, 155.0);
+    assert_eq!(resume.cue_start, Some(120.0));
+    assert_eq!(player.playback_range(Some(2.0)).start, 120.0);
+    assert_eq!(player.playback_range(Some(230.0)).start, 190.0);
+}
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[test]

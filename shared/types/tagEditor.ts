@@ -1,8 +1,10 @@
-import type { Track } from "./player";
+import type { LocalTrackTags, Track } from "./player";
 import type { LyricStorageData } from "./lyrics";
 
 /** 本地文件可编辑标签 */
-export interface TrackTags {
+export interface TrackTags extends LocalTrackTags {
+  writable: boolean;
+  revision?: string;
   title?: string;
   artist?: string;
   album?: string;
@@ -19,7 +21,9 @@ export interface TrackTags {
 }
 
 /** 单曲标签编辑请求（undefined = 不修改；文本空串 / 数字 0 = 清除） */
-export interface TagEditRequest {
+export interface TagEditRequest extends Partial<LocalTrackTags> {
+  expectedRevision?: string;
+  removeCover?: boolean;
   path: string;
   title?: string;
   artist?: string;

@@ -37,7 +37,7 @@ export interface EqualizerSettings {
 }
 
 /** 音频输出模式 */
-export type AudioOutputMode = "shared" | "exclusive";
+export type AudioOutputMode = "shared" | "exclusive" | "bit-perfect";
 
 /** 播放器配置 */
 export interface PlayerSettings {

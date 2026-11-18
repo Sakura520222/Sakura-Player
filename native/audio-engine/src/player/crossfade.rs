@@ -33,6 +33,8 @@ pub struct AutoMixSettings {
 /// 已交给输出回调、等待音频边界完成的备用槽位
 pub struct ArmedTransition {
     pub ready: PreparedPlayback,
+    playback_start: f64,
+    end_position: Option<f64>,
     pub started: Arc<AtomicBool>,
     pub completed: Arc<AtomicBool>,
     pub decision: Arc<AtomicU8>,
@@ -70,6 +72,7 @@ impl InnerPlayer {
     /// @param next_end_seconds - 下一曲 CUE 结束位置
     /// @param current_end_seconds - 当前曲 CUE 结束位置
     /// @param automix - 已分析的自动混音参数
+    /// @param next_start_seconds - 下一曲的原始 CUE 起点，可能早于混音入场位置
     /// @returns 已提交的过渡资源，状态不适用时为空
     #[allow(clippy::too_many_arguments)]
     pub fn arm_prepared_transition(
@@ -81,8 +84,13 @@ impl InnerPlayer {
         next_end_seconds: Option<f64>,
         current_end_seconds: Option<f64>,
         automix: Option<AutoMixSettings>,
+        next_start_seconds: Option<f64>,
     ) -> Result<Option<ArmedTransition>> {
-        if self.state != PlayerState::Playing || self.transitioning.load(Ordering::Acquire) {
+        if self.state != PlayerState::Playing
+            || self.direct_requested
+            || self.is_direct_playback()
+            || self.transitioning.load(Ordering::Acquire)
+        {
             return Ok(None);
         }
         if automix.is_some() && ((self.speed() - 1.0).abs() >= 0.0001 || self.pitch() != 0) {
@@ -103,6 +111,14 @@ impl InnerPlayer {
         let Some(ready) = self.take_prepared(Some(id), source) else {
             return Ok(None);
         };
+        let playback_start =
+            next_end_seconds.map_or(0.0, |_| next_start_seconds.unwrap_or(ready.start_position));
+        if !playback_start.is_finite()
+            || playback_start < 0.0
+            || playback_start > ready.start_position
+        {
+            return Ok(None);
+        }
         ensure!(ready.shared.output_ready(), "下一曲尚未准备好音频样本");
         let next_end = next_end_seconds
             .unwrap_or(ready.metadata.duration_secs)
@@ -206,6 +222,8 @@ impl InnerPlayer {
         });
         Ok(Some(ArmedTransition {
             ready,
+            playback_start,
+            end_position: next_end_seconds.map(|_| next_end),
             started: signals.started,
             completed: signals.completed,
             decision: signals.decision,
@@ -262,10 +280,11 @@ impl InnerPlayer {
             Arc::clone(&transition.ready.tempo),
         );
         self.seek_base = transition.ready.start_position;
+        self.playback_start = transition.playback_start;
+        self.playback_end = transition.end_position;
         self.current_source = Some(transition.ready.source.clone());
         self.audio_duration = transition.ready.metadata.duration_secs;
-        self.original_sample_rate = transition.ready.metadata.original_sample_rate;
-        self.original_bits = transition.ready.metadata.bits_per_sample;
+        self.update_source_spec(&transition.ready.metadata);
         self.cover_raw = transition.ready.metadata.cover_raw.take();
         self.playback.as_ref()?.drain_retired();
         self.transitioning.store(false, Ordering::Release);

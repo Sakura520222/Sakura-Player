@@ -24,6 +24,50 @@ pub struct JsTrackTags {
     pub lyric_data: Option<String>,
     /// 是否有内嵌封面
     pub has_cover: bool,
+    pub artists: Vec<String>,
+    pub album_artists: Vec<String>,
+    pub genres: Vec<String>,
+    pub composers: Vec<String>,
+    pub date: Option<String>,
+    pub comment: Option<String>,
+    pub track_total: Option<u32>,
+    pub disc_total: Option<u32>,
+    pub writable: bool,
+    pub revision: Option<String>,
+}
+
+/// 随曲库存储的小型结构化标签字段
+#[napi(object)]
+pub struct JsLocalTagSummary {
+    pub artists: Vec<String>,
+    pub album_artists: Vec<String>,
+    pub genres: Vec<String>,
+    pub composers: Vec<String>,
+    pub date: Option<String>,
+    pub comment: Option<String>,
+    pub track_total: Option<u32>,
+    pub disc_total: Option<u32>,
+    pub disc_number: Option<u32>,
+    pub year: Option<u32>,
+}
+
+impl From<metadata::TrackTags> for JsLocalTagSummary {
+    /// 从规范化快照中取出轻量元数据
+    /// @param tags - 文件标签快照
+    fn from(tags: metadata::TrackTags) -> Self {
+        Self {
+            artists: tags.artists,
+            album_artists: tags.album_artists,
+            genres: tags.genres,
+            composers: tags.composers,
+            date: tags.date,
+            comment: tags.comment,
+            track_total: tags.track_total,
+            disc_total: tags.disc_total,
+            disc_number: tags.disc_number,
+            year: tags.year,
+        }
+    }
 }
 
 /// 单文件标签写入请求。字段为 undefined/null 表示不修改；
@@ -43,6 +87,16 @@ pub struct JsTagWriteRequest {
     pub lyric_data: Option<String>,
     /// 新封面图片数据（jpg/png），undefined 表示保留现有封面
     pub cover: Option<Buffer>,
+    pub artists: Option<Vec<String>>,
+    pub album_artists: Option<Vec<String>>,
+    pub genres: Option<Vec<String>>,
+    pub composers: Option<Vec<String>>,
+    pub date: Option<String>,
+    pub comment: Option<String>,
+    pub track_total: Option<u32>,
+    pub disc_total: Option<u32>,
+    pub remove_cover: Option<bool>,
+    pub expected_revision: Option<String>,
 }
 
 /// 单文件写入结果
@@ -99,6 +153,16 @@ pub async fn read_track_tags(path: String) -> Result<JsTrackTags> {
         lyrics: tags.lyrics,
         lyric_data: tags.lyric_data,
         has_cover: tags.has_cover,
+        artists: tags.artists,
+        album_artists: tags.album_artists,
+        genres: tags.genres,
+        composers: tags.composers,
+        date: tags.date,
+        comment: tags.comment,
+        track_total: tags.track_total,
+        disc_total: tags.disc_total,
+        writable: tags.writable,
+        revision: tags.revision,
     })
 }
 
@@ -136,6 +200,16 @@ pub async fn write_track_tags(
             lyrics: request.lyrics,
             lyric_data: request.lyric_data,
             cover: request.cover.map(|buffer| buffer.to_vec()),
+            artists: request.artists,
+            album_artists: request.album_artists,
+            genres: request.genres,
+            composers: request.composers,
+            date: request.date,
+            comment: request.comment,
+            track_total: request.track_total,
+            disc_total: request.disc_total,
+            remove_cover: request.remove_cover.unwrap_or(false),
+            expected_revision: request.expected_revision,
         })
         .collect();
 
@@ -153,7 +227,7 @@ pub async fn write_track_tags(
                     };
                 }
                 // 封面已替换：删除旧缩略图，probe 时按新封面重新生成
-                if request.cover.is_some() {
+                if request.cover.is_some() || request.remove_cover {
                     if let Some(ref dir) = cover_cache_dir {
                         let _ =
                             std::fs::remove_file(metadata::cover_thumb_path(&request.path, dir));

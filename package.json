@@ -41,6 +41,7 @@
     "test:release": "node --test \".github/scripts/*.test.cjs\"",
     "test:web:watch": "vitest --config vitest.config.ts",
     "test:native": "cargo test --workspace",
+    "test:local-audio": "node --test native/audio-engine/tests/local-audio.cjs",
     "test:alignment": "cargo test --locked -p lyric-alignment && vitest run --config vitest.config.ts electron/main/services/lyricAlignment src/services/lyric/localAlignment.spec.ts src/services/lyric/localTranslationAlignment.spec.ts src/composables/useLocalLyricAlignment.spec.ts",
     "benchmark:alignment": "tsx scripts/benchmark-lyric-alignment.ts",
     "test:all": "pnpm test && pnpm test:native",

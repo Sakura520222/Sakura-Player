@@ -777,7 +777,7 @@
     }
   },
   "quality": {
-    "outputInfo": "Output Information",
+    "outputInfo": "Audio quality and output",
     "outputSection": "Output Information",
     "outputMode": "Output Mode",
     "dspSection": "Audio Processing",
@@ -792,7 +792,58 @@
     "multiChannel": "Multi-channel",
     "tempoPitch": "Speed & Pitch",
     "limiter": "Output Limiter",
-    "resampling": "Resampling"
+    "resampling": "Resampling",
+    "sourceSection": "Source file",
+    "validBitDepth": "Valid bit depth",
+    "container": "Container",
+    "channelLayout": "Channel layout",
+    "containerBitRate": "Container bitrate",
+    "decoderSection": "Decoded PCM",
+    "sampleFormat": "Sample format",
+    "appliedGain": "Replay gain in use",
+    "backend": "Audio backend",
+    "noOutput": "No open stream",
+    "containerBits": "Container width",
+    "outputPrecision": "Stream sample format",
+    "softwareVolume": "Player volume",
+    "bypassed": "Bypassed",
+    "hardwareFormat": "Actual hardware format",
+    "hardwareUnknown": "Unavailable from the device",
+    "inspecting": "Reading audio file…",
+    "inspectError": "Some source parameters could not be read",
+    "spectrum": "Source spectrum",
+    "analyze": "Analyze spectrum",
+    "analyzeAgain": "Analyze again",
+    "analysisError": "Could not analyze this file. Check the file and try again.",
+    "partialSpectrum": "Some sections could not be read. The spectrum uses the audio that could be decoded.",
+    "spectrumChart": "Source spectrum relative to the strongest frequency band",
+    "suspectCutoff": "Consistent high-frequency cutoff near {frequency}. Possible lossy transcoding or filtering.",
+    "insufficientSpectrum": "Too little usable audio to assess the cutoff",
+    "noCutoffEvidence": "No consistent high-frequency cutoff in the sampled audio",
+    "analyzedDuration": "Sampled {seconds}",
+    "observedBits": "Up to {bits} bits of integer precision observed",
+    "chapters": "Chapters",
+    "chapterNumber": "Chapter {number}",
+    "trackGain": "Track gain",
+    "albumGain": "Album gain",
+    "trackPeak": "Track peak",
+    "albumPeak": "Album peak",
+    "r128Track": "R128 track gain",
+    "r128Album": "R128 album gain",
+    "verifiedFrames": "{count} PCM frames checked sample by sample and submitted to WASAPI",
+    "underruns": "Buffer underruns {count}",
+    "direct": {
+      "pending": "Bit-perfect output awaiting PCM",
+      "verified": "Bit-perfect PCM verified to WASAPI",
+      "interrupted": "Bit-perfect verification interrupted",
+      "unavailable": "Bit-perfect output unavailable"
+    },
+    "directReason": {
+      "sourceUnsupported": "Direct output supports local mono or stereo lossless integer PCM. Regular playback is active.",
+      "formatMismatch": "The device cannot use the source rate, channels, or precision. Playback is using a supported format.",
+      "endpointUnavailable": "A compatible exclusive stream could not be opened. Regular playback is active.",
+      "platformUnsupported": "Verified exclusive output is unavailable on this platform"
+    }
   },
   "playlist": {
     "title": "Playlist",
@@ -1171,7 +1222,8 @@
         "deviceBusy": "The device could not be opened exclusively and has fallen back to shared mode",
         "formatUnsupported": "The device does not support the required exclusive-mode format, falling back to shared mode",
         "unavailable": "Exclusive mode is currently unavailable, falling back to shared mode"
-      }
+      },
+      "direct": "WASAPI exclusive direct"
     },
     "pauseOnDeviceSwitch": {
       "label": "Pause on Device Switch",
@@ -1361,7 +1413,7 @@
       "kugouLoginVersionTitle": "Switch KG Login Version",
       "kugouLoginVersionContent": "After switching, the current credentials will not match the new version. You must log out and scan the QR code again, or VIP privileges and high-quality playback will stop working. Switch anyway?",
       "exclusiveModeTitle": "Switch to Exclusive Mode",
-      "exclusiveModeContent": "Exclusive mode bypasses the system mixer and prefers the source sample rate and bit depth, making it suitable for external DACs / Hi-Fi gear. Player volume, EQ and other processing still apply, so bit-perfect output is not guaranteed. Other apps may be unable to play audio while exclusive. If exclusive mode is unavailable, shared mode will be attempted; it may also fail if another app holds the device exclusively. Switch anyway?",
+      "exclusiveModeContent": "Exclusive mode takes control of the selected device. Direct output bypasses player volume and audio effects. Set the device volume first.",
       "preloadCacheTitle": "Enable the caches required for preloading?",
       "preloadCacheContent": "Preloading requires caching the next track's audio. Continuing will enable both song caching and streaming caching, which may increase network traffic and disk usage",
       "disableSongCacheTitle": "Disable Song Cache?",
@@ -2719,8 +2771,19 @@
       "genre": "Genre",
       "trackNumber": "Track No.",
       "discNumber": "Disc No.",
-      "lyrics": "Embedded Lyrics"
-    }
+      "lyrics": "Embedded Lyrics",
+      "date": "Date",
+      "comment": "Comment",
+      "composers": "Composers",
+      "trackTotal": "Total tracks",
+      "discTotal": "Total discs"
+    },
+    "loading": "Reading file tags…",
+    "readOnly": "Tags for this file are read-only",
+    "readFailed": "Could not read the tags. Check the file and try again.",
+    "multiValueHint": "Enter one artist, album artist, genre, or composer per line",
+    "removeCover": "Remove embedded cover",
+    "undoRemoveCover": "Undo removal"
   },
   "songHighlight": {
     "sources": {

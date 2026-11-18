@@ -82,7 +82,7 @@ const applyConfigChange = (keyPath: string, value: unknown): void => {
     case "player.audioOutputMode":
       // 独占模式仅 Windows 引擎支持；切模式后重建输出立即生效
       if (isWin) {
-        setExclusiveMode(value === "exclusive");
+        setExclusiveMode(value === "exclusive" || value === "bit-perfect", value === "bit-perfect");
       }
       break;
     case "system.taskbarProgress":

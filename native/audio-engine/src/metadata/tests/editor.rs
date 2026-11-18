@@ -59,7 +59,7 @@ fn temp_paths_are_unique_for_concurrent_edits() {
 #[test]
 fn read_lyrics_from_custom_unsynced_lyrics_key() {
     let path = temp_wav("custom_unsynced_lyrics.wav");
-    let mut tagged = open_tagged(&path).unwrap();
+    let mut tagged = open_tagged(&path, true).unwrap();
     let tag_type = editing_tag_type(tagged.file_type());
 
     // 保证 tag 存在，WAV 空文件没有 ID3v2 标签段，需要先 insert
@@ -92,6 +92,7 @@ fn roundtrip_all_fields() {
         lyrics: Some("第一行歌词\n第二行歌词".into()),
         lyric_data: Some("完整原始轨道".into()),
         cover: None,
+        ..Default::default()
     };
     write_tags(&request).unwrap();
 
@@ -150,7 +151,7 @@ fn replacing_flac_lyrics_removes_stale_alternate_field() {
     file.extend_from_slice(&stream_info);
     std::fs::write(&path, file).unwrap();
 
-    let mut tagged = open_tagged(&path).unwrap();
+    let mut tagged = open_tagged(&path, true).unwrap();
     let mut tag = Tag::new(TagType::VorbisComments);
     tag.insert_text(ItemKey::Lyrics, "旧同步歌词".into());
     tag.insert_text(ItemKey::UnsyncLyrics, "旧非同步歌词".into());
@@ -195,7 +196,7 @@ fn replacing_flac_lyrics_removes_stale_alternate_field() {
         ..Default::default()
     };
     write_tags(&request).unwrap();
-    let tagged = open_tagged(&path).unwrap();
+    let tagged = open_tagged(&path, true).unwrap();
     let tag = tagged.tag(TagType::VorbisComments).unwrap();
     let native = lofty::flac::FlacFile::read_from(
         &mut std::fs::File::open(&path).unwrap(),
@@ -313,7 +314,7 @@ fn writing_year_replaces_legacy_year_key() {
     write_tags(&init).unwrap();
 
     // 模拟原文件带旧 Year 标签（如 ID3v2.3 TYER）
-    let mut tagged = open_tagged(&path).unwrap();
+    let mut tagged = open_tagged(&path, true).unwrap();
     let tag_type = editing_tag_type(tagged.file_type());
     let tag = tagged.tag_mut(tag_type).unwrap();
     tag.insert_text(ItemKey::Year, "1990".into());
@@ -393,6 +394,43 @@ fn cover_replace_sets_picture() {
     let tagged = lofty::read_from_path(&request.path).unwrap();
     let picture_count: usize = tagged.tags().iter().map(|t| t.pictures().len()).sum();
     assert_eq!(picture_count, 1);
+}
+
+#[test]
+fn replacing_front_art_keeps_the_back_cover_and_prefers_the_new_front() {
+    let path = temp_wav("replace-front-retain-back.wav");
+    let png = |width| {
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(width, 2)
+            .write_to(&mut buffer, image::ImageFormat::Png)
+            .unwrap();
+        buffer.into_inner()
+    };
+    let mut tag = Tag::new(TagType::Id3v2);
+    let mut front = Picture::from_reader(&mut png(3).as_slice()).unwrap();
+    front.set_pic_type(PictureType::CoverFront);
+    let back_bytes = png(4);
+    let mut back = Picture::from_reader(&mut back_bytes.as_slice()).unwrap();
+    back.set_pic_type(PictureType::CoverBack);
+    tag.push_picture(front);
+    tag.push_picture(back);
+    tag.save_to_path(&path, WriteOptions::default()).unwrap();
+
+    let new_front = png(5);
+    write_tags(&TagWriteRequest {
+        path: path.to_string_lossy().into_owned(),
+        cover: Some(new_front.clone()),
+        ..Default::default()
+    })
+    .unwrap();
+
+    let tagged = open_tagged(&path, true).unwrap();
+    let pictures = tagged.tag(TagType::Id3v2).unwrap().pictures();
+    assert_eq!(pictures.len(), 2);
+    assert_eq!(pictures[0].pic_type(), PictureType::CoverFront);
+    assert_eq!(pictures[0].data(), new_front);
+    assert_eq!(pictures[1].pic_type(), PictureType::CoverBack);
+    assert_eq!(pictures[1].data(), back_bytes);
 }
 
 #[test]

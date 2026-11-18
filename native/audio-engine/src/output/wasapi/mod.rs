@@ -50,6 +50,7 @@ pub struct ExclusiveFormat {
     pub container_bits: u16,
     /// 有效位深（16 / 24 / 32）
     pub valid_bits: u16,
+    pub basic_pcm: bool,
 }
 
 /// 独占模式打开失败分类，调用方据此决定回退提示文案
@@ -334,10 +335,12 @@ fn prefill_buffer(
         let silent = stopped.load(Ordering::Acquire) || paused.load(Ordering::Acquire);
         let block_align = usize::from(format.channels * format.container_bits / 8);
         let byte_buffer = std::slice::from_raw_parts_mut(ptr, buffer_frames as usize * block_align);
-        fill_buffer(byte_buffer, source, &mut gain, target, silent, format);
+        let verified = fill_buffer(byte_buffer, source, &mut gain, target, silent, format);
         render
             .ReleaseBuffer(buffer_frames, 0)
-            .context("启动预填充提交失败")
+            .context("启动预填充提交失败")?;
+        source.report_verified_samples(verified?);
+        Ok(())
     }
 }
 
@@ -410,6 +413,7 @@ fn render_loop(
         }
         if wait.0 > WAIT_OBJECT_0.0 + 1 {
             warn!(code = wait.0, "独占模式等待周期事件失败");
+            source.mark_pcm_invalid();
             on_failure();
             break;
         }
@@ -429,6 +433,7 @@ fn render_loop(
             Ok(ptr) => ptr,
             Err(error) => {
                 warn!(error = %error, "独占模式获取渲染缓冲失败");
+                source.mark_pcm_invalid();
                 on_failure();
                 break;
             }
@@ -439,12 +444,22 @@ fn render_loop(
         let byte_buffer = unsafe {
             std::slice::from_raw_parts_mut(buffer_ptr, buffer_frames as usize * block_align)
         };
-        fill_buffer(byte_buffer, &mut source, &mut gain, target, silent, &format);
+        let verified = fill_buffer(byte_buffer, &mut source, &mut gain, target, silent, &format);
 
         if let Err(error) = unsafe { render.ReleaseBuffer(buffer_frames, 0) } {
             warn!(error = %error, "独占模式提交渲染缓冲失败");
+            source.mark_pcm_invalid();
             on_failure();
             break;
+        }
+        match verified {
+            Ok(samples) => source.report_verified_samples(samples),
+            Err(error) => {
+                warn!(%error, "设备缓冲 PCM 校验失败");
+                source.mark_pcm_invalid();
+                on_failure();
+                break;
+            }
         }
     }
 

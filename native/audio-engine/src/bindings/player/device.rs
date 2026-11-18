@@ -26,16 +26,20 @@ impl AudioPlayer {
         let (
             seek_take_opt,
             fallback_source,
-            position,
+            range,
             was_playing_fallback,
             output_generation,
             on_failure,
             device_id,
             exclusive_mode,
+            direct,
             on_fallback,
         ) = {
             let mut player = self.inner.lock();
-            let position = player.position();
+            if player.is_finished() {
+                return Ok(());
+            }
+            let range = player.playback_range(Some(player.position()));
             let is_playing = player.state() == PlayerState::Playing;
             let device_id = player.selected_device().map(String::from);
             let output_generation = player.reserve_output_generation();
@@ -47,15 +51,17 @@ impl AudioPlayer {
             (
                 seek_take,
                 fallback_source,
-                position,
+                range,
                 is_playing,
                 output_generation,
                 on_failure,
                 device_id,
                 exclusive_mode,
+                player.direct_request(None),
                 on_fallback,
             )
         };
+        let position = range.start;
 
         if let Some(take) = seek_take_opt {
             let SeekTake {
@@ -86,6 +92,11 @@ impl AudioPlayer {
                     output_generation,
                     on_failure,
                     exclusive_mode.then_some(&on_fallback),
+                    direct.with_source(|| {
+                        decoder_data
+                            .as_ref()
+                            .and_then(|decoder| decoder.integer_spec())
+                    }),
                 ) {
                     Ok(output) => output,
                     Err(error) => return ReinitOutcome::OutputFailed { error },
@@ -106,9 +117,7 @@ impl AudioPlayer {
                     Ok(prepared) => prepared,
                     Err(error) => return ReinitOutcome::OutputFailed { error },
                 };
-                if let Err(error) =
-                    decoder_data.reconfigure_player_output(output.sample_rate(), output.channels())
-                {
+                if let Err(error) = decoder_data.reconfigure_player_output(&shared) {
                     warn!(error = %error, "输出格式变化后重建重采样器失败");
                     return ReinitOutcome::Reload {
                         source: current_source,
@@ -169,7 +178,7 @@ impl AudioPlayer {
                     }
                     if let Some(src) = source {
                         let is_remote = src.starts_with("http://") || src.starts_with("https://");
-                        if let Err(e) = self.load(src, Some(was_playing), None).await {
+                        if let Err(e) = self.load(src, Some(was_playing), None, Some(range)).await {
                             if is_cancelled_napi_error(&e) {
                                 return Ok(());
                             }
@@ -179,9 +188,6 @@ impl AudioPlayer {
                                 return Ok(());
                             }
                             return Err(e);
-                        }
-                        if position > 0.0 {
-                            let _ = self.seek(position).await;
                         }
                     }
                     return Ok(());
@@ -202,7 +208,10 @@ impl AudioPlayer {
         // 没有 decoder_thread（例如上次 reinit 失败），但存在待恢复的曲目，走重新加载
         if let Some(src) = fallback_source {
             let is_remote = src.starts_with("http://") || src.starts_with("https://");
-            if let Err(e) = self.load(src, Some(was_playing_fallback), None).await {
+            if let Err(e) = self
+                .load(src, Some(was_playing_fallback), None, Some(range))
+                .await
+            {
                 if is_cancelled_napi_error(&e) {
                     return Ok(());
                 }
@@ -211,9 +220,6 @@ impl AudioPlayer {
                     return Ok(());
                 }
                 return Err(e);
-            }
-            if position > 0.0 {
-                let _ = self.seek(position).await;
             }
             return Ok(());
         }
@@ -261,12 +267,16 @@ impl AudioPlayer {
         self.inner.lock().selected_device().map(String::from)
     }
 
-    /// 设置音频输出模式为 WASAPI 独占（仅 Windows 生效，立即重建设备）
+    /// 设置独占或直通模式并重新协商输出设备
+    /// @param enabled - 是否请求独占模式
+    /// @param direct - 是否优先保留源整数 PCM
     ///
     /// 设备被占用或格式不支持时自动回退共享模式，并通过 outputFallback 事件通知
     #[napi]
-    pub async fn set_exclusive_mode(&self, enabled: bool) -> Result<()> {
-        self.inner.lock().set_exclusive_mode(enabled);
+    pub async fn set_exclusive_mode(&self, enabled: bool, direct: Option<bool>) -> Result<()> {
+        self.inner
+            .lock()
+            .set_exclusive_mode(enabled, direct.unwrap_or(false));
         self.reinit_output().await
     }
 }

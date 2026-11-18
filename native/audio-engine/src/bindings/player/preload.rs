@@ -156,7 +156,10 @@ impl AudioPlayer {
         // 在 JS 调用栈内登记代次，保证紧接着的 stop/cancel 不会早于任务注册
         let mut player = self.inner.lock();
         player.preload.clear();
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = Arc::new(AtomicBool::new(matches!(
+            player.direct_request(None),
+            output::DirectRequest::Requested(_)
+        )));
         player.preload.id = Some(id.clone());
         player.preload.cancelled = Some(Arc::clone(&cancelled));
         Ok(AsyncTask::new(PrepareNextTask {

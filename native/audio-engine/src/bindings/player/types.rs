@@ -38,6 +38,8 @@ pub struct JsExternalLyric {
 /// 歌曲完整元信息，返回给 JS 侧（load 时一次性返回）
 #[napi(object)]
 pub struct JsMusicMetadata {
+    pub artists: Vec<String>,
+    pub album_artists: Vec<String>,
     /// 复用了预载 PCM 时的起点（秒），普通加载为空
     pub prepared_position: Option<f64>,
     pub title: Option<String>,
@@ -132,6 +134,19 @@ pub struct JsPlayerStatus {
 /// 当前真实音频流与硬件输出信息
 #[napi(object)]
 pub struct JsAudioStreamInfo {
+    pub has_output: bool,
+    pub backend: Option<String>,
+    pub output_format: Option<String>,
+    pub output_container_bits: u32,
+    pub source_channels: u32,
+    pub source_bit_rate: f64,
+    pub source_codec: Option<String>,
+    pub decode_format: Option<String>,
+    pub replay_gain_db: Option<f64>,
+    pub direct_status: String,
+    pub direct_reason: Option<String>,
+    pub verified_frames: f64,
+    pub discontinuities: f64,
     /// 当前生效的音频输出设备名称
     pub device_name: String,
     /// 是否为独占模式输出
@@ -158,4 +173,13 @@ pub struct JsAudioStreamInfo {
     pub is_normalization_active: bool,
     /// 输出限幅器是否激活（DSP 介入时为 true，纯直通时为 false）
     pub is_limiter_active: bool,
+}
+
+/// 实体文件播放区间，时间单位为秒
+#[napi(object)]
+pub struct JsPlaybackRange {
+    pub start: f64,
+    pub end: Option<f64>,
+    /// 从分轨内部恢复时保留原始起点，供自然播完后的重播使用
+    pub cue_start: Option<f64>,
 }

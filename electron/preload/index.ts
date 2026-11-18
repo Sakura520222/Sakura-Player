@@ -307,6 +307,10 @@ const api = {
     getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   },
   library: {
+    inspectAudio: (path: string) => ipcRenderer.invoke("library:inspectAudio", path),
+    analyzeSpectrum: (path: string, startMs: number, endMs?: number, id?: string) =>
+      ipcRenderer.invoke("library:analyzeSpectrum", path, startMs, endMs, id),
+    cancelSpectrum: (id: string) => ipcRenderer.invoke("library:cancelSpectrum", id),
     /**
      * 读取专辑大封面
      * @param trackId - 本地曲目 ID

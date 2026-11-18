@@ -7,15 +7,32 @@ impl AudioPlayer {
     /// @param source - 音频文件路径或网络地址
     /// @param autoPlay - 是否自动播放，false 时加载后立即暂停
     /// @param preparedId - 待消费的预载任务标识，未命中或不兼容时执行普通加载
-    /// @returns 音频元信息，复用预载时额外返回预载起点
+    /// @param range - 文件内的播放起点及可选 CUE 终点
+    /// @returns 音频元信息和解码起点
     #[napi]
     pub async fn load(
         &self,
         source: String,
         #[napi(ts_arg_type = "boolean")] auto_play: Option<bool>,
         prepared_id: Option<String>,
+        range: Option<JsPlaybackRange>,
     ) -> Result<JsMusicMetadata> {
         let auto_play = auto_play.unwrap_or(true);
+        let start = range.as_ref().map_or(0.0, |range| range.start);
+        let end = range.as_ref().and_then(|range| range.end);
+        let playback_start = end.map_or(0.0, |_| {
+            range
+                .as_ref()
+                .and_then(|range| range.cue_start)
+                .unwrap_or(start)
+        });
+        if std::time::Duration::try_from_secs_f64(start).is_err()
+            || std::time::Duration::try_from_secs_f64(playback_start).is_err()
+            || playback_start > start
+            || end.is_some_and(|end| !end.is_finite() || end < start)
+        {
+            return Err(Error::from_reason("无效的音频播放区间"));
+        }
         info!(source = %source, auto_play, "加载音频源");
 
         let handle = HttpCancelHandle::new();
@@ -31,6 +48,7 @@ impl AudioPlayer {
             failure_callback,
             fallback_callback,
             exclusive_mode,
+            direct,
             fft,
             equalizer,
             tempo,
@@ -54,6 +72,7 @@ impl AudioPlayer {
                 failure_callback,
                 fallback_callback,
                 exclusive_mode,
+                player.direct_request(None),
                 player.fft_handle(),
                 player.equalizer_handle(),
                 player.tempo_handle(),
@@ -70,6 +89,13 @@ impl AudioPlayer {
                     let _ = h.join();
                 }
                 let mut prepared_playback = prepared_playback;
+                if matches!(direct, output::DirectRequest::Requested(_))
+                    || prepared_playback
+                        .as_ref()
+                        .is_some_and(|ready| range.is_some() && ready.start_position != start)
+                {
+                    drop(prepared_playback.take());
+                }
                 let mut prepared = if prepared_playback.is_none() {
                     Some(decoder::prepare_decode(
                         &source_for_decoder,
@@ -98,6 +124,9 @@ impl AudioPlayer {
                     output_generation,
                     failure_callback,
                     exclusive_mode.then_some(&fallback_callback),
+                    direct.with_source(|| {
+                        prepared.as_ref().and_then(|decoder| decoder.integer_spec())
+                    }),
                 )?;
                 let buffer = prepared_playback
                     .as_ref()
@@ -137,8 +166,10 @@ impl AudioPlayer {
                     .lock()
                     .set_output_format(output.sample_rate(), output.channels());
                 tempo.lock().reset();
+                let mut prepared = prepared.unwrap();
+                prepared.seek_start(start)?;
                 let (metadata, decode_handle, cancel) = decoder::start_prepared_decode(
-                    prepared.unwrap(),
+                    prepared,
                     Arc::clone(&shared),
                     Arc::clone(&equalizer),
                     Arc::clone(&tempo),
@@ -152,7 +183,7 @@ impl AudioPlayer {
                     cancel,
                     equalizer,
                     tempo,
-                    None,
+                    (range.is_some() || start > 0.0).then_some(start),
                 ))
             })();
 
@@ -190,6 +221,8 @@ impl AudioPlayer {
                         auto_play,
                         crate::player::LoadedPlayback {
                             start_position: prepared_position.unwrap_or(0.0),
+                            playback_start,
+                            end_position: end,
                             metadata,
                             decode_handle,
                             shared,
@@ -218,6 +251,8 @@ impl AudioPlayer {
     pub(super) fn meta_to_js(meta: crate::metadata::AudioMetadata) -> JsMusicMetadata {
         JsMusicMetadata {
             prepared_position: None,
+            artists: meta.artists,
+            album_artists: meta.album_artists,
             title: meta.title,
             artist: meta.artist,
             album: meta.album,

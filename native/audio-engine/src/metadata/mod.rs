@@ -6,15 +6,18 @@ pub const LYRIC_DATA_KEY: &str = "SAKURA_PLAYER_LYRIC_DATA";
 
 mod cover;
 mod editor;
+mod file_tags;
 mod folder_cover;
 mod lyric_data;
 mod lyrics;
+pub(crate) mod media_file;
 mod tag_fields;
 
 pub use cover::{
     cover_thumb_path, extract_cover_thumbnail, make_thumbnail_jpeg, read_attached_pic,
 };
 pub use editor::{read_cover, read_tags, write_tags, TagWriteRequest};
+pub(crate) use file_tags::{read_summary, TrackTags};
 pub use lyrics::{extract_embedded_lyric, find_all_external_lyrics, ExternalLyric};
 
 /// 音频元数据（包含封面路径和歌词）
@@ -38,6 +41,10 @@ pub struct AudioMetadata {
     pub bit_rate: i64,
     /// 编码格式名称（如 "flac", "mp3", "aac"）
     pub codec: String,
+    pub decode_format: Option<String>,
+    pub replay_gain_db: Option<f32>,
+    pub artists: Vec<String>,
+    pub album_artists: Vec<String>,
     /// 内嵌歌词
     pub embedded_lyric: Option<String>,
     pub embedded_lyric_data: Option<String>,
@@ -57,40 +64,23 @@ pub struct StreamInfo {
     pub channels: u32,
 }
 
-/// 容器级别的 tag 信息
-pub struct Tags {
-    pub title: Option<String>,
-    pub artist: Option<String>,
-    pub album: Option<String>,
-    pub track: Option<u16>,
-    pub comment: Option<String>,
-}
-
 /// 把 ffmpeg_audio 的 SourceAudioInfo 转成内部 StreamInfo
 pub fn extract_stream_info(info: &SourceAudioInfo) -> StreamInfo {
+    let effective_bits = info.sample_fmt.as_deref().is_some_and(|format| {
+        matches!(
+            format,
+            "u8" | "u8p" | "s16" | "s16p" | "s32" | "s32p" | "s64" | "s64p"
+        )
+    }) && is_lossless_codec(info.codec_name.as_deref().unwrap_or_default());
     StreamInfo {
-        bit_rate: info.bit_rate,
+        bit_rate: info.bit_rate.max(0),
         sample_rate: info.sample_rate.max(0) as u32,
-        bits_per_sample: info.bits_per_sample.max(0) as u32,
+        bits_per_sample: if effective_bits {
+            info.bits_per_sample.max(0) as u32
+        } else {
+            0
+        },
         channels: info.channels.max(0) as u32,
-    }
-}
-
-/// 从容器 metadata 提取常见 tag
-pub fn extract_tags(dict: &HashMap<String, String>) -> Tags {
-    let title = dict_get(dict, "title").map(ToString::to_string);
-    let artist = dict_get(dict, "artist")
-        .or_else(|| dict_get(dict, "album_artist"))
-        .map(ToString::to_string);
-    let album = dict_get(dict, "album").map(ToString::to_string);
-    let track = dict_get(dict, "track").and_then(|s| s.parse().ok());
-    let comment = dict_get(dict, "comment").map(ToString::to_string);
-    Tags {
-        title,
-        artist,
-        album,
-        track,
-        comment,
     }
 }
 
@@ -112,7 +102,9 @@ pub fn extract_replay_gain(dict: &HashMap<String, String>) -> Option<f32> {
         dict_get(dict, "R128_TRACK_GAIN").or_else(|| dict_get(dict, "R128_ALBUM_GAIN"))
     {
         if let Ok(raw) = val.trim().parse::<f32>() {
-            return Some(raw / 256.0);
+            if raw.is_finite() {
+                return Some(raw / 256.0);
+            }
         }
     }
 
@@ -122,11 +114,27 @@ pub fn extract_replay_gain(dict: &HashMap<String, String>) -> Option<f32> {
     {
         let cleaned = val.trim().trim_end_matches(" dB").trim_end_matches("dB");
         if let Ok(db) = cleaned.parse::<f32>() {
-            return Some(db);
+            if db.is_finite() {
+                return Some(db);
+            }
         }
     }
 
     None
+}
+
+/// 使用解码器的编码描述识别无损，不按容器扩展名猜测
+/// @param codec - FFmpeg 编码标识
+pub(crate) fn is_lossless_codec(codec: &str) -> bool {
+    let Ok(name) = std::ffi::CString::new(codec) else {
+        return false;
+    };
+    unsafe {
+        let descriptor = ffmpeg_audio::sys::avcodec_descriptor_get_by_name(name.as_ptr());
+        !descriptor.is_null()
+            && (*descriptor).props & ffmpeg_audio::sys::AV_CODEC_PROP_LOSSLESS as i32 != 0
+            && (*descriptor).props & ffmpeg_audio::sys::AV_CODEC_PROP_LOSSY as i32 == 0
+    }
 }
 
 /// 将 dB 增益转换为线性增益因子

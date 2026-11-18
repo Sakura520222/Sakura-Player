@@ -3,7 +3,7 @@
 
 /** 音频播放器，通过 napi-rs 暴露给 Node.js */
 export declare class AudioPlayer {
-  /** 恢复播放；如果已停止或播放结束，自动从头重新加载 */
+  /** 恢复暂停的曲目，已经播完时从本曲目起点重播 */
   play(): Promise<void>
   /** 暂停播放 */
   pause(): void
@@ -88,11 +88,13 @@ export declare class AudioPlayer {
    */
   getSelectedDeviceName(): string | null
   /**
-   * 设置音频输出模式为 WASAPI 独占（仅 Windows 生效，立即重建设备）
+   * 设置独占或直通模式并重新协商输出设备
+   * @param enabled - 是否请求独占模式
+   * @param direct - 是否优先保留源整数 PCM
    *
    * 设备被占用或格式不支持时自动回退共享模式，并通过 outputFallback 事件通知
    */
-  setExclusiveMode(enabled: boolean): Promise<void>
+  setExclusiveMode(enabled: boolean, direct?: boolean | undefined | null): Promise<void>
   /** 注册事件回调，Rust 侧会在状态变化、位置更新、播放结束时主动调用 */
   onEvent(callback: (event: JsPlayerEvent) => void): void
   /** 当前平台是否支持原生音频设备监听 */
@@ -110,9 +112,10 @@ export declare class AudioPlayer {
    * @param source - 音频文件路径或网络地址
    * @param autoPlay - 是否自动播放，false 时加载后立即暂停
    * @param preparedId - 待消费的预载任务标识，未命中或不兼容时执行普通加载
-   * @returns 音频元信息，复用预载时额外返回预载起点
+   * @param range - 文件内的播放起点及可选 CUE 终点
+   * @returns 音频元信息和解码起点
    */
-  load(source: string, autoPlay?: boolean, preparedId?: string | undefined | null): Promise<JsMusicMetadata>
+  load(source: string, autoPlay?: boolean, preparedId?: string | undefined | null, range?: JsPlaybackRange | undefined | null): Promise<JsMusicMetadata>
   /** 设置封面缓存目录（在 load 前调用一次即可） */
   setCoverCacheDir(dir: string): void
   /**
@@ -141,7 +144,8 @@ export declare class AudioPlayer {
    * 跳转到指定播放位置（秒）
    *
    * 解码与提交均在阻塞线程执行，避免过期网络解码器在异步上下文释放。
-   * seek 失败时回退到完整加载。
+   * seek 失败时回退到完整加载
+   * @param position - 音频文件内的目标位置，单位为秒
    */
   seek(position: number): Promise<void>
   /**
@@ -160,12 +164,22 @@ export declare class AudioPlayer {
    * @param nextEndSeconds - 下一曲的 CUE 结束位置
    * @param currentEndSeconds - 当前曲目的 CUE 结束位置
    * @param automix - 已验证的对拍交接计划，省略时使用交叉过渡
+   * @param nextStartSeconds - 下一曲的原始 CUE 起点
    * @returns 成功交接时返回下一曲元信息，槽位失效时返回空值
    */
-  transitionToPrepared(id: string, source: string, remainingSeconds: number, preference: string, nextEndSeconds?: number | undefined | null, currentEndSeconds?: number | undefined | null, automix?: JsAutoMixPlan | undefined | null): Promise<JsMusicMetadata | null>
+  transitionToPrepared(id: string, source: string, remainingSeconds: number, preference: string, nextEndSeconds?: number | undefined | null, currentEndSeconds?: number | undefined | null, automix?: JsAutoMixPlan | undefined | null, nextStartSeconds?: number | undefined | null): Promise<JsMusicMetadata | null>
   /** 创建新的播放器实例 */
   constructor()
 }
+
+/**
+ * 同步登记取消标志并在后台分析本地曲目，再次分析会取消过期任务
+ * @param path - 实体文件路径
+ * @param start_ms - 分轨起点，毫秒
+ * @param end_ms - 分轨终点，毫秒
+ * @param id - 用于取消的调用方任务标识
+ */
+export declare function analyzeAudioSpectrum(path: string, startMs: number, endMs?: number | undefined | null, id?: string | undefined | null): Promise<unknown>
 
 /**
  * 在分析进程的后台线程提取有限窗口的模型输入
@@ -176,6 +190,12 @@ export declare class AudioPlayer {
  * @returns 节拍模型输入和源时间范围
  */
 export declare function analyzeAutoMix(source: string, startSeconds: number, endSeconds: number | undefined | null, tail: boolean): Promise<JsAutoMixFeatures>
+
+/**
+ * 停止当前弹窗提交的频谱任务
+ * @param id - 调用方生成的任务标识
+ */
+export declare function cancelAudioSpectrum(id: string): void
 
 /** 取消正在进行的扫描任务 */
 export declare function cancelScan(): void
@@ -201,6 +221,19 @@ export interface FileRecord {
 /** 初始化原生日志系统。重复调用是无害的（HMR 重载时主进程可能多次注入） */
 export declare function initLogger(logDir: string, isDev: boolean): void
 
+/**
+ * 读取本地文件的音质与章节，不改变播放器状态
+ * @param path - 实体音频文件路径
+ */
+export declare function inspectAudioFile(path: string): Promise<JsLocalAudioInfo>
+
+/** 容器中可跳转的章节，时间以毫秒为单位 */
+export interface JsAudioChapter {
+  startMs: number
+  endMs?: number
+  title?: string
+}
+
 /** 音频输出设备信息 */
 export interface JsAudioDevice {
   /** 稳定设备 ID（cpal `DeviceId` 的字符串形式） */
@@ -211,8 +244,32 @@ export interface JsAudioDevice {
   isDefault: boolean
 }
 
+/** 旁路分析使用独立解码器，仅回传小型频带汇总 */
+export interface JsAudioSpectrum {
+  nyquistHz: number
+  relativeBandsDb: Array<number>
+  analyzedSeconds: number
+  observedIntegerBits?: number
+  cutoffHz?: number
+  windows: number
+  partial: boolean
+}
+
 /** 当前真实音频流与硬件输出信息 */
 export interface JsAudioStreamInfo {
+  hasOutput: boolean
+  backend?: string
+  outputFormat?: string
+  outputContainerBits: number
+  sourceChannels: number
+  sourceBitRate: number
+  sourceCodec?: string
+  decodeFormat?: string
+  replayGainDb?: number
+  directStatus: string
+  directReason?: string
+  verifiedFrames: number
+  discontinuities: number
   /** 当前生效的音频输出设备名称 */
   deviceName: string
   /** 是否为独占模式输出 */
@@ -290,8 +347,45 @@ export interface JsFftData {
   rdata: Array<number>
 }
 
+/** 本地文件检查结果，解码样本表示和源有效位深独立 */
+export interface JsLocalAudioInfo {
+  codec: string
+  sampleRate: number
+  channels: number
+  validBits: number
+  decodedFormat?: string
+  isLossless: boolean
+  containerFormat?: string
+  audioBitRate?: number
+  containerBitRate?: number
+  channelLayout?: string
+  chapters: Array<JsAudioChapter>
+  replayGainTrackDb?: number
+  replayGainAlbumDb?: number
+  replayGainTrackPeak?: number
+  replayGainAlbumPeak?: number
+  r128TrackGainDb?: number
+  r128AlbumGainDb?: number
+}
+
+/** 随曲库存储的小型结构化标签字段 */
+export interface JsLocalTagSummary {
+  artists: Array<string>
+  albumArtists: Array<string>
+  genres: Array<string>
+  composers: Array<string>
+  date?: string
+  comment?: string
+  trackTotal?: number
+  discTotal?: number
+  discNumber?: number
+  year?: number
+}
+
 /** 歌曲完整元信息，返回给 JS 侧（load 时一次性返回） */
 export interface JsMusicMetadata {
+  artists: Array<string>
+  albumArtists: Array<string>
   /** 复用了预载 PCM 时的起点（秒），普通加载为空 */
   preparedPosition?: number
   title?: string
@@ -321,6 +415,14 @@ export interface JsMusicMetadata {
   externalLyrics: Array<JsExternalLyric>
   /** 封面缩略图路径（300x300，用于前端日常显示） */
   cover?: string
+}
+
+/** 实体文件播放区间，时间单位为秒 */
+export interface JsPlaybackRange {
+  start: number
+  end?: number
+  /** 从分轨内部恢复时保留原始起点，供自然播完后的重播使用 */
+  cueStart?: number
 }
 
 /** 播放器事件，推送给 JS 侧 */
@@ -389,6 +491,8 @@ export interface JsScannedTrack {
   album?: string
   /** 音轨编号 */
   track?: number
+  tags: JsLocalTagSummary
+  embeddedCue?: string
   /** 时长（秒） */
   duration: number
   codec: string
@@ -424,6 +528,16 @@ export interface JsTagWriteRequest {
   lyricData?: string
   /** 新封面图片数据（jpg/png），undefined 表示保留现有封面 */
   cover?: Buffer
+  artists?: Array<string>
+  albumArtists?: Array<string>
+  genres?: Array<string>
+  composers?: Array<string>
+  date?: string
+  comment?: string
+  trackTotal?: number
+  discTotal?: number
+  removeCover?: boolean
+  expectedRevision?: string
 }
 
 /** 单文件写入结果 */
@@ -451,6 +565,16 @@ export interface JsTrackTags {
   lyricData?: string
   /** 是否有内嵌封面 */
   hasCover: boolean
+  artists: Array<string>
+  albumArtists: Array<string>
+  genres: Array<string>
+  composers: Array<string>
+  date?: string
+  comment?: string
+  trackTotal?: number
+  discTotal?: number
+  writable: boolean
+  revision?: string
 }
 
 /**

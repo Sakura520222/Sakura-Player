@@ -41,14 +41,15 @@ fn real_decoder_preserves_duration_and_pitch_across_output_rates() {
                 PopResult::Chunk(chunk) => samples.extend(chunk.player_samples),
                 PopResult::Pending => std::thread::sleep(Duration::from_millis(1)),
                 PopResult::Finished => break,
+                PopResult::Integer(_) => panic!("普通播放应输出浮点样本"),
             }
         }
         let mut decoder = worker.join().unwrap();
         std::fs::remove_file(path).unwrap();
         if input == 192_000 && output == 192_000 {
             assert!(decoder.seek(0.25));
-            decoder.reconfigure_player_output(48_000, 2).unwrap();
             let resumed = Shared::new(48_000, 2);
+            decoder.reconfigure_player_output(&resumed).unwrap();
             let worker = crate::decoder::resume_decode(
                 decoder,
                 Arc::clone(&resumed),
@@ -64,6 +65,7 @@ fn real_decoder_preserves_duration_and_pitch_across_output_rates() {
                     PopResult::Chunk(chunk) => count += chunk.player_samples.len(),
                     PopResult::Pending => std::thread::sleep(Duration::from_millis(1)),
                     PopResult::Finished => break,
+                    PopResult::Integer(_) => panic!("普通播放应输出浮点样本"),
                 }
             }
             worker.join().unwrap();

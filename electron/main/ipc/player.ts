@@ -330,10 +330,13 @@ const completeTrackLoad = (
   setCurrentTransitionRange(startMs, startMs + durationMs, source, authoritative?.id);
   const displayTitle =
     authoritative?.title ?? (meta.title || source.split(/[/\\]/).pop() || source);
-  const displayArtists = authoritative
-    ? (authoritative.artists ?? [])
+  const nativeArtists = meta.artists?.length
+    ? meta.artists.map((name) => ({ name }))
     : parseArtists(meta.artist ?? "");
-  const displayAlbum = authoritative?.album?.name ?? parseAlbum(meta.album ?? "")?.name ?? "";
+  const displayArtists = authoritative?.artists?.length ? authoritative.artists : nativeArtists;
+  const nativeAlbum = parseAlbum(meta.album ?? "");
+  if (nativeAlbum && meta.albumArtists?.length) nativeAlbum.artist = meta.albumArtists.join(" / ");
+  const displayAlbum = authoritative?.album?.name ?? nativeAlbum?.name ?? "";
   const localCover = isRemote ? null : (getPlayer().getCoverRaw() ?? null);
   const artistText = formatArtists(displayArtists);
   const header = artistText ? `${displayTitle} - ${artistText}` : displayTitle || appName;
@@ -390,10 +393,8 @@ const completeTrackLoad = (
       },
       mediaInfo: {
         title: meta.title || displayTitle,
-        artists: authoritative?.artists?.length
-          ? authoritative.artists
-          : parseArtists(meta.artist ?? ""),
-        album: authoritative?.album ?? parseAlbum(meta.album ?? ""),
+        artists: displayArtists,
+        album: authoritative?.album ?? nativeAlbum,
         duration: durationMs,
         cover: isRemote ? undefined : toCacheUrl(meta.cover),
         quality,
@@ -484,6 +485,7 @@ export const registerPlayerIpc = (): void => {
                 })),
               }
             : undefined,
+          options.meta?.cueStartMs == null ? undefined : options.meta.cueStartMs / 1000,
         );
         if (seq !== loadSeq || current !== getPlayer()) return { success: false };
         if (!meta) {
@@ -540,8 +542,9 @@ export const registerPlayerIpc = (): void => {
   onPlayerCreated(startDeviceMonitoring);
   // 启动时同步独占模式开关到引擎（默认共享，无需处理）
   onPlayerCreated((inst) => {
-    if (store.get("player.audioOutputMode") === "exclusive") {
-      inst.setExclusiveMode(true).catch((error) => {
+    const mode = store.get("player.audioOutputMode");
+    if (mode === "exclusive" || mode === "bit-perfect") {
+      inst.setExclusiveMode(true, mode === "bit-perfect").catch((error) => {
         playerLog.warn("应用独占模式配置失败:", error);
       });
     }
@@ -552,6 +555,9 @@ export const registerPlayerIpc = (): void => {
     const autoPlay = options.autoPlay ?? true;
     const authoritative = options.meta ?? null;
     const cueRange = cueRangeFromTrack(authoritative);
+    const nativeRange = cueRange
+      ? { start: cueRange.startMs / 1000, end: (cueRange.startMs + cueRange.durationMs) / 1000 }
+      : undefined;
     const preparedAutoMix = options.preparedId
       ? getPreparedAutoMixPlan(options.preparedId)
       : undefined;
@@ -631,11 +637,10 @@ export const registerPlayerIpc = (): void => {
       }
       const meta = await (async () => {
         try {
-          return await inst.load(
-            source,
-            cueRange || preparedAutoMix ? false : autoPlay,
-            options.preparedId,
-          );
+          const playNow = cueRange || preparedAutoMix ? false : autoPlay;
+          return await (nativeRange
+            ? inst.load(source, playNow, options.preparedId, nativeRange)
+            : inst.load(source, playNow, options.preparedId));
         } catch (error) {
           if (
             !streamingSource ||
@@ -648,7 +653,9 @@ export const registerPlayerIpc = (): void => {
           streamingSource = await streamingPlayback.prepareStreamingPlayback(authoritative, source);
           if (seq !== loadSeq) throw new Error("[Cancelled]");
           source = streamingSource!.url;
-          return inst.load(source, cueRange ? false : autoPlay);
+          return nativeRange
+            ? inst.load(source, false, undefined, nativeRange)
+            : inst.load(source, autoPlay);
         }
       })().finally(() => {
         if (options.preparedId) cancelPreparedTrack(options.preparedId);

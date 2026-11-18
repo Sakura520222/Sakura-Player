@@ -30,6 +30,8 @@ pub struct JsScannedTrack {
     pub album: Option<String>,
     /// 音轨编号
     pub track: Option<u16>,
+    pub tags: super::tags::JsLocalTagSummary,
+    pub embedded_cue: Option<String>,
     /// 时长（秒）
     pub duration: f64,
     pub codec: String,
@@ -55,6 +57,8 @@ impl From<scanner::ScannedTrack> for JsScannedTrack {
             artist: track.artist,
             album: track.album,
             track: track.track,
+            tags: track.tags.into(),
+            embedded_cue: track.embedded_cue,
             duration: track.duration,
             codec: track.codec,
             sample_rate: track.sample_rate,
@@ -119,7 +123,9 @@ pub fn scan_dirs(
 
     // 创建取消标志并保存到全局，供 cancel_scan 使用
     let cancel = Arc::new(AtomicBool::new(false));
-    *SCAN_CANCEL.lock() = Some(Arc::clone(&cancel));
+    if let Some(previous) = SCAN_CANCEL.lock().replace(Arc::clone(&cancel)) {
+        previous.store(true, Ordering::Release);
+    }
 
     thread::spawn(move || {
         let emit = |event: scanner::ScanEvent| {
@@ -164,8 +170,14 @@ pub fn scan_dirs(
             &emit,
         );
 
-        // 扫描结束后清除全局取消标志
-        *SCAN_CANCEL.lock() = None;
+        // 老扫描退出时不能清理新扫描的取消标志
+        let mut active = SCAN_CANCEL.lock();
+        if active
+            .as_ref()
+            .is_some_and(|flag| Arc::ptr_eq(flag, &cancel))
+        {
+            active.take();
+        }
     });
 
     Ok(())

@@ -37,6 +37,7 @@ fn wasapi_exclusive_progresses_under_cpu_load() {
                 failures.fetch_add(1, Ordering::Relaxed);
             }),
             Some(&on_fallback),
+            crate::output::DirectRequest::Off,
         )
         .unwrap();
         let fft = Arc::new(FftAnalyzer::new());

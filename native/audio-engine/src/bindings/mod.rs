@@ -6,11 +6,13 @@ use tracing::info;
 
 mod analysis;
 mod player;
+mod quality;
 mod scanner;
 mod tags;
 
 pub use analysis::*;
 pub use player::*;
+pub use quality::*;
 pub use scanner::*;
 pub use tags::*;
 

@@ -102,6 +102,7 @@ fn open_device_internal(
     requested_sample_rate: Option<u32>,
     source_bits: Option<u32>,
     exclusive: Option<&ExclusiveFallbackCallback>,
+    direct: Option<IntegerPcmSpec>,
 ) -> Result<(cpal::Device, SupportedStreamConfig, ExclusiveFormatOpt)> {
     let host = cpal::default_host();
     info!(backend = ?host.id(), requested_sample_rate, "协商音频输出流格式");
@@ -130,6 +131,7 @@ fn open_device_internal(
                 requested_sample_rate.unwrap_or(default_config.sample_rate()),
                 source_bits.unwrap_or(24),
                 default_config.channels(),
+                direct,
             ) {
                 Ok(format) => exclusive_format = Some(format),
                 Err(error) => {
@@ -143,7 +145,7 @@ fn open_device_internal(
 
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = (source_bits, exclusive);
+        let _ = (source_bits, exclusive, direct);
         let config = match requested_sample_rate {
             Some(rate) => {
                 if rate == default_config.sample_rate() {
@@ -198,6 +200,7 @@ pub(super) fn open_device(
     requested_sample_rate: Option<u32>,
     source_bits: Option<u32>,
     exclusive: Option<&ExclusiveFallbackCallback>,
+    direct: Option<IntegerPcmSpec>,
 ) -> Result<(cpal::Device, SupportedStreamConfig, ExclusiveFormatOpt)> {
     let id_owned = device_id.map(String::from);
     // 回退回调只在 MTA 工作线程被调用，Arc 在此克隆进闭包
@@ -208,6 +211,7 @@ pub(super) fn open_device(
             requested_sample_rate,
             source_bits,
             fallback_owned.as_ref(),
+            direct,
         )
     })
 }

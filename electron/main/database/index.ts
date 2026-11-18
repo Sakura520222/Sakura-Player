@@ -50,6 +50,8 @@ export const initDatabase = (): void => {
       bit_rate INTEGER,
       channels INTEGER,
       bits_per_sample INTEGER,
+      local_tags TEXT,
+      embedded_cue TEXT,
       file_size INTEGER NOT NULL,
       file_mtime INTEGER,
       file_ctime INTEGER,
@@ -251,9 +253,12 @@ export const closeDatabase = (): void => {
 
 export {
   getAllTracks,
+  getTracksByPaths,
   getTrackCount,
   getFileRecords,
   getCueTrackPathsByDirs,
+  getEmbeddedCueSheets,
+  refreshCueContainers,
   upsertTracks,
   deleteTracksByPaths,
   searchTracks,

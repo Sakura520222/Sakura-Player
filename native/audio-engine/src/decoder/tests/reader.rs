@@ -24,19 +24,15 @@ fn mono_wav() -> Vec<u8> {
 }
 
 #[test]
-fn playback_and_fft_resamplers_use_independent_channel_counts() {
+fn playback_resampler_uses_the_output_channel_count() {
     let mut reader = AudioReader::new(Cursor::new(mono_wav())).unwrap();
     assert_eq!(reader.source_info().channels, 1);
-    let (mut player_resampler, mut fft_resampler) = build_resamplers(&reader, 48_000, 6).unwrap();
+    let mut player_resampler = build_player_resampler(&reader, 48_000, 6).unwrap();
     let frame = reader.receive_frame().unwrap().unwrap();
 
     player_resampler.process::<f32>(Some(&frame)).unwrap();
-    fft_resampler.process::<f32>(Some(&frame)).unwrap();
 
     let player_samples = player_resampler.output_as::<f32>();
-    let fft_samples = fft_resampler.output_as::<f32>();
     assert!(!player_samples.is_empty());
-    assert!(!fft_samples.is_empty());
     assert_eq!(player_samples.len() % 6, 0);
-    assert_eq!(fft_samples.len() % usize::from(FFT_CHANNELS), 0);
 }

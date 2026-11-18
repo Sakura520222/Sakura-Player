@@ -21,6 +21,7 @@ interface CueFile {
 
 interface ParsedCueTrack {
   number: number;
+  audio: boolean;
   title?: string;
   performer?: string;
   index01?: number;
@@ -69,7 +70,7 @@ const parseIndexMs = (value: string): number | null => {
   const seconds = Number(match[2]);
   const frames = Number(match[3]);
   if (!Number.isFinite(minutes) || seconds > 59 || frames > 74) return null;
-  return (minutes * 60 + seconds) * 1000 + Math.round((frames * 1000) / 75);
+  return (minutes * 60 + seconds) * 1000 + (frames * 1000) / 75;
 };
 
 /** 解析 CUE 文本为内部结构 */
@@ -92,22 +93,24 @@ const parseState = (content: string): CueSheetState => {
     }
 
     if (command === "TRACK") {
-      const number = Number(value.trim().split(/\s+/)[0]);
-      if (!currentFile || !Number.isFinite(number)) continue;
-      currentTrack = { number };
+      const [index, type] = value.trim().split(/\s+/);
+      const number = Number(index);
+      currentTrack = null;
+      if (!currentFile || !Number.isSafeInteger(number) || number < 1 || number > 99) continue;
+      currentTrack = { number, audio: type?.toUpperCase() === "AUDIO" };
       currentFile.tracks.push(currentTrack);
       continue;
     }
 
     if (command === "TITLE") {
-      const title = readToken(value);
+      const title = value.trim().startsWith('"') ? readToken(value) : value.trim();
       if (currentTrack) currentTrack.title = title;
       else state.albumTitle = title;
       continue;
     }
 
     if (command === "PERFORMER") {
-      const performer = readToken(value);
+      const performer = value.trim().startsWith('"') ? readToken(value) : value.trim();
       if (currentTrack) currentTrack.performer = performer;
       else state.albumPerformer = performer;
       continue;
@@ -125,50 +128,45 @@ const parseState = (content: string): CueSheetState => {
 };
 
 /**
- * 读取单文件 CUE 指向的真实音频路径。
- * @param content - CUE 文件内容
- * @param cuePath - CUE 文件路径
- */
-export const getCueAudioPath = (content: string, cuePath: string): string | null => {
-  const state = parseState(content);
-  if (state.files.length !== 1) return null;
-  return path.resolve(path.dirname(cuePath), state.files[0].path);
-};
-
-/**
- * 解析单文件 CUE。
- * @param content - CUE 文件内容
- * @param cuePath - CUE 文件路径
- * @param audioDurationMs - 真实音频总时长
+ * 解析分轨并按各自文件时长确定最后一首的终点
+ * @param content - CUE 文本
+ * @param cuePath - CUE 文件路径或内嵌 CUE 的实体文件路径
+ * @param duration - 实体音频时长或按文件路径查询时长的函数
+ * @param embedded - 是否使用实体文件替代内嵌 CUE 的文件名
+ * @returns 按 CUE 顺序排列的可播放分轨
  */
 export const parseCueSheet = (
   content: string,
   cuePath: string,
-  audioDurationMs: number,
+  duration: number | ((audioPath: string) => number | undefined),
+  embedded = false,
 ): CueTrackInfo[] => {
   const state = parseState(content);
-  if (state.files.length !== 1 || audioDurationMs <= 0) return [];
-  const file = state.files[0];
-  const audioPath = path.resolve(path.dirname(cuePath), file.path);
-  const indexedTracks = file.tracks
-    .filter((track) => track.index01 != null)
-    .sort((a, b) => (a.index01 ?? 0) - (b.index01 ?? 0));
-
-  return indexedTracks
-    .map((track, index): CueTrackInfo | null => {
-      const start = track.index01 ?? 0;
-      const nextStart = indexedTracks[index + 1]?.index01 ?? audioDurationMs;
-      const end = Math.min(audioDurationMs, nextStart);
-      if (end <= start) return null;
-      const performer = track.performer || state.albumPerformer || "";
-      const artists = performer ? [{ name: performer }] : [];
-      const album = state.albumTitle
-        ? { name: state.albumTitle, artist: state.albumPerformer }
-        : undefined;
-      return {
+  if ((embedded || typeof duration === "number") && state.files.length !== 1) return [];
+  const tracks: CueTrackInfo[] = [];
+  const numbers = new Set<number>();
+  for (const file of state.files) {
+    if (!file.path) continue;
+    const audioPath = embedded
+      ? cuePath
+      : path.resolve(path.dirname(cuePath), file.path.replaceAll("\\", "/"));
+    const audioDurationMs = typeof duration === "number" ? duration : duration(audioPath);
+    if (!audioDurationMs || audioDurationMs <= 0) continue;
+    const indexed = file.tracks
+      .filter((track): track is ParsedCueTrack & { index01: number } => track.index01 !== undefined)
+      .sort((a, b) => a.index01 - b.index01);
+    for (const [index, track] of indexed.entries()) {
+      if (!track.audio || numbers.has(track.number)) continue;
+      const start = track.index01;
+      const end = Math.min(audioDurationMs, indexed[index + 1]?.index01 ?? audioDurationMs);
+      if (end <= start) continue;
+      const performer = track.performer || state.albumPerformer;
+      tracks.push({
         title: track.title || `${path.basename(cuePath, path.extname(cuePath))} #${track.number}`,
-        artists,
-        album,
+        artists: performer ? [{ name: performer }] : [],
+        album: state.albumTitle
+          ? { name: state.albumTitle, artist: state.albumPerformer }
+          : undefined,
         track: track.number,
         path: toCueTrackPath(cuePath, track.number),
         cuePath,
@@ -176,7 +174,9 @@ export const parseCueSheet = (
         cueStartMs: start,
         cueEndMs: end,
         duration: end - start,
-      };
-    })
-    .filter((track): track is CueTrackInfo => track !== null);
+      });
+      numbers.add(track.number);
+    }
+  }
+  return tracks;
 };

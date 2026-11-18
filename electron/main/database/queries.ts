@@ -23,10 +23,20 @@ interface TrackRow {
   bit_rate: number | null;
   channels: number | null;
   bits_per_sample: number | null;
+  local_tags: string | null;
   file_size: number;
   file_mtime: number | null;
   file_ctime: number | null;
   scanned_at: number;
+}
+
+/** 专辑聚合查询中的标签艺术家和歌曲艺术家 */
+interface AlbumSummaryRow {
+  name: string;
+  cover: string | null;
+  albumArtist: string | null;
+  artists: string;
+  trackCount: number;
 }
 
 /** 将数据库行解析为 Track */
@@ -59,6 +69,7 @@ const rowToTrack = (row: TrackRow): Track => {
     fileSize: row.file_size ?? undefined,
     mtime: row.file_mtime ?? undefined,
     ctime: row.file_ctime ?? undefined,
+    localTags: row.local_tags ? (JSON.parse(row.local_tags) as Track["localTags"]) : undefined,
     quality,
   };
 };
@@ -66,6 +77,19 @@ const rowToTrack = (row: TrackRow): Track => {
 /** 查询全部曲目（含被 CUE 引用的容器整轨，供扫描器读取时长/封面等） */
 export const getAllTracks = (): Track[] => {
   const rows = getDb().prepare("SELECT * FROM tracks").all() as TrackRow[];
+  return rows.map(rowToTrack);
+};
+
+/**
+ * 按保存路径取得写回后的曲目，保留数据库已有的曲目身份
+ * @param paths - 已写回的实体文件路径
+ * @returns 对应的曲库记录
+ */
+export const getTracksByPaths = (paths: string[]): Track[] => {
+  if (paths.length === 0) return [];
+  const rows = getDb()
+    .prepare("SELECT t.* FROM json_each(?) p JOIN tracks t ON t.path = p.value")
+    .all(JSON.stringify(paths)) as TrackRow[];
   return rows.map(rowToTrack);
 };
 
@@ -114,7 +138,7 @@ export interface FileRecord {
 export const getFileRecords = (): FileRecord[] => {
   return getDb()
     .prepare(
-      "SELECT path, COALESCE(file_mtime, 0) as mtime, file_size as size FROM tracks WHERE cue_path IS NULL",
+      "SELECT path, CASE WHEN local_tags IS NULL THEN 0 ELSE COALESCE(file_mtime, 0) END as mtime, file_size as size FROM tracks WHERE cue_path IS NULL",
     )
     .all() as FileRecord[];
 };
@@ -138,20 +162,37 @@ export interface UpsertTrack {
   bitRate?: number;
   channels?: number;
   bitsPerSample?: number;
+  localTags?: Track["localTags"];
+  embeddedCue?: string;
   fileSize: number;
   mtime: number;
   ctime: number;
 }
 
-/** 批量插入/更新曲目（使用事务） */
-export const upsertTracks = (tracks: UpsertTrack[]): void => {
+/**
+ * 批量更新曲目，保留路径关联的曲目 ID
+ * @param tracks - 要写入的扫描或编辑结果
+ * @param scannedBefore - 扫描开始时间，用于保护并发写回的新标签
+ */
+export const upsertTracks = (tracks: UpsertTrack[], scannedBefore?: number): void => {
   if (tracks.length === 0) return;
   const d = getDb();
   const stmt = d.prepare(`
-    INSERT OR REPLACE INTO tracks
-      (id, path, cue_path, cue_audio_path, cue_start_ms, cue_end_ms, title, track, artists, album, duration, cover, codec, sample_rate, bit_rate, channels, bits_per_sample, file_size, file_mtime, file_ctime, scanned_at)
+    INSERT INTO tracks
+      (id, path, cue_path, cue_audio_path, cue_start_ms, cue_end_ms, title, track, artists, album, duration, cover, codec, sample_rate, bit_rate, channels, bits_per_sample, local_tags, embedded_cue, file_size, file_mtime, file_ctime, scanned_at)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(path) DO UPDATE SET
+      cue_path = excluded.cue_path, cue_audio_path = excluded.cue_audio_path,
+      cue_start_ms = excluded.cue_start_ms, cue_end_ms = excluded.cue_end_ms,
+      title = excluded.title, track = excluded.track, artists = excluded.artists,
+      album = excluded.album, duration = excluded.duration, cover = excluded.cover,
+      codec = excluded.codec, sample_rate = excluded.sample_rate, bit_rate = excluded.bit_rate,
+      channels = excluded.channels, bits_per_sample = excluded.bits_per_sample,
+      local_tags = excluded.local_tags, embedded_cue = excluded.embedded_cue,
+      file_size = excluded.file_size, file_mtime = excluded.file_mtime, file_ctime = excluded.file_ctime,
+      scanned_at = excluded.scanned_at
+    WHERE tracks.scanned_at <= ?
   `);
   const now = Date.now();
   const tx = d.transaction(() => {
@@ -174,24 +215,67 @@ export const upsertTracks = (tracks: UpsertTrack[]): void => {
         t.bitRate ?? null,
         t.channels ?? null,
         t.bitsPerSample ?? null,
+        t.localTags ? JSON.stringify(t.localTags) : null,
+        t.embeddedCue ?? null,
         t.fileSize,
         t.mtime,
         t.ctime,
         now,
+        scannedBefore ?? now,
       );
     }
   });
   tx();
 };
 
-/** 查询指定目录下的 CUE 虚拟曲目路径 */
+/**
+ * 更新编辑后仍从实体音频继承封面、大小和音质的 CUE 曲目
+ * @param tracks - 写入成功的实体曲目
+ */
+export const refreshCueContainers = (tracks: UpsertTrack[]): void => {
+  const db = getDb();
+  const update = db.prepare(`
+    UPDATE tracks SET cover = ?, file_size = ?, codec = ?, sample_rate = ?,
+      bit_rate = ?, channels = ?, bits_per_sample = ?
+    WHERE cue_audio_path = ?
+  `);
+  db.transaction(() => {
+    for (const track of tracks) {
+      update.run(
+        track.cover ?? null,
+        track.fileSize,
+        track.codec ?? null,
+        track.sampleRate ?? null,
+        track.bitRate ?? null,
+        track.channels ?? null,
+        track.bitsPerSample ?? null,
+        track.path,
+      );
+    }
+  })();
+};
+
+/**
+ * 读取曲库内嵌的 CUE 文本，仅在扫描收尾使用
+ * @returns 实体音频路径及对应文本
+ */
+export const getEmbeddedCueSheets = (): { path: string; embedded_cue: string }[] =>
+  getDb().prepare("SELECT path, embedded_cue FROM tracks WHERE embedded_cue IS NOT NULL").all() as {
+    path: string;
+    embedded_cue: string;
+  }[];
+
+/**
+ * 按字面量目录前缀查询 CUE 虚拟曲目
+ * @param dirs - 本次实际扫描的目录
+ */
 export const getCueTrackPathsByDirs = (dirs: string[]): string[] => {
   if (dirs.length === 0) return [];
   const rows: { path: string }[] = [];
-  const stmt = getDb().prepare("SELECT path FROM tracks WHERE cue_path LIKE ?");
+  const stmt = getDb().prepare("SELECT path FROM tracks WHERE cue_path LIKE ? ESCAPE '\\'");
   for (const dir of dirs) {
     const prefix = dir.endsWith("/") || dir.endsWith("\\") ? dir : dir + path.sep;
-    rows.push(...(stmt.all(prefix + "%") as { path: string }[]));
+    rows.push(...(stmt.all(prefix.replace(/[%_\\]/g, "\\$&") + "%") as { path: string }[]));
   }
   return rows.map((row) => row.path);
 };
@@ -256,6 +340,7 @@ export const quickSearchLibrary = (keyword: string): LibraryQuickSearchResult =>
       `SELECT
          json_extract(album, '$.name') AS name,
          MAX(CASE WHEN cover IS NOT NULL THEN cover END) AS cover,
+         MAX(NULLIF(json_extract(album, '$.artist'), '')) AS albumArtist,
          MAX(artists) AS artists,
          COUNT(*) AS trackCount
        FROM tracks
@@ -264,7 +349,7 @@ export const quickSearchLibrary = (keyword: string): LibraryQuickSearchResult =>
        GROUP BY name
        LIMIT 3`,
     )
-    .all(params) as { name: string; cover: string | null; artists: string; trackCount: number }[];
+    .all(params) as AlbumSummaryRow[];
   const artistRows = database
     .prepare(
       `SELECT
@@ -283,7 +368,9 @@ export const quickSearchLibrary = (keyword: string): LibraryQuickSearchResult =>
     albums: albumRows.map((row) => ({
       name: row.name,
       cover: row.cover ?? undefined,
-      artist: (JSON.parse(row.artists) as Artist[]).map((artist) => artist.name).join(" / "),
+      artist:
+        row.albumArtist ??
+        (JSON.parse(row.artists) as Artist[]).map((artist) => artist.name).join(" / "),
       trackCount: row.trackCount,
     })),
     artists: artistRows.map((row) => ({
@@ -322,6 +409,7 @@ export const getAlbumList = (): AlbumSummary[] => {
       `SELECT
          json_extract(album, '$.name') AS name,
          MAX(CASE WHEN cover IS NOT NULL THEN cover END) AS cover,
+         MAX(NULLIF(json_extract(album, '$.artist'), '')) AS albumArtist,
          MAX(artists) AS artists,
          COUNT(*) AS trackCount
        FROM tracks
@@ -329,11 +417,11 @@ export const getAlbumList = (): AlbumSummary[] => {
          AND ${excludeCueContainer()}
        GROUP BY name`,
     )
-    .all() as { name: string; cover: string | null; artists: string; trackCount: number }[];
+    .all() as AlbumSummaryRow[];
   return rows.map((row) => ({
     name: row.name,
     cover: row.cover ?? undefined,
-    artist: (JSON.parse(row.artists) as Artist[]).map((a) => a.name).join(" / "),
+    artist: row.albumArtist ?? (JSON.parse(row.artists) as Artist[]).map((a) => a.name).join(" / "),
     trackCount: row.trackCount,
   }));
 };
@@ -364,7 +452,8 @@ export const getArtistList = (): ArtistSummary[] => {
 export const getAlbumTracks = (albumName: string): Track[] => {
   const rows = getDb()
     .prepare(
-      `SELECT * FROM tracks WHERE json_extract(album, '$.name') = ? AND ${excludeCueContainer()}`,
+      `SELECT * FROM tracks WHERE json_extract(album, '$.name') = ? AND ${excludeCueContainer()}
+       ORDER BY COALESCE(json_extract(local_tags, '$.discNumber'), 1), track IS NULL, track, title COLLATE NOCASE`,
     )
     .all(albumName) as TrackRow[];
   return rows.map(rowToTrack);

@@ -8,7 +8,6 @@ fn returns_preprocessed_samples_without_copying() {
         normalization_gain: 1.0,
         stem_samples: None,
         player_samples: vec![0.1, -0.1, 2.0, -2.0],
-        fft_samples: vec![],
         source_sample_count: 4,
     });
 
@@ -27,7 +26,6 @@ fn position_uses_source_sample_count_after_tempo_processing() {
         normalization_gain: 1.0,
         stem_samples: None,
         player_samples: vec![0.25, -0.25],
-        fft_samples: vec![],
         source_sample_count: 8,
     });
     let mut source = DecoderSource::new(Arc::clone(&shared));
@@ -48,7 +46,6 @@ fn cue_end_stops_at_a_complete_frame_inside_a_chunk() {
         normalization_gain: 1.0,
         stem_samples: None,
         player_samples: vec![0.25; 100],
-        fft_samples: vec![],
         source_sample_count: 100,
     });
     let mut source = DecoderSource::new(Arc::clone(&shared));
@@ -67,7 +64,6 @@ fn tempo_warmup_without_output_still_advances_source_position() {
         normalization_gain: 1.0,
         stem_samples: None,
         player_samples: Vec::new(),
-        fft_samples: Vec::new(),
         source_sample_count: 8,
     });
     let mut source = DecoderSource::new(Arc::clone(&shared));
@@ -86,7 +82,6 @@ fn underrun_recovers_at_next_callback_without_extending_silence() {
         normalization_gain: 1.0,
         stem_samples: None,
         player_samples: vec![0.25, -0.25],
-        fft_samples: vec![],
         source_sample_count: 2,
     });
     for _ in 0..39 {
@@ -106,7 +101,6 @@ fn startup_waits_for_audio_but_short_track_drains_at_eof() {
         normalization_gain: 1.0,
         stem_samples: None,
         player_samples: vec![0.25; 2],
-        fft_samples: vec![],
         source_sample_count: 2,
     });
     source.begin_callback();
@@ -136,7 +130,6 @@ fn high_rate_underrun_does_not_delay_ready_audio_to_twenty_milliseconds() {
             normalization_gain: 1.0,
             stem_samples: None,
             player_samples: vec![0.25, -0.25],
-            fft_samples: vec![],
             source_sample_count: 2,
         });
         source.begin_callback();

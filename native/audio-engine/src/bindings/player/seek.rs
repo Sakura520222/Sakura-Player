@@ -16,12 +16,17 @@ impl AudioPlayer {
     /// 跳转到指定播放位置（秒）
     ///
     /// 解码与提交均在阻塞线程执行，避免过期网络解码器在异步上下文释放。
-    /// seek 失败时回退到完整加载。
+    /// seek 失败时回退到完整加载
+    /// @param position - 音频文件内的目标位置，单位为秒
     #[napi]
     pub async fn seek(&self, position: f64) -> Result<()> {
-        let take = {
+        if std::time::Duration::try_from_secs_f64(position).is_err() {
+            return Err(Error::from_reason("无效的音频跳转位置"));
+        }
+        let (take, range) = {
             let mut player = self.inner.lock();
-            player.take_for_async_seek()
+            let range = player.playback_range(Some(position));
+            (player.take_for_async_seek(), range)
         };
         // 无解码线程：空闲 / 已停止 / 正在异步加载（句柄被 load 取走）
         // 此时 seek 无意义，且绝不能走回退重载——current_source 仍指向旧曲，
@@ -29,6 +34,7 @@ impl AudioPlayer {
         let Some(take) = take else {
             return Ok(());
         };
+        let position = range.start;
 
         let SeekTake {
             old_threads,
@@ -55,17 +61,19 @@ impl AudioPlayer {
             if !decoder_data.seek(position) {
                 return SeekOutcome::Fallback;
             }
-            let previous_format = (output.sample_rate(), output.channels());
+            let previous_format = (
+                output.sample_rate(),
+                output.channels(),
+                output.integer_bits(),
+            );
             let (output, shared, playback) = match PlaybackHandle::prepare(output, fft) {
                 Ok(prepared) => prepared,
                 Err(error) => return SeekOutcome::OutputFailed { error },
             };
             let output_sample_rate = output.sample_rate();
             let output_channels = output.channels();
-            if previous_format != (output_sample_rate, output_channels)
-                && decoder_data
-                    .reconfigure_player_output(output_sample_rate, output_channels)
-                    .is_err()
+            if previous_format != (output_sample_rate, output_channels, output.integer_bits())
+                && decoder_data.reconfigure_player_output(&shared).is_err()
             {
                 return SeekOutcome::Fallback;
             }
@@ -121,7 +129,7 @@ impl AudioPlayer {
                 }
                 if let Some(src) = current_source {
                     let is_remote = src.starts_with("http://") || src.starts_with("https://");
-                    if let Err(e) = self.load(src, Some(was_playing), None).await {
+                    if let Err(e) = self.load(src, Some(was_playing), None, Some(range)).await {
                         if is_cancelled_napi_error(&e) {
                             return Ok(());
                         }

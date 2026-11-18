@@ -2,12 +2,12 @@
 //!
 //! 在后台线程中运行，避免阻塞 Node.js 事件循环。
 //! 支持增量扫描：比对文件 mtime/size 跳过未变化的文件。
-//! 使用 FFmpeg 提取元数据，无需额外依赖 lofty。
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::time::{Instant, SystemTime};
 
 use ffmpeg_audio::AudioReader;
@@ -16,10 +16,8 @@ use walkdir::WalkDir;
 
 use crate::metadata;
 
-/// 支持的音频文件扩展名
-const AUDIO_EXTENSIONS: &[&str] = &[
-    "mp3", "flac", "wav", "ogg", "aac", "m4a", "wma", "opus", "ape",
-];
+/// 与系统文件关联及拖放入口共用的音频后缀
+static AUDIO_EXTENSIONS: OnceLock<Vec<String>> = OnceLock::new();
 
 /// 每批回调的文件数
 const BATCH_SIZE: usize = 20;
@@ -38,6 +36,8 @@ pub struct ScannedTrack {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub track: Option<u16>,
+    pub tags: metadata::TrackTags,
+    pub embedded_cue: Option<String>,
     pub duration: f64,
     pub codec: String,
     pub sample_rate: u32,
@@ -75,7 +75,15 @@ pub enum ScanEvent {
 fn is_audio_file(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| AUDIO_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+        .is_some_and(|ext| {
+            AUDIO_EXTENSIONS
+                .get_or_init(|| {
+                    serde_json::from_str(include_str!("../../../shared/utils/audioFormats.json"))
+                        .expect("音频后缀清单必须有效")
+                })
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(ext))
+        })
 }
 
 /// 判断文件是否为 CUE 分轨描述文件
@@ -127,17 +135,23 @@ pub(crate) fn probe_fast(path: &str, cover_cache_dir: Option<&str>) -> Option<Sc
     }
 
     let raw_metadata = reader.metadata();
-    let tags = metadata::extract_tags(&raw_metadata);
+    let tags = metadata::read_summary(Some(path), &raw_metadata);
 
     let cover =
         cover_cache_dir.and_then(|dir| metadata::extract_cover_thumbnail(&reader, path, dir));
 
     Some(ScannedTrack {
         path: path.to_string(),
-        title: tags.title,
-        artist: tags.artist,
-        album: tags.album,
-        track: tags.track,
+        title: tags.title.clone(),
+        artist: tags.artist.clone(),
+        album: tags.album.clone(),
+        track: tags
+            .track_number
+            .and_then(|number| u16::try_from(number).ok()),
+        tags,
+        embedded_cue: metadata::dict_get(&raw_metadata, "cuesheet")
+            .filter(|cue| cue.len() <= 1024 * 1024)
+            .map(str::to_owned),
         duration,
         codec,
         sample_rate: stream_info.sample_rate,
