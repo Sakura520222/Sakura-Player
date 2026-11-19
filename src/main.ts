@@ -9,6 +9,7 @@ import i18n from "./i18n";
 import { useThemeStore } from "./stores/theme";
 import { useSettingsStore } from "./stores/settings";
 import { useHotkeyStore } from "./stores/hotkey";
+import { useLibraryStore } from "./stores/library";
 import { initPlayer, playFiles, restoreLastTrack } from "./core/player";
 import { handleOrpheus } from "./services/orpheus";
 import { installHotkeyManager } from "./core/hotkey/manager";
@@ -52,9 +53,9 @@ const bootstrapPlayback = async (): Promise<void> => {
   }
 };
 
-/** 挂载首屏并准备播放操作 */
+/** 恢复本地收藏后挂载首屏并准备播放操作 */
 export const mountApplication = async (): Promise<void> => {
-  await router.isReady();
+  await Promise.all([router.isReady(), useLibraryStore().loadLiked()]);
   app.mount("#app");
   await nextTick();
   await initPlayer();

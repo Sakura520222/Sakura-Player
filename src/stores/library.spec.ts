@@ -5,6 +5,12 @@ import { ErrorCode } from "@shared/types/errors";
 const mocks = vi.hoisted(() => ({
   addScanDir: vi.fn(),
   removeScanDir: vi.fn(),
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+}));
+
+vi.mock("localforage", () => ({
+  default: { createInstance: () => ({ getItem: mocks.getItem, setItem: mocks.setItem }) },
 }));
 
 beforeEach(() => {
@@ -15,8 +21,35 @@ beforeEach(() => {
       library: {
         addScanDir: mocks.addScanDir,
         removeScanDir: mocks.removeScanDir,
+        getTracks: vi.fn().mockResolvedValue({ success: true, data: [] }),
+        getScanDirs: vi.fn().mockResolvedValue({ success: true, data: [] }),
+        getArtists: vi.fn().mockResolvedValue({ success: true, data: [] }),
       },
     },
+  });
+});
+
+describe("本地歌曲收藏", () => {
+  it("冷启动单独恢复收藏，之后加载曲库时保留已更新的状态", async () => {
+    mocks.getItem.mockImplementation((key) =>
+      Promise.resolve(key === "liked-ids" ? ["restored", "older"] : null),
+    );
+    mocks.setItem.mockResolvedValue(undefined);
+    const { useLibraryStore } = await import("./library");
+    const store = useLibraryStore();
+
+    await Promise.all([store.loadLiked(), store.loadLiked()]);
+    expect(mocks.getItem).toHaveBeenCalledExactlyOnceWith("liked-ids");
+    expect(window.api.library.getTracks).not.toHaveBeenCalled();
+    expect(store.likedOrderedIds).toEqual(["restored", "older"]);
+    expect(store.isLiked("restored")).toBe(true);
+    expect(store.isLiked("other")).toBe(false);
+
+    expect(store.toggleLike("restored")).toBe(false);
+    await store.load();
+    expect(store.isLiked("restored")).toBe(false);
+    expect(store.likedOrderedIds).toEqual(["older"]);
+    expect(mocks.getItem.mock.calls).toEqual([["liked-ids"], ["tracks"]]);
   });
 });
 

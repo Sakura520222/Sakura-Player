@@ -27,6 +27,20 @@ export const useLibraryStore = defineStore("library", () => {
   const likedOrderedIds = shallowRef<string[]>([]);
   /** 本地红心 id 集合 */
   const likedIdSet = shallowRef<Set<string>>(new Set());
+  let likedLoadPromise: Promise<void> | undefined;
+
+  /** 恢复本地收藏，启动与曲库加载共用一次读取 */
+  const loadLiked = (): Promise<void> => {
+    likedLoadPromise ??= trackDb
+      .getItem<string[]>(LIKED_IDS_KEY)
+      .catch(() => null)
+      .then((cached) => {
+        if (!Array.isArray(cached)) return;
+        likedOrderedIds.value = cached;
+        likedIdSet.value = new Set(cached);
+      });
+    return likedLoadPromise;
+  };
 
   /** 持久化喜欢列表 */
   const persistLiked = (): void => {
@@ -103,18 +117,14 @@ export const useLibraryStore = defineStore("library", () => {
     trackDb.setItem("tracks", toRaw(items)).catch(() => {});
   };
 
-  /** 加载曲目和目录列表 */
+  /** 从缓存和主进程加载曲目与目录，确保本地收藏已恢复 */
   const load = async (): Promise<void> => {
     // 先从 IndexedDB 读缓存，立即渲染
-    const [cached, likedCached] = await Promise.all([
+    const [cached] = await Promise.all([
       trackDb.getItem<Track[]>("tracks").catch(() => null),
-      trackDb.getItem<string[]>(LIKED_IDS_KEY).catch(() => null),
+      loadLiked(),
     ]);
     if (cached?.length) tracks.value = cached;
-    if (Array.isArray(likedCached)) {
-      likedOrderedIds.value = likedCached;
-      likedIdSet.value = new Set(likedCached);
-    }
     // 拿最新数据并回写缓存
     const [tracksRes, dirsRes] = await Promise.all([
       window.api.library.getTracks(),
@@ -335,6 +345,7 @@ export const useLibraryStore = defineStore("library", () => {
     likedIdSet,
     isLiked,
     toggleLike,
+    loadLiked,
     load,
     startScan,
     cancelScan,
