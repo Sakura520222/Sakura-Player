@@ -101,7 +101,7 @@ html[data-reduced-motion] {
   }
 
   /* 移除毛玻璃后用更实的底色保证可读性 */
-  &[data-appearance-style="image"]
+  &[data-appearance-style="image"]:not([data-theme-material="liquid"])
     :is(
       .glass-panel,
       .bg-surface-bright,

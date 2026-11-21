@@ -1,4 +1,25 @@
 {
+  "themes": {
+    "classicDescription": "The original Sakura Player layout",
+    "liquidDescription": "Floating navigation and refractive glass",
+    "playerLayout": "Sakura Liquid",
+    "toggleLyrics": "Toggle lyrics",
+    "quality": {
+      "auto": "Automatic",
+      "high": "High quality",
+      "balanced": "Balanced",
+      "low": "Low power"
+    },
+    "motion": {
+      "expressive": "Full motion",
+      "reduced": "Reduced motion"
+    },
+    "material": {
+      "refraction": "Active material: refractive glass",
+      "frosted": "Active material: frosted glass",
+      "opaque": "Active material: opaque"
+    }
+  },
   "update": {
     "dialogTitle": "New Version Available",
     "later": "Later",
@@ -521,6 +542,7 @@
       "apply": "Use these lyrics"
     },
     "lyricCredit": "Lyrics by",
+    "expand": "Open Player",
     "collapse": "Collapse Player",
     "copyLyric": {
       "title": "Copy Lyrics",
@@ -718,6 +740,8 @@
     }
   },
   "songList": {
+    "backToTop": "Back to top",
+    "locateCurrent": "Locate current song",
     "title": "Title",
     "album": "Album",
     "actions": "Actions",
@@ -1025,6 +1049,7 @@
       "dynamicIsland": "Dynamic Island Lyric",
       "taskbarLyric": "Taskbar Lyric",
       "theme": "Theme",
+      "themeMaterial": "Glass and motion",
       "appearanceStyle": "Appearance Style",
       "layout": "Layout",
       "softwareAnimations": "Transitions & Animations",
@@ -1871,6 +1896,26 @@
     "coverLyricRatio": {
       "label": "Cover/Lyrics Ratio",
       "description": "Width ratio between cover and lyric areas in the classic layout"
+    },
+    "themePicker": {
+      "label": "Application theme",
+      "description": "Choose Classic or Sakura Liquid"
+    },
+    "themeRefraction": {
+      "label": "Refraction",
+      "description": "How far the glass bends the background"
+    },
+    "themeTransparency": {
+      "label": "Glass transparency",
+      "description": "How much background shows through the glass"
+    },
+    "themeRenderQuality": {
+      "label": "Rendering quality",
+      "description": "Balanced limits refraction to key surfaces. Low power uses opaque surfaces."
+    },
+    "themeMotion": {
+      "label": "Theme motion",
+      "description": "System and application motion preferences also apply"
     },
     "themeMode": {
       "label": "Theme Mode",

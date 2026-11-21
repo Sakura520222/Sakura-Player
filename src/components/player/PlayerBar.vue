@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useSettingsStore } from "@/stores/settings";
 import { useMediaStore } from "@/stores/media";
+import { useThemeStore } from "@/stores/theme";
 import { useFavorite } from "@/composables/useFavorite";
 import { usePlaylistPicker } from "@/composables/usePlaylistPicker";
 import { useTrackMenu } from "@/composables/useTrackMenu";
@@ -9,12 +10,16 @@ import { useResponsiveLayout } from "@/composables/useResponsiveLayout";
 
 const settings = useSettingsStore();
 const media = useMediaStore();
+const theme = useThemeStore();
 const fav = useFavorite();
 
 const { isCompact } = useResponsiveLayout();
 /** 浮动模式或窄窗口统一使用紧凑布局 */
 const useCompactLayout = computed(
-  () => settings.appearance.layoutMode === "floating" || isCompact.value,
+  () =>
+    theme.definition.capabilities.compactDock ||
+    settings.appearance.layoutMode === "floating" ||
+    isCompact.value,
 );
 
 /** 添加到歌单 */
@@ -36,9 +41,13 @@ const { items: menuItems, handleSelect: onMenuSelect } = useTrackMenu(toRef(medi
 
 <template>
   <!-- 浮动模式与窄窗口紧凑布局 -->
-  <div v-if="useCompactLayout" class="relative flex items-center h-full px-4 gap-4 min-w-0">
+  <div
+    v-if="useCompactLayout"
+    class="relative flex items-center h-full px-4 gap-4 min-w-0"
+    data-theme-dock-track
+  >
     <PlayerControls compact />
-    <div class="flex flex-col flex-1 min-w-0 gap-1 pt-2 pb-1">
+    <div class="flex flex-col flex-1 min-w-0 gap-1 pt-2 pb-1" data-theme-dock-info>
       <div class="flex items-center gap-2 min-w-0">
         <TrackInfo compact class="flex-1">
           <template #title-trailing>

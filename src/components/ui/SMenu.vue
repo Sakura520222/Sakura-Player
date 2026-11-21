@@ -105,6 +105,7 @@ const handleSelect = (item: SMenuItem) => {
         <div
           :ref="(el) => setItemEl(item.key, el)"
           :data-menu-key="item.key"
+          :data-menu-active="modelValue === item.key ? '' : undefined"
           :aria-label="item.label"
           class="relative flex items-center rounded-lg cursor-pointer select-none overflow-hidden whitespace-nowrap transition-[background-color,color,height,padding] duration-250"
           :class="[
@@ -146,6 +147,7 @@ const handleSelect = (item: SMenuItem) => {
           <Transition name="fade">
             <span
               v-if="modelValue === item.key"
+              data-menu-indicator
               class="absolute left-0 top-2 bottom-2 w-0.75 rounded-full bg-primary"
             />
           </Transition>

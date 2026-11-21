@@ -2,7 +2,7 @@ import { useSettingsStore } from "@/stores/settings";
 import type { SettingCategory } from "@/types/settings-schema";
 import DeviceSelector from "@/components/settings/custom/DeviceSelector.vue";
 import AutoMixComponents from "@/components/settings/custom/AutoMixComponents.vue";
-import { isWin } from "@/utils/config";
+import { audioOutputModeSetting } from "@/settings/audioOutputMode";
 import IconLucidePlay from "~icons/lucide/play";
 import { getActiveDeviceId } from "@/core/player";
 import { setDeviceVolume } from "@/services/deviceVolume";
@@ -286,24 +286,7 @@ const playerCategory: SettingCategory = {
             }
           },
         },
-        {
-          key: "audioOutputMode",
-          type: "select",
-          binding: { store: "settings", path: "system.player.audioOutputMode" },
-          options: [
-            { value: "shared", labelKey: "settings.audioOutputMode.shared" },
-            { value: "exclusive", labelKey: "settings.audioOutputMode.exclusive" },
-            { value: "bit-perfect", labelKey: "settings.audioOutputMode.direct" },
-          ],
-          defaultValue: "shared",
-          confirm: {
-            when: (next) => next === "exclusive" || next === "bit-perfect",
-            titleKey: "settings.confirm.exclusiveModeTitle",
-            contentKey: "settings.confirm.exclusiveModeContent",
-            type: "warning",
-          },
-          visible: () => isWin,
-        },
+        audioOutputModeSetting,
         {
           key: "pauseOnDeviceSwitch",
           type: "switch",

@@ -20,13 +20,13 @@ const onClose = (): void => {
 </script>
 
 <template>
-  <div v-if="isBorderless" class="flex items-center gap-3 shrink-0">
+  <div v-if="isBorderless" data-theme-nav-group class="flex items-center gap-3 shrink-0">
     <SButton
       class="window-control-button app-no-drag"
       :type="cover ? 'cover' : undefined"
       :variant="cover ? 'ghost' : 'tertiary'"
       circle
-      :size="40"
+      size="large"
       :icon-size="16"
       @click="minimize"
     >
@@ -37,7 +37,7 @@ const onClose = (): void => {
       :type="cover ? 'cover' : undefined"
       :variant="cover ? 'ghost' : 'tertiary'"
       circle
-      :size="40"
+      size="large"
       :icon-size="16"
       @click="toggleMaximize"
     >
@@ -50,7 +50,7 @@ const onClose = (): void => {
       :type="cover ? 'cover' : undefined"
       :variant="cover ? 'ghost' : 'tertiary'"
       circle
-      :size="40"
+      size="large"
       @click="onClose"
     >
       <template #icon><IconX /></template>

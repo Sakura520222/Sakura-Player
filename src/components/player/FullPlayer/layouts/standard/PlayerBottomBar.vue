@@ -11,6 +11,8 @@ import * as player from "@/core/player";
 import { setPlayerExpanded } from "@/services/playerTransition";
 import { useFullPlayer } from "../../context";
 
+defineOptions({ inheritAttrs: false });
+
 const status = useStatusStore();
 const media = useMediaStore();
 const settings = useSettingsStore();
@@ -18,7 +20,7 @@ const fav = useFavorite();
 const { enqueue: enqueueDownload } = useDownload();
 const { t } = useI18n();
 const { isPlaying, isLoading, repeatMode, shuffleMode, heartMode, fmMode } = storeToRefs(status);
-const { immersive, onBarEnter, onBarLeave } = useFullPlayer();
+const { immersive, onBarEnter, onBarLeave, setControlMenuOpen } = useFullPlayer();
 
 const { timeDisplay, toggleTimeFormat } = useTimeFormat();
 
@@ -57,14 +59,23 @@ const showComments = (): void => {
 
 <template>
   <div
+    v-bind="$attrs"
     data-player-layout="bottom-bar"
     class="absolute bottom-0 inset-x-0 h-20 z-10 flex items-center gap-4 px-4 transition-opacity duration-400"
     :class="immersive ? 'opacity-0 pointer-events-none' : 'opacity-100'"
     @mouseenter="onBarEnter"
     @mouseleave="onBarLeave"
   >
-    <div class="flex-1 min-w-0 flex items-center justify-start gap-2">
-      <SButton type="cover" variant="ghost" size="large" circle @click="setPlayerExpanded(false)">
+    <slot />
+    <div data-player-dock-actions class="flex-1 min-w-0 flex items-center justify-start gap-2">
+      <SButton
+        type="cover"
+        variant="ghost"
+        size="large"
+        circle
+        :aria-label="t('player.collapse')"
+        @click="setPlayerExpanded(false)"
+      >
         <template #icon><IconLucideChevronDown /></template>
       </SButton>
       <SButton
@@ -118,7 +129,10 @@ const showComments = (): void => {
         </template>
       </SDropdownMenu>
     </div>
-    <div class="shrink-0 flex flex-col items-center gap-1 w-[clamp(360px,35%,480px)]">
+    <div
+      data-player-dock-transport
+      class="shrink-0 flex flex-col items-center gap-1 w-[clamp(360px,35%,480px)]"
+    >
       <div class="flex items-center gap-3">
         <SButton
           type="cover"
@@ -144,6 +158,7 @@ const showComments = (): void => {
           variant="ghost"
           circle
           :disabled="!hasTrack || fmMode"
+          :aria-label="t('player.prev')"
           @click="player.prevTrack()"
         >
           <template #icon><IconLucideSkipBack /></template>
@@ -169,6 +184,7 @@ const showComments = (): void => {
           variant="ghost"
           circle
           :disabled="!hasTrack"
+          :aria-label="t('player.next')"
           @click="player.nextTrack()"
         >
           <template #icon><IconLucideSkipForward /></template>
@@ -204,8 +220,8 @@ const showComments = (): void => {
         </span>
       </div>
     </div>
-    <div class="flex-1 min-w-0 flex items-center justify-end">
-      <Toolbar cover />
+    <div data-player-dock-actions class="flex-1 min-w-0 flex items-center justify-end">
+      <Toolbar cover @quick-menu-open-change="setControlMenuOpen" />
     </div>
   </div>
   <PlaylistPickerDialog v-model:open="pickerOpen" :mode="pickerMode" :tracks="pickerTracks" />

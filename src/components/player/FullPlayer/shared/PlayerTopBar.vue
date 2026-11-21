@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import type { PlayerLayout } from "@/types/settings";
-import { useSettingsStore } from "@/stores/settings";
+import { useThemeStore } from "@/stores/theme";
+import {
+  activePlayerLayout,
+  playerLayoutChoices,
+  setActivePlayerLayout,
+} from "@/themes/playerLayout";
 import { useWindowControls } from "@/composables/useWindowControls";
 import { useFullPlayer } from "../context";
 
-/** 可快速切换的播放器布局 */
-const LAYOUT_OPTIONS: { value: PlayerLayout; labelKey: string }[] = [
-  { value: "classic", labelKey: "settings.playerLayout.classic" },
-  { value: "fullCover", labelKey: "settings.playerLayout.fullCover" },
-  { value: "fullLyric", labelKey: "settings.playerLayout.fullLyric" },
-  { value: "apple", labelKey: "settings.playerLayout.apple" },
-];
-
 const { t } = useI18n();
-const settings = useSettingsStore();
+const theme = useThemeStore();
+const options = computed(playerLayoutChoices);
+const selectedLayout = computed(activePlayerLayout);
 const { immersive, onBarEnter, onBarLeave } = useFullPlayer();
 const { isFullscreen, toggleFullscreen } = useWindowControls();
 
@@ -24,9 +22,9 @@ const layoutPopoverOpen = ref(false);
  * 切换播放器布局，先收起弹层避免其被布局过渡的快照分组盖住
  * @param layout - 目标布局
  */
-const selectLayout = (layout: PlayerLayout): void => {
+const selectLayout = (layout: string): void => {
   layoutPopoverOpen.value = false;
-  settings.player.layout = layout;
+  setActivePlayerLayout(layout);
 };
 </script>
 
@@ -52,7 +50,13 @@ const selectLayout = (layout: PlayerLayout): void => {
         cover
       >
         <template #trigger>
-          <SButton type="cover" variant="ghost" circle :size="40">
+          <SButton
+            type="cover"
+            variant="ghost"
+            circle
+            :size="40"
+            :aria-label="t('settings.playerLayout.label')"
+          >
             <template #icon><IconLucideLayoutTemplate /></template>
           </SButton>
         </template>
@@ -66,14 +70,14 @@ const selectLayout = (layout: PlayerLayout): void => {
             class="grid grid-cols-2 gap-2"
           >
             <div
-              v-for="option in LAYOUT_OPTIONS"
+              v-for="option in options"
               :key="option.value"
               role="radio"
               tabindex="0"
-              :aria-checked="settings.player.layout === option.value"
+              :aria-checked="selectedLayout === option.value"
               class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl cursor-pointer transition-colors outline-none focus-visible:bg-cover/12"
               :class="
-                settings.player.layout === option.value
+                selectedLayout === option.value
                   ? 'bg-cover/14 text-cover'
                   : 'text-cover/60 hover:bg-cover/8'
               "
@@ -84,12 +88,10 @@ const selectLayout = (layout: PlayerLayout): void => {
               <!-- 布局示意 -->
               <div
                 class="relative w-28 aspect-[16/10] rounded-lg overflow-hidden bg-cover/8 border border-solid"
-                :class="
-                  settings.player.layout === option.value ? 'border-cover/60' : 'border-cover/15'
-                "
+                :class="selectedLayout === option.value ? 'border-cover/60' : 'border-cover/15'"
               >
                 <span
-                  v-if="option.value === 'classic'"
+                  v-if="option.value === 'classic' || option.value === theme.definition.player?.id"
                   class="absolute left-[12%] top-1/2 -translate-y-1/2 w-[30%] aspect-square rounded-md bg-cover/45"
                 />
                 <span

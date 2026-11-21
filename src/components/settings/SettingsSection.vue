@@ -39,6 +39,7 @@ const itemStyle = (i: number) => {
 <template>
   <div v-if="isSectionVisible && visibleItems.length > 0" class="mb-8 last:mb-0">
     <h3
+      data-theme-setting-heading
       class="animate-slide-in-item flex items-center gap-2 text-lg font-semibold text-on-surface mb-3 px-1"
       :style="itemStyle(0)"
     >

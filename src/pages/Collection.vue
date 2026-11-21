@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <!-- 操作栏 -->
-          <div class="mt-auto flex items-center justify-between gap-4">
+          <div data-song-list-toolbar class="mt-auto flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
               <SButton
                 type="primary"

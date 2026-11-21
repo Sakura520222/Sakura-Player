@@ -55,6 +55,7 @@ const hasTrack = computed(() => !!media.track);
       <template #icon><IconLucideSkipBack /></template>
     </SButton>
     <SButton
+      data-theme-play-toggle
       type="primary"
       variant="secondary"
       circle

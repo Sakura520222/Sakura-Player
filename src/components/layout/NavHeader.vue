@@ -39,7 +39,7 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
     key: "theme",
     label: themeLabel.value,
     icon: themeIcon.value,
-    disabled: theme.appearanceStyle === "image",
+    disabled: theme.imageForcesDark,
   },
   { key: "uiZoom", label: t("uiZoom.title"), icon: IconScaling },
   { key: "reload", label: t("nav.reload"), icon: IconRefreshCw, separator: true },
@@ -59,12 +59,12 @@ const onMenuSelect = (key: string): void => {
 <template>
   <div class="flex items-center justify-between flex-1 h-full min-w-0 app-drag-region">
     <!-- 左侧 -->
-    <div class="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
+    <div data-theme-nav-group class="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
       <SButton
         class="app-no-drag shrink-0"
         variant="tertiary"
         circle
-        :size="40"
+        size="large"
         :icon-size="20"
         @click="router.back()"
       >
@@ -74,7 +74,7 @@ const onMenuSelect = (key: string): void => {
         class="app-no-drag shrink-0"
         variant="tertiary"
         circle
-        :size="40"
+        size="large"
         :icon-size="20"
         @click="router.forward()"
       >
@@ -95,13 +95,19 @@ const onMenuSelect = (key: string): void => {
       </SButton>
     </div>
     <!-- 中间 -->
-    <div class="flex-1 h-full min-w-4" />
+    <div data-theme-nav-space class="flex-1 h-full min-w-4" />
     <!-- 右侧 -->
-    <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+    <div data-theme-nav-group class="flex items-center gap-2 sm:gap-3 shrink-0">
       <NavUser />
       <SDropdownMenu :items="menuItems" @select="onMenuSelect">
         <template #trigger>
-          <SButton class="app-no-drag shrink-0" variant="tertiary" circle :size="40">
+          <SButton
+            class="app-no-drag shrink-0"
+            variant="tertiary"
+            circle
+            size="large"
+            :aria-label="t('nav.globalSettings')"
+          >
             <template #icon><IconLucideSettings /></template>
           </SButton>
         </template>

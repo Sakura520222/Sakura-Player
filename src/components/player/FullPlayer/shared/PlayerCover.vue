@@ -3,6 +3,7 @@ const hdCache = shallowRef<{ id: string; data: string } | null>(null);
 </script>
 
 <script setup lang="ts">
+import { materialKey } from "@/themes/material";
 import { useMediaStore } from "@/stores/media";
 import { useStatusStore } from "@/stores/status";
 import { useSettingsStore } from "@/stores/settings";
@@ -20,17 +21,20 @@ const coverSrc = computed(() =>
     : displayTrack.value?.coverOriginal || displayTrack.value?.cover,
 );
 
-watchEffect(async () => {
+watchEffect(async (onCleanup) => {
   const id = displayTrack.value?.id;
   if (!status.isPlayerExpanded || status.trackLoading || !id) return;
   if (displayTrack.value?.source !== "local" || hdCache.value?.id === id) return;
+  let current = true;
+  onCleanup(() => (current = false));
   const r = await window.api.player.getCoverRaw();
-  if (displayTrack.value?.id !== id || !r.success || !r.data) return;
+  if (!current || displayTrack.value?.id !== id || !r.success || !r.data) return;
   hdCache.value = { id, data: r.data };
 });
 
 let layerId = 0;
 
+/** 记录当前解码目标及其同曲兜底图 */
 const createLayer = () => ({
   id: ++layerId,
   src: coverSrc.value,
@@ -38,27 +42,60 @@ const createLayer = () => ({
 });
 
 const layers = shallowRef([createLayer()]);
+let pendingLayer: ReturnType<typeof createLayer> | undefined;
 
-// 新图解码后才淡入，淡入结束前底层旧图保持不动，最多两层
-watch([coverSrc, () => displayTrack.value?.cover], async () => {
+watch([coverSrc, () => displayTrack.value?.cover], async (_, __, onCleanup) => {
+  pendingLayer = undefined;
   const layer = createLayer();
-  const decodes = [layer.src, layer.fallback].filter(Boolean).map((src) => {
-    const image = new Image();
-    image.src = src!;
-    return image.decode();
+  let current = true;
+  const images: HTMLImageElement[] = [];
+  onCleanup(() => {
+    current = false;
+    for (const image of images) image.removeAttribute("src");
   });
-  await Promise.any(decodes).catch(() => {});
-  if (layer.id === layerId) layers.value = [layers.value[0], layer];
+  for (const src of new Set([layer.src, layer.fallback])) {
+    if (!src) continue;
+    const image = new Image();
+    image.src = src;
+    images.push(image);
+  }
+  await Promise.any(images.map((image) => image.decode())).catch(() => {});
+  images.length = 0;
+  if (!current) return;
+
+  // 已在淡入的新封面保留到不透明，避免高清图到达时重新暴露旧封面
+  if (layers.value.length > 1) pendingLayer = layer;
+  else layers.value = [layers.value[0], layer];
 });
+
+/**
+ * 完成当前淡入，将它作为下一次过渡的底图
+ * @param element - 已完成淡入的封面层
+ */
+const finishCoverEnter = (element: Element): void => {
+  const current = layers.value.at(-1);
+  if (!current || element.getAttribute("data-cover-layer") !== String(current.id)) return;
+  const next = pendingLayer;
+  pendingLayer = undefined;
+  layers.value = next ? [current, next] : [current];
+};
 
 const motion = shallowRef<{ key: string; src: string } | null>(null);
 const motionReady = ref(false);
 const videoRef = ref<HTMLVideoElement>();
+const material = inject(materialKey);
+const visibility = useDocumentVisibility();
+const canAnimate = computed(
+  () =>
+    status.isPlayerExpanded &&
+    !settings.reducedMotion &&
+    (material?.value.visible ?? visibility.value === "visible"),
+);
 
 watch(
   () =>
     [
-      status.isPlayerExpanded && !status.trackLoading,
+      canAnimate.value && !status.trackLoading,
       settings.player.motionCoverSource,
       displayTrack.value?.id,
     ] as const,
@@ -77,12 +114,10 @@ watch(
   { immediate: true },
 );
 
-const visibility = useDocumentVisibility();
-
 // 跟随播放暂停，窗口隐藏时停止解码
-watch([videoRef, () => status.isPlaying, visibility], ([video, playing, visible]) => {
+watch([videoRef, () => status.isPlaying, canAnimate], ([video, playing, animate]) => {
   if (!video) return;
-  if (playing && visible === "visible") video.play().catch(() => {});
+  if (playing && animate) video.play().catch(() => {});
   else video.pause();
 });
 
@@ -108,11 +143,12 @@ onBeforeUnmount(() => videoRef.value && releaseVideo(videoRef.value));
       :css="!settings.reducedMotion"
       enter-active-class="transition-opacity duration-500 ease-linear"
       enter-from-class="opacity-0"
-      @after-enter="layers = layers.slice(-1)"
+      @after-enter="finishCoverEnter"
     >
       <DetailCover
         v-for="layer in layers"
         :key="layer.id"
+        :data-cover-layer="layer.id"
         :src="layer.src"
         :fallback="layer.fallback"
         class="absolute! inset-0 size-full"
@@ -125,7 +161,7 @@ onBeforeUnmount(() => videoRef.value && releaseVideo(videoRef.value));
       @after-leave="releaseVideo"
     >
       <video
-        v-if="motion && status.isPlayerExpanded"
+        v-if="motion && status.isPlayerExpanded && !settings.reducedMotion"
         ref="videoRef"
         :key="motion.src"
         :src="motion.src"

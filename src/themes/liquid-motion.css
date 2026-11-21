@@ -1,0 +1,148 @@
+.route-liquid-enter-active,
+.route-liquid-leave-active,
+.liquid-dock-motion-enter-active,
+.liquid-dock-motion-leave-active,
+.liquid-player-motion-enter-active,
+.liquid-player-motion-leave-active {
+  transition:
+    transform var(--liquid-motion-surface) var(--liquid-ease),
+    opacity var(--liquid-motion-surface) ease;
+}
+
+.route-liquid-leave-active,
+.liquid-dock-motion-leave-active,
+.liquid-player-motion-leave-active {
+  transition-duration: var(--liquid-motion-exit);
+}
+
+.route-liquid-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.993);
+}
+.route-liquid-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.liquid-dock-motion-enter-from,
+.liquid-dock-motion-leave-to {
+  opacity: 0;
+  transform: translateY(24px) scale(0.97);
+}
+.liquid-player-motion-enter-from,
+.liquid-player-motion-leave-to {
+  opacity: 0;
+  transform: translateY(24px) scale(0.985);
+}
+
+html[data-theme-motion="liquid"] {
+  [data-theme-popup] {
+    transform-origin: var(
+      --reka-popper-transform-origin,
+      var(
+        --reka-select-content-transform-origin,
+        var(--reka-context-menu-content-transform-origin, center top)
+      )
+    );
+  }
+
+  &[data-player-transition] {
+    --player-vt-easing: var(--liquid-ease);
+    --player-vt-duration: 340ms;
+  }
+
+  &:not([data-reduced-motion]) {
+    [data-theme-popup][data-state="open"] {
+      animation: liquid-popup-open var(--liquid-motion-surface) var(--liquid-spring) both;
+    }
+
+    [data-theme-popup][data-state="closed"] {
+      animation: liquid-popup-close var(--liquid-motion-exit) ease-in both;
+    }
+
+    [data-dialog-content][data-state="open"] {
+      animation: liquid-dialog-open var(--liquid-motion-surface) var(--liquid-spring) both;
+    }
+
+    [data-dialog-content][data-state="closed"] {
+      animation: liquid-dialog-close var(--liquid-motion-exit) ease both;
+    }
+
+    .s-button {
+      transition:
+        scale var(--liquid-motion-short) var(--liquid-spring),
+        background-color var(--liquid-motion-short) ease,
+        color var(--liquid-motion-short) ease,
+        opacity var(--liquid-motion-short) ease;
+    }
+
+    .s-button:not(:disabled):active {
+      scale: 0.94 0.9;
+    }
+
+    [data-menu-indicator].fade-enter-active {
+      animation: liquid-indicator-in var(--liquid-motion-surface) var(--liquid-spring) both;
+    }
+  }
+
+  &[data-reduced-motion]
+    :is(
+      .liquid-player-motion-enter-from,
+      .liquid-player-motion-leave-to,
+      .liquid-dock-motion-enter-from,
+      .liquid-dock-motion-leave-to
+    ) {
+    transform: none;
+  }
+
+  &[data-theme-visibility="hidden"]
+    :is([data-theme-popup], [data-dialog-content], [data-menu-indicator]) {
+    animation-duration: 1ms;
+  }
+}
+
+@keyframes liquid-popup-open {
+  from {
+    opacity: 0;
+    scale: 0.86 0.72;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes liquid-popup-close {
+  to {
+    opacity: 0;
+    scale: 0.9 0.76;
+  }
+}
+
+@keyframes liquid-dialog-open {
+  from {
+    opacity: 0;
+    scale: 0.975 0.962;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes liquid-dialog-close {
+  to {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes liquid-indicator-in {
+  from {
+    opacity: 0;
+    scale: 0.75 0.3;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}

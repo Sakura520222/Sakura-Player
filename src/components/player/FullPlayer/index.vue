@@ -3,8 +3,15 @@ import type { Component } from "vue";
 import type { PlayerLayout } from "@/types/settings";
 import { useStatusStore } from "@/stores/status";
 import { useSettingsStore } from "@/stores/settings";
+import { useThemeStore } from "@/stores/theme";
+import { resolvePlayerLayout } from "@/themes/registry";
+import { materialKey } from "@/themes/material";
 import { useImmersiveMode } from "@/composables/useImmersiveMode";
-import { playerTransitionActive, switchPlayerLayout } from "@/services/playerTransition";
+import {
+  fullPlayerReady,
+  playerTransitionActive,
+  switchPlayerLayout,
+} from "@/services/playerTransition";
 import { fullPlayerContextKey } from "./context";
 import ClassicLayout from "./layouts/standard/ClassicLayout.vue";
 import FullCoverLayout from "./layouts/standard/FullCoverLayout.vue";
@@ -12,7 +19,7 @@ import FullLyricLayout from "./layouts/standard/FullLyricLayout.vue";
 import AppleLayout from "./layouts/apple/AppleLayout.vue";
 
 /** 布局设置与布局组件的对应关系 */
-const LAYOUTS: Record<PlayerLayout, Component> = {
+const LAYOUTS: Partial<Record<string, Component>> & Record<PlayerLayout, Component> = {
   classic: ClassicLayout,
   fullCover: FullCoverLayout,
   fullLyric: FullLyricLayout,
@@ -21,6 +28,7 @@ const LAYOUTS: Record<PlayerLayout, Component> = {
 
 const status = useStatusStore();
 const settings = useSettingsStore();
+const theme = useThemeStore();
 const { isPlaying, isPlayerExpanded } = storeToRefs(status);
 
 const lyricMounted = ref(false);
@@ -29,19 +37,25 @@ const contentPrepared = ref(false);
 const playerVisible = ref(false);
 const visualizerMounted = ref(false);
 let visualizerIdle = 0;
-const visibility = useDocumentVisibility();
+const documentVisibility = useDocumentVisibility();
+const themeMaterial = inject(materialKey);
+const visibility = computed(
+  () => themeMaterial?.value.visible ?? documentVisibility.value === "visible",
+);
 
 const contentActive = computed(
-  () => isPlayerExpanded.value && contentPrepared.value && visibility.value === "visible",
+  () => isPlayerExpanded.value && contentPrepared.value && visibility.value,
 );
 
 /** 实际渲染的布局，与设置解耦以便在切换前截取旧快照 */
-const layout = ref(settings.player.layout);
-watch(
-  () => settings.player.layout,
-  (value) => switchPlayerLayout(() => (layout.value = value)),
-  { flush: "sync" },
-);
+const selectedLayout = computed(() => {
+  const id = resolvePlayerLayout(theme.themeId, theme.options, settings.player.layout);
+  return LAYOUTS[id] ?? theme.definition.player?.component ?? ClassicLayout;
+});
+const layout = shallowRef(selectedLayout.value);
+watch(selectedLayout, (value) => switchPlayerLayout(() => (layout.value = value)), {
+  flush: "sync",
+});
 
 /** 歌词首帧就绪后在空闲时段创建可视化，避免布局测量与 WebGL 初始化争抢一帧 */
 const scheduleVisualizers = (): void => {
@@ -50,18 +64,14 @@ const scheduleVisualizers = (): void => {
     visualizerMounted.value ||
     playerTransitionActive.value ||
     !isPlayerExpanded.value ||
-    visibility.value !== "visible"
+    !visibility.value
   ) {
     return;
   }
   visualizerIdle = requestIdleCallback(
     () => {
       visualizerIdle = 0;
-      if (
-        isPlayerExpanded.value &&
-        !playerTransitionActive.value &&
-        visibility.value === "visible"
-      ) {
+      if (isPlayerExpanded.value && !playerTransitionActive.value && visibility.value) {
         visualizerMounted.value = true;
       }
     },
@@ -77,7 +87,7 @@ const onLyricReady = (): void => {
 };
 
 watch(visibility, (value) => {
-  if (value === "visible" && lyricReady.value) scheduleVisualizers();
+  if (value && lyricReady.value) scheduleVisualizers();
 });
 
 /** 每次展开只初始化一次歌词，复用已挂载内容处理快速收起再展开 */
@@ -134,8 +144,17 @@ const onAfterLeave = (): void => {
 
 onBeforeUnmount(() => cancelIdleCallback(visualizerIdle));
 
-const { immersive, onPlayerMouseEnter, onPlayerMouseLeave, onMainMove, onBarEnter, onBarLeave } =
-  useImmersiveMode(isPlayerExpanded);
+const {
+  immersive,
+  onPlayerMouseEnter,
+  onPlayerMouseLeave,
+  onMainMove,
+  onBarEnter,
+  onBarLeave,
+  onBarFocusChange,
+  controlMenuOpen,
+  setControlMenuOpen,
+} = useImmersiveMode(isPlayerExpanded);
 
 provide(fullPlayerContextKey, {
   immersive,
@@ -144,6 +163,8 @@ provide(fullPlayerContextKey, {
   onLyricReady,
   onBarEnter,
   onBarLeave,
+  controlMenuOpen,
+  setControlMenuOpen,
 });
 </script>
 
@@ -152,10 +173,7 @@ provide(fullPlayerContextKey, {
     <Transition
       appear
       :css="!playerTransitionActive"
-      enter-active-class="transition-transform duration-500 ease-[cubic-bezier(0.7,0,0.3,1)]"
-      leave-active-class="transition-transform duration-500 ease-[cubic-bezier(0.7,0,0.3,1)]"
-      enter-from-class="translate-y-full"
-      leave-to-class="translate-y-full"
+      v-bind="theme.definition.motion.player"
       @after-enter="onAfterEnter"
       @before-enter="onBeforeEnter"
       @before-leave="onBeforeLeave"
@@ -169,13 +187,25 @@ provide(fullPlayerContextKey, {
         @mouseenter="onPlayerMouseEnter"
         @mousemove="onMainMove"
         @mouseleave="onPlayerMouseLeave"
+        @focusin="onBarFocusChange"
+        @focusout="onBarFocusChange"
       >
-        <PlayerBackground :visible="playerVisible" :active="visualizerMounted" />
+        <PlayerBackground
+          :visible="playerVisible"
+          :active="visualizerMounted"
+          :suspended="!visibility"
+        />
         <BottomSpectrum
-          v-if="isPlayerExpanded && visualizerMounted && settings.player.enableSpectrum"
+          v-if="
+            isPlayerExpanded &&
+            visualizerMounted &&
+            visibility &&
+            settings.player.enableSpectrum &&
+            !settings.reducedMotion
+          "
           :show="isPlaying && immersive"
         />
-        <component :is="LAYOUTS[layout]" />
+        <component :is="layout" @vue:mounted="fullPlayerReady = true" />
       </div>
     </Transition>
   </Teleport>

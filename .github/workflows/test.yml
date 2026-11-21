@@ -18,6 +18,30 @@ env:
   CI: true
 
 jobs:
+  theme-electron:
+    name: Electron themes (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.22.1
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec electron-vite build
+      - if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a node scripts/test-theme-electron.ts
+          xvfb-run -a node scripts/test-theme-electron.ts --disable-gpu
+      - if: runner.os != 'Linux'
+        run: node scripts/test-theme-electron.ts
+
   typescript:
     name: Unit Tests
     runs-on: ubuntu-latest

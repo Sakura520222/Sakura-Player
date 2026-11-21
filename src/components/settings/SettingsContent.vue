@@ -70,11 +70,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-full overflow-hidden">
+  <div class="flex h-full overflow-hidden" data-theme-settings>
     <!-- 左侧 -->
-    <div class="w-70 shrink-0 flex flex-col bg-surface-panel p-5">
+    <div class="w-70 shrink-0 flex flex-col bg-surface-panel p-5" data-theme-settings-nav>
       <h2 class="text-2xl font-bold mb-1 px-1">{{ t("settings.title") }}</h2>
-      <p class="text-sm text-on-surface-variant/80 mb-5 px-1">{{ t("settings.subtitle") }}</p>
+      <p data-theme-settings-description class="text-sm text-on-surface-variant/80 mb-5 px-1">
+        {{ t("settings.subtitle") }}
+      </p>
 
       <!-- 搜索 -->
       <SettingsSearch
@@ -98,7 +100,7 @@ onMounted(() => {
       </Transition>
 
       <!-- 底部 -->
-      <div class="shrink-0 mt-auto pt-4 px-1 flex items-center gap-1">
+      <div data-theme-settings-footer class="shrink-0 mt-auto pt-4 px-1 flex items-center gap-1">
         <SButton variant="text" size="tiny" @click="openExternal(REPO_URL)">
           <template #icon><IconLucideGithub /></template>
           {{ REPO_NAME }}
@@ -111,6 +113,7 @@ onMounted(() => {
     <!-- 右侧 -->
     <div
       ref="scrollRef"
+      data-theme-settings-pane
       class="flex-1 overflow-y-auto [scrollbar-gutter:stable] bg-surface py-6 px-8"
     >
       <div v-if="activeCategory" :key="activeCategory.id" class="animate-fade-in">

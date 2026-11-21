@@ -39,6 +39,8 @@ export interface WindowApi {
   onTaskbarLyricVisibilityChange: (callback: (open: boolean) => void) => () => void;
   /** 最小化主窗口 */
   minimize: () => void;
+  /** 订阅主窗口显示、隐藏和最小化状态 */
+  onMainVisibilityChange: (callback: (visible: boolean) => void) => () => void;
   /** 切换最大化 / 还原 */
   toggleMaximize: () => void;
   /** 查询主窗口是否最大化 */

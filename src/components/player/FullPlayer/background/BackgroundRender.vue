@@ -23,6 +23,8 @@ export interface BackgroundRenderProps {
   album?: string;
   /** 是否处于播放状态，默认为 true */
   playing?: boolean;
+  /** 是否暂停绘制并保留当前画面 */
+  suspended?: boolean;
   /** 动画流动速度，默认为 2 */
   flowSpeed?: number;
   /** 是否有歌词，默认为 true */
@@ -53,6 +55,7 @@ const emit = defineEmits<{ ready: [] }>();
 
 const wrapperRef = ref<HTMLDivElement | null>(null);
 const visibility = useDocumentVisibility();
+const canRender = computed(() => !props.suspended && visibility.value === "visible");
 
 // 外部渲染器实例引用
 const bgRenderRef = shallowRef<AbstractBaseRenderer>();
@@ -67,6 +70,7 @@ const updateRendererState = () => {
   if (props.album) {
     renderer.setAlbum(props.album, false).then(
       async () => {
+        await until(() => canRender.value || bgRenderRef.value !== renderer).toBe(true);
         if (bgRenderRef.value !== renderer) return;
         syncRendererMotion();
         // 缓存纹理也要留出首帧，保证淡入起始状态已经绘制
@@ -91,7 +95,7 @@ const syncRendererMotion = () => {
   const renderer = bgRenderRef.value;
   if (!renderer) return;
 
-  if (visibility.value !== "visible") {
+  if (!canRender.value) {
     renderer.pause();
     return;
   }
@@ -162,7 +166,7 @@ const stopFftCapture = () => {
  * 按播放状态与跳动开关同步 FFT 采集
  */
 const syncFftCapture = () => {
-  if (visibility.value === "visible" && props.playing && props.enableBeat) {
+  if (canRender.value && props.playing && props.enableBeat) {
     startFftCapture();
   } else {
     stopFftCapture();
@@ -248,7 +252,7 @@ watch(
   },
 );
 
-watch([() => props.playing, visibility], () => {
+watch([() => props.playing, canRender], () => {
   syncRendererMotion();
   syncFftCapture();
 });

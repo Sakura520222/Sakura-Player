@@ -159,10 +159,11 @@ const openAlbum = (item: CoverItem): void => {
         </div>
       </SCard>
       <!-- 快捷入口 -->
-      <section class="grid grid-cols-4 gap-3">
+      <section class="grid grid-cols-4 gap-3" data-home-quick-actions>
         <SCard
           v-for="action in quickActions"
           :key="action.title"
+          data-home-shortcut
           radius="xl"
           hoverable
           class="flex items-center gap-3"
@@ -223,6 +224,7 @@ const openAlbum = (item: CoverItem): void => {
         </div>
         <div
           v-else
+          data-home-continue-empty
           class="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-on-surface/12 py-10 text-on-surface-variant/40"
         >
           <IconLucideHeadphones class="size-7" />

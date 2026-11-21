@@ -14,6 +14,10 @@ export interface FullPlayerContext {
   onBarEnter: () => void;
   /** 鼠标离开顶栏或底栏 */
   onBarLeave: () => void;
+  /** 控制栏菜单的展开状态 */
+  controlMenuOpen: Readonly<Ref<boolean>>;
+  /** 同步控制栏菜单状态并更新沉浸计时 */
+  setControlMenuOpen: (open: boolean) => void;
 }
 
 export const fullPlayerContextKey = Symbol("fullPlayer") as InjectionKey<FullPlayerContext>;

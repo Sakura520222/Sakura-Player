@@ -16,7 +16,7 @@ const props = defineProps<{
 const status = useStatusStore();
 const media = useMediaStore();
 const settings = useSettingsStore();
-const { lyricMounted, contentActive, onLyricReady } = useFullPlayer();
+const { lyricMounted, contentActive, controlMenuOpen, onLyricReady } = useFullPlayer();
 
 const lyricRef = ref<InstanceType<typeof Lyrics>>();
 const initialLyricTimeMs = ref(0);
@@ -114,6 +114,7 @@ const lyricSubFontSize = computed(() => {
     <slot name="header" />
     <div
       data-player-layout="lyric"
+      :inert="controlMenuOpen"
       class="lyric-area relative flex-1 min-h-0"
       :style="{
         '--lp-credit-opacity': '1',
@@ -149,14 +150,17 @@ const lyricSubFontSize = computed(() => {
 <style scoped>
 .lyric-area {
   filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.2));
-  mask: linear-gradient(
-    180deg,
-    hsla(0, 0%, 100%, 0) 0,
-    hsla(0, 0%, 100%, 0.6) 5%,
-    #fff 10%,
-    #fff 75%,
-    hsla(0, 0%, 100%, 0.6) 85%,
-    hsla(0, 0%, 100%, 0)
+  mask-image: var(
+    --player-lyric-mask,
+    linear-gradient(
+      180deg,
+      hsla(0, 0%, 100%, 0) 0,
+      hsla(0, 0%, 100%, 0.6) 5%,
+      #fff 10%,
+      #fff 75%,
+      hsla(0, 0%, 100%, 0.6) 85%,
+      hsla(0, 0%, 100%, 0)
+    )
   );
 }
 </style>

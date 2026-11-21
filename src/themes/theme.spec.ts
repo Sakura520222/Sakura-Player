@@ -1,0 +1,172 @@
+import { createPinia, setActivePinia } from "pinia";
+import piniaPersistedstate from "pinia-plugin-persistedstate";
+import { createApp } from "vue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useSettingsStore } from "@/stores/settings";
+import { useThemeStore } from "@/stores/theme";
+import { resolveMaterial } from "./material";
+import { activePlayerLayout, setActivePlayerLayout } from "./playerLayout";
+import { deserializeTheme, getTheme, isThemeId, serializeTheme, themeIds } from "./registry";
+
+const legacy = {
+  mode: "light",
+  source: "custom",
+  customColor: "#193fde",
+  globalTint: true,
+  appearanceStyle: "image",
+  imageBackground: { src: "cache://background/test.jpg", blur: 24, dim: 0.65, scale: 1.55 },
+};
+
+/** 创建启用真实持久化插件的独立 Pinia 实例 */
+function setupPinia() {
+  const pinia = createPinia().use(piniaPersistedstate);
+  createApp({ render: () => null }).use(pinia);
+  setActivePinia(pinia);
+  return pinia;
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  const subscribe = () => () => {};
+  const closed = async () => false;
+  vi.stubGlobal("api", {
+    desktopLyric: { onConfigChange: subscribe },
+    dynamicIsland: { onConfigChange: subscribe },
+    window: {
+      onDesktopLyricVisibilityChange: subscribe,
+      onDynamicIslandVisibilityChange: subscribe,
+      onTaskbarLyricVisibilityChange: subscribe,
+      isDesktopLyricOpen: closed,
+      isDynamicIslandOpen: closed,
+      isTaskbarLyricOpen: closed,
+    },
+  });
+});
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("主题注册与迁移", () => {
+  it("只识别已注册的稳定 ID，并给每套主题提供独立默认配置", () => {
+    expect(themeIds).toEqual(["classic", "sakura-liquid"]);
+    expect(isThemeId("__proto__")).toBe(false);
+    expect(getTheme("classic").capabilities.imageForcesDark).toBe(true);
+    expect(getTheme("sakura-liquid").player?.id).toBe("liquid");
+    expect(deserializeTheme("{}").profiles.classic.imageBackground).not.toBe(
+      deserializeTheme("{}").profiles["sakura-liquid"].imageBackground,
+    );
+  });
+
+  it("旧版外观原样进入 Classic，并保留该主题的图片暗色行为", () => {
+    localStorage.setItem("theme", JSON.stringify(legacy));
+    setupPinia();
+    const theme = useThemeStore();
+    expect(theme.themeId).toBe("classic");
+    expect(theme.profiles.classic).toMatchObject(legacy);
+    expect(theme.isDark).toBe(true);
+    theme.themeId = "sakura-liquid";
+    theme.mode = "light";
+    theme.appearanceStyle = "image";
+    theme.imageBackground.src = legacy.imageBackground.src;
+    expect(theme.isDark).toBe(false);
+  });
+
+  it("修复损坏的设置与未知 ID，同时保留有效的独立配置", () => {
+    const migrated = deserializeTheme(
+      serializeTheme({
+        themeId: "removed-theme",
+        profiles: {
+          classic: {
+            mode: "invalid",
+            source: "custom",
+            customColor: "#1a2",
+            imageBackground: { blur: -1 },
+          },
+          "sakura-liquid": {
+            mode: "dark",
+            options: {
+              material: { refraction: 800, transparency: null, quality: "ultra" },
+              layout: { player: "__proto__" },
+            },
+          },
+        },
+      }),
+    );
+    expect(migrated.themeId).toBe("classic");
+    expect(migrated.profiles.classic).toMatchObject({
+      mode: "system",
+      customColor: "#1a2",
+      imageBackground: { blur: 0 },
+    });
+    expect(migrated.profiles["sakura-liquid"]).toMatchObject({
+      mode: "dark",
+      options: {
+        material: { refraction: 100, transparency: 48, quality: "auto" },
+        layout: { player: "liquid" },
+      },
+    });
+  });
+
+  it("切换及刷新后恢复各主题各自的颜色、全屏布局和动效", () => {
+    localStorage.setItem("theme", JSON.stringify(legacy));
+    setupPinia();
+    const theme = useThemeStore();
+    const settings = useSettingsStore();
+    setActivePlayerLayout("apple");
+    theme.themeId = "sakura-liquid";
+    expect(activePlayerLayout()).toBe("liquid");
+    setActivePlayerLayout("fullCover");
+    theme.setCustomColor("#88cc22");
+    theme.options.motion = "reduced";
+    expect(settings.reducedMotion).toBe(true);
+    theme.themeId = "classic";
+    expect(settings.reducedMotion).toBe(false);
+    expect(activePlayerLayout()).toBe("apple");
+    expect(theme.customColor).toBe(legacy.customColor);
+    theme.themeId = "sakura-liquid";
+    theme.$persist();
+    settings.$persist();
+
+    const pinia = setupPinia();
+    const reloaded = useThemeStore(pinia);
+    expect(reloaded.themeId).toBe("sakura-liquid");
+    expect(reloaded.customColor).toBe("#88cc22");
+    expect(activePlayerLayout()).toBe("fullCover");
+    reloaded.themeId = "classic";
+    expect(activePlayerLayout()).toBe("apple");
+    expect(reloaded.imageBackground).toEqual(legacy.imageBackground);
+  });
+});
+
+describe("材质降级", () => {
+  const supported = {
+    backdrop: true,
+    displacement: true,
+    accelerated: true,
+    highContrast: false,
+    limitedDevice: false,
+  };
+
+  it("在自动与平衡档限制较慢设备的折射范围", () => {
+    expect(resolveMaterial("auto", 70, supported)).toMatchObject({
+      tier: "refraction",
+      high: true,
+    });
+    expect(resolveMaterial("auto", 70, { ...supported, limitedDevice: true })).toMatchObject({
+      tier: "refraction",
+      high: false,
+    });
+    expect(resolveMaterial("balanced", 70, supported)).toMatchObject({
+      tier: "refraction",
+      high: false,
+    });
+  });
+
+  it("遇到硬件、可读性或滤镜限制时逐级回退", () => {
+    expect(resolveMaterial("high", 70, { ...supported, accelerated: false }).tier).toBe("frosted");
+    expect(resolveMaterial("auto", 70, { ...supported, displacement: false }).tier).toBe("frosted");
+    expect(resolveMaterial("auto", 0, supported).tier).toBe("frosted");
+    expect(resolveMaterial("auto", 70, { ...supported, backdrop: false }).tier).toBe("opaque");
+    expect(resolveMaterial("high", 70, { ...supported, highContrast: true }).tier).toBe("opaque");
+    expect(resolveMaterial("low", 70, supported).tier).toBe("opaque");
+  });
+});

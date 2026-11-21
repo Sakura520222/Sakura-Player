@@ -1,4 +1,5 @@
-import type { ThemeMode, ThemeSource, AppearanceStyle, ImageBackgroundConfig } from "@/types/theme";
+import type { ThemeMode, ThemeSource, AppearanceStyle, ThemeProfile } from "@/types/theme";
+import { deserializeTheme, getTheme, serializeTheme, type ThemeId } from "@/themes/registry";
 import {
   generatePalette,
   applyThemeToDOM,
@@ -14,31 +15,48 @@ const MODE_CYCLE: ThemeMode[] = ["light", "dark", "system"];
 export const useThemeStore = defineStore(
   "theme",
   () => {
-    /** 主题模式 */
-    const mode = ref<ThemeMode>("system");
-    /** 颜色来源 */
-    const source = ref<ThemeSource>("default");
-    /** 自定义主色 HEX */
-    const customColor = ref(DEFAULT_PRIMARY);
-    /** 全局着色 */
-    const globalTint = ref(false);
+    const initial = deserializeTheme("{}");
+    const themeId = ref<ThemeId>(initial.themeId);
+    const profiles = ref(initial.profiles);
+    const definition = computed(() => getTheme(themeId.value));
+    const profile = computed(() => profiles.value[themeId.value]);
+
+    /**
+     * 保留设置绑定入口，切换主题后读写当前主题的配置
+     * @param key - 配置字段
+     */
+    const bindProfile = <K extends keyof ThemeProfile>(key: K) =>
+      computed({
+        get: () => profile.value[key],
+        set: (value) => (profile.value[key] = value),
+      });
+
+    const mode = bindProfile("mode");
+    const source = bindProfile("source");
+    const customColor = bindProfile("customColor");
+    const globalTint = bindProfile("globalTint");
+    const appearanceStyle = bindProfile("appearanceStyle");
+    const imageBackground = bindProfile("imageBackground");
+    const options = bindProfile("options");
+    const prefersReducedMotion = computed(
+      () => definition.value.motion.prefersReduced?.(options.value) ?? false,
+    );
     /** 封面取色 HEX */
     const coverColor = ref<string | null>(null);
-    /** 外观风格 */
-    const appearanceStyle = ref<AppearanceStyle>("solid");
-    /** 图片背景配置 */
-    const imageBackground = reactive<ImageBackgroundConfig>({
-      src: "",
-      blur: 0,
-      dim: 0.4,
-      scale: 1.2,
-    });
     /** 从背景图提取的主色 */
-    const imageBackgroundColor = ref<string | null>(null);
+    const imageColor = shallowRef<{ src: string; color: string | null }>();
 
     /** 实际生效的风格 */
     const effectiveStyle = computed<AppearanceStyle>(() =>
-      appearanceStyle.value === "image" && !imageBackground.src ? "solid" : appearanceStyle.value,
+      appearanceStyle.value === "image" && !imageBackground.value.src
+        ? "solid"
+        : appearanceStyle.value,
+    );
+    const imageForcesDark = computed(
+      () => definition.value.capabilities.imageForcesDark && appearanceStyle.value === "image",
+    );
+    const imageUsesClassicColors = computed(
+      () => imageForcesDark.value && effectiveStyle.value === "image",
     );
 
     /** 系统暗色偏好 */
@@ -46,7 +64,7 @@ export const useThemeStore = defineStore(
 
     /** 当前是否为暗色 */
     const isDark = computed(() => {
-      if (effectiveStyle.value === "image") return true;
+      if (imageUsesClassicColors.value) return true;
       if (mode.value === "dark") return true;
       if (mode.value === "light") return false;
       return systemDark.value;
@@ -60,13 +78,13 @@ export const useThemeStore = defineStore(
     });
 
     /** 实际生效的全局着色 */
-    const effectiveGlobalTint = computed(() =>
-      effectiveStyle.value === "image" ? true : globalTint.value,
-    );
+    const effectiveGlobalTint = computed(() => imageUsesClassicColors.value || globalTint.value);
     /** 实际生效的封面颜色 */
-    const trackedColorForCover = computed(() =>
-      effectiveStyle.value === "image" ? imageBackgroundColor.value : coverColor.value,
-    );
+    const trackedColorForCover = computed(() => {
+      if (!imageUsesClassicColors.value) return coverColor.value;
+      const cached = imageColor.value;
+      return cached?.src === imageBackground.value.src ? cached.color : null;
+    });
     /** 实际生效的主色 HEX */
     const effectiveColor = computed(() => {
       if (source.value === "cover" && trackedColorForCover.value) return trackedColorForCover.value;
@@ -104,33 +122,44 @@ export const useThemeStore = defineStore(
       source.value = newSource;
     };
 
-    /** 重新提取背景图主色 */
-    const refreshImageColor = async (src: string): Promise<void> => {
-      imageBackgroundColor.value = src ? await extractColorFromImageUrl(src) : null;
-    };
-
-    /** 初始化 */
+    let initialized = false;
+    /** 初始化主题应用与可取消的背景取色 */
     const init = (): void => {
-      if (typeof customColor.value !== "string" || !customColor.value.startsWith("#")) {
-        customColor.value = DEFAULT_PRIMARY;
-      }
-      // 启动时若已有背景图
-      if (imageBackground.src) void refreshImageColor(imageBackground.src);
-      apply();
-      // 监听背景图变化
+      if (initialized) return;
+      initialized = true;
       watch(
-        () => imageBackground.src,
-        (src) => {
-          void refreshImageColor(src);
+        () => (imageUsesClassicColors.value ? imageBackground.value.src : ""),
+        (src, _, onCleanup) => {
+          if (!src || imageColor.value?.src === src) return;
+          let current = true;
+          onCleanup(() => (current = false));
+          void extractColorFromImageUrl(src).then((color) => {
+            if (current) imageColor.value = { src, color };
+          });
         },
+        { immediate: true },
       );
-      // 影响渲染的值变化
-      watch([isDark, effectiveColor, source, effectiveGlobalTint, coverColor, effectiveStyle], () =>
-        apply(),
+      watch(
+        [
+          isDark,
+          effectiveColor,
+          source,
+          effectiveGlobalTint,
+          coverColor,
+          trackedColorForCover,
+          effectiveStyle,
+        ],
+        apply,
+        { immediate: true },
       );
     };
 
     return {
+      themeId,
+      profiles,
+      definition,
+      options,
+      prefersReducedMotion,
       mode,
       source,
       customColor,
@@ -138,7 +167,7 @@ export const useThemeStore = defineStore(
       coverColor,
       appearanceStyle,
       imageBackground,
-      imageBackgroundColor,
+      imageForcesDark,
       isDark,
       activeColor,
       effectiveStyle,
@@ -151,15 +180,8 @@ export const useThemeStore = defineStore(
   {
     persist: {
       storage: localStorage,
-      pick: [
-        "mode",
-        "source",
-        "customColor",
-        "globalTint",
-        "appearanceStyle",
-        "imageBackground",
-        "imageBackgroundColor",
-      ],
+      pick: ["themeId", "profiles"],
+      serializer: { serialize: serializeTheme, deserialize: deserializeTheme },
     },
   },
 );

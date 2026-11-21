@@ -43,6 +43,33 @@ afterEach(() => {
 });
 
 describe("背景渲染资源生命周期", () => {
+  it("窗口暂停时保留背景画布和专辑纹理，恢复时继续使用原实例", async () => {
+    const wrapper = mount(BackgroundRender, {
+      props: { album: "cover://album", playing: true, enableBeat: true },
+    });
+    try {
+      const canvas = wrapper.get("canvas").element;
+      await wrapper.setProps({ suspended: true });
+      expect(mocks.renderer.pause).toHaveBeenCalled();
+      expect(mocks.release).toHaveBeenCalledOnce();
+      expect(wrapper.get("canvas").element).toBe(canvas);
+      expect(mocks.renderer.dispose).not.toHaveBeenCalled();
+
+      visibility.value = "hidden";
+      await wrapper.setProps({ suspended: false });
+      expect(mocks.acquire).toHaveBeenCalledOnce();
+      visibility.value = "visible";
+      await nextTick();
+      expect(mocks.acquire).toHaveBeenCalledTimes(2);
+      expect(wrapper.get("canvas").element).toBe(canvas);
+      expect(mocks.renderer.setAlbum).toHaveBeenCalledExactlyOnceWith("cover://album", false);
+      expect(mocks.renderer.dispose).not.toHaveBeenCalled();
+    } finally {
+      wrapper.unmount();
+    }
+    expect(mocks.renderer.dispose).toHaveBeenCalledOnce();
+  });
+
   it("隐藏时停止绘制和 FFT，恢复可见后重新获取，卸载时配对释放", async () => {
     const wrapper = mount(BackgroundRender, { props: { playing: true, enableBeat: true } });
     try {

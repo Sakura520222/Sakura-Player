@@ -12,6 +12,7 @@ import { useDownload } from "@/composables/useDownload";
 import { useFavorite } from "@/composables/useFavorite";
 import { usePlaylistPicker } from "@/composables/usePlaylistPicker";
 import { useFloatingPlayerBar } from "@/composables/useFloatingPlayerBar";
+import { useThemeStore } from "@/stores/theme";
 import { formatTime } from "@/utils/time";
 import { formatFileSize } from "@/utils/format";
 import { isLosslessQuality, getQualityLabel } from "@/utils/quality";
@@ -75,6 +76,7 @@ const route = useRoute();
 const media = useMediaStore();
 const status = useStatusStore();
 const settings = useSettingsStore();
+const theme = useThemeStore();
 const downloadStore = useDownloadStore();
 const fav = useFavorite();
 
@@ -587,6 +589,7 @@ defineExpose({
             <!-- 普通模式 -->
             <div
               v-else
+              data-song-list-head
               class="flex items-center gap-3 text-sm text-on-surface-variant/60"
               :class="
                 isCompactList
@@ -594,7 +597,11 @@ defineExpose({
                   : 'pl-3 pr-6 mx-3 h-10 border-2 border-solid border-transparent'
               "
             >
-              <div v-if="showIndex" class="w-8 shrink-0 flex items-center justify-center">
+              <div
+                v-if="showIndex"
+                data-song-list-index
+                class="w-8 shrink-0 flex items-center justify-center"
+              >
                 <span>#</span>
               </div>
               <div class="flex-1 min-w-0">
@@ -608,7 +615,7 @@ defineExpose({
                 >
                   <template #trigger>
                     <div
-                      class="w-full h-full px-1.5 py-1 rounded-md cursor-pointer transition-colors hover:bg-on-surface/8"
+                      class="w-full h-full px-1.5 py-1 truncate rounded-md cursor-pointer transition-colors hover:bg-on-surface/8"
                     >
                       {{ sortTitleText }}
                     </div>
@@ -651,14 +658,18 @@ defineExpose({
                   {{ t("songList.title") }}
                 </div>
               </div>
-              <div v-if="showAlbum" class="flex-1 min-w-0">{{ t("songList.album") }}</div>
-              <div class="w-12 shrink-0 text-center whitespace-nowrap">
+              <div v-if="showAlbum" data-song-list-extra class="flex-1 min-w-0">
+                {{ t("songList.album") }}
+              </div>
+              <div data-song-list-favorite class="w-12 shrink-0 text-center whitespace-nowrap">
                 {{ t("songList.actions") }}
               </div>
-              <div v-if="showDuration" class="w-16 shrink-0 text-center">
+              <div v-if="showDuration" data-song-list-time class="w-16 shrink-0 text-center">
                 {{ t("songList.duration") }}
               </div>
-              <div v-if="showSize" class="w-16 shrink-0 text-center">{{ t("songList.size") }}</div>
+              <div v-if="showSize" data-song-list-extra class="w-16 shrink-0 text-center">
+                {{ t("songList.size") }}
+              </div>
             </div>
           </div>
         </template>
@@ -697,6 +708,7 @@ defineExpose({
               <!-- 序号 / 多选 -->
               <div
                 v-if="showIndex"
+                data-song-list-index
                 class="w-8 shrink-0 flex items-center justify-center relative"
                 :class="
                   batch.active.value
@@ -842,6 +854,7 @@ defineExpose({
               <!-- 专辑 -->
               <div
                 v-if="showAlbum"
+                data-song-list-extra
                 class="flex-1 min-w-0 truncate text-sm"
                 :class="playingId === item.id ? 'text-primary/70' : 'text-on-surface'"
               >
@@ -856,6 +869,7 @@ defineExpose({
               <!-- 收藏 -->
               <div
                 v-if="!batch.active.value && item.source !== 'plugin'"
+                data-song-list-favorite
                 class="w-12 shrink-0 flex items-center justify-center"
                 @click.stop
               >
@@ -876,10 +890,11 @@ defineExpose({
                   </template>
                 </SButton>
               </div>
-              <div v-else class="w-12 shrink-0" />
+              <div v-else data-song-list-favorite class="w-12 shrink-0" />
               <!-- 时长 -->
               <div
                 v-if="showDuration"
+                data-song-list-time
                 class="w-16 shrink-0 text-center text-sm tabular-nums"
                 :class="playingId === item.id ? 'text-primary/60' : 'text-on-surface-variant'"
               >
@@ -888,11 +903,34 @@ defineExpose({
               <!-- 文件大小 -->
               <div
                 v-if="showSize"
+                data-song-list-extra
                 class="w-16 shrink-0 text-center text-sm tabular-nums"
                 :class="playingId === item.id ? 'text-primary/60' : 'text-on-surface-variant'"
               >
                 {{ item.fileSize ? formatFileSize(item.fileSize) : "" }}
               </div>
+              <SDropdownMenu
+                v-if="theme.definition.capabilities.customShell && !batch.active.value"
+                :items="contextMenuItems"
+                align="end"
+                trigger-as-child
+                @select="onContextMenu"
+              >
+                <template #trigger>
+                  <SButton
+                    data-theme-row-action
+                    variant="tertiary"
+                    circle
+                    :size="28"
+                    :aria-label="t('songList.actions')"
+                    @focus="contextTrack = item"
+                    @pointerdown="contextTrack = item"
+                    @dblclick.stop
+                  >
+                    <template #icon><IconLucideMoreHorizontal /></template>
+                  </SButton>
+                </template>
+              </SDropdownMenu>
             </div>
           </div>
         </template>
@@ -917,6 +955,7 @@ defineExpose({
     </SContextMenu>
     <!-- 浮动按钮 -->
     <div
+      data-song-list-shortcuts
       class="absolute right-6 z-20 flex flex-col gap-3 transition-[bottom] duration-300"
       :class="isFloatingPlayerBar ? 'bottom-26' : 'bottom-5'"
     >
@@ -931,6 +970,7 @@ defineExpose({
             variant="bordered"
             circle
             :size="40"
+            :aria-label="t('songList.backToTop')"
             @click="virtualListRef?.scrollTo(0)"
           >
             <template #icon>
@@ -945,7 +985,14 @@ defineExpose({
           v-if="playingIndex >= 0 && !batch.active.value"
           class="rounded-full bg-surface-panel backdrop-blur-2xl backdrop-saturate-150 shadow-lg border border-solid border-primary/10"
         >
-          <SButton type="primary" variant="bordered" circle :size="40" @click="scrollToPlaying">
+          <SButton
+            type="primary"
+            variant="bordered"
+            circle
+            :size="40"
+            :aria-label="t('songList.locateCurrent')"
+            @click="scrollToPlaying"
+          >
             <template #icon>
               <IconLucideLocate class="size-4.5" />
             </template>

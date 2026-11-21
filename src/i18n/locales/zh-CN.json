@@ -1,4 +1,25 @@
 {
+  "themes": {
+    "classicDescription": "Sakura Player 的经典布局",
+    "liquidDescription": "浮动导航与实时折射玻璃",
+    "playerLayout": "Sakura Liquid",
+    "toggleLyrics": "切换歌词显示",
+    "quality": {
+      "auto": "自动",
+      "high": "高质量",
+      "balanced": "平衡",
+      "low": "低功耗"
+    },
+    "motion": {
+      "expressive": "完整动效",
+      "reduced": "减弱动效"
+    },
+    "material": {
+      "refraction": "当前材质：折射玻璃",
+      "frosted": "当前材质：毛玻璃",
+      "opaque": "当前材质：不透明"
+    }
+  },
   "update": {
     "dialogTitle": "发现新版本",
     "later": "稍后",
@@ -521,6 +542,7 @@
       "apply": "使用此歌词"
     },
     "lyricCredit": "歌词制作",
+    "expand": "打开播放界面",
     "collapse": "收起播放器",
     "copyLyric": {
       "title": "复制歌词",
@@ -718,6 +740,8 @@
     }
   },
   "songList": {
+    "backToTop": "回到顶部",
+    "locateCurrent": "定位当前歌曲",
     "title": "标题",
     "album": "专辑",
     "actions": "操作",
@@ -1025,6 +1049,7 @@
       "dynamicIsland": "灵动岛歌词",
       "taskbarLyric": "任务栏歌词",
       "theme": "主题与颜色",
+      "themeMaterial": "玻璃与动效",
       "appearanceStyle": "外观风格",
       "layout": "布局",
       "softwareAnimations": "过渡与动画",
@@ -1871,6 +1896,26 @@
     "coverLyricRatio": {
       "label": "封面/歌词占比",
       "description": "经典布局下封面与歌词区域的宽度比例"
+    },
+    "themePicker": {
+      "label": "应用主题",
+      "description": "选择 Classic 或 Sakura Liquid"
+    },
+    "themeRefraction": {
+      "label": "折射强度",
+      "description": "调节玻璃边缘对背景的弯折程度"
+    },
+    "themeTransparency": {
+      "label": "玻璃透明度",
+      "description": "调节透过玻璃可见的背景"
+    },
+    "themeRenderQuality": {
+      "label": "渲染质量",
+      "description": "平衡档仅折射重点区域，低功耗档使用不透明材质"
+    },
+    "themeMotion": {
+      "label": "主题动效",
+      "description": "同时遵循系统和应用的减弱动效设置"
     },
     "themeMode": {
       "label": "主题模式",

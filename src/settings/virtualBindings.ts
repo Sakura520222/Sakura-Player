@@ -1,4 +1,5 @@
 import { useSettingsStore } from "@/stores/settings";
+import { activePlayerLayout, setActivePlayerLayout } from "@/themes/playerLayout";
 
 /**
  * 虚拟 binding：path 不对应任何持久化 store 字段
@@ -12,6 +13,7 @@ export interface VirtualBinding {
 
 /** 虚拟绑定 */
 export const virtualBindings: Record<string, VirtualBinding> = {
+  activePlayerLayout: { get: activePlayerLayout, set: setActivePlayerLayout },
   /** 桌面歌词窗口 */
   isDesktopLyricOpen: {
     get: () => useSettingsStore().isDesktopLyricOpen,

@@ -174,9 +174,13 @@
         try {
           const raw = localStorage.getItem("theme");
           if (raw) {
-            const theme = JSON.parse(raw);
+            const saved = JSON.parse(raw);
+            const theme = saved.profiles?.[saved.themeId] ?? saved.profiles?.classic ?? saved;
             mode = theme.mode || "system";
-            imageStyle = theme.appearanceStyle === "image" && !!theme.imageBackground?.src;
+            imageStyle =
+              saved.themeId !== "sakura-liquid" &&
+              theme.appearanceStyle === "image" &&
+              !!theme.imageBackground?.src;
             if (
               theme.source === "custom" &&
               typeof theme.customColor === "string" &&

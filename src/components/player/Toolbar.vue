@@ -19,6 +19,7 @@ const props = withDefaults(
   }>(),
   { cover: false },
 );
+const emit = defineEmits<{ "quick-menu-open-change": [open: boolean] }>();
 
 const { t } = useI18n();
 const status = useStatusStore();
@@ -80,10 +81,17 @@ const onMoreMenuSelect = (key: string): void => {
 </script>
 
 <template>
-  <div class="flex items-center gap-1">
+  <div data-player-toolbar class="flex items-center gap-1">
     <!-- 在线音质 -->
-    <div v-if="settings.appearance.showQualitySwitch" class="contents lt-md:hidden">
-      <QualityControl :cover="cover" />
+    <div
+      v-if="settings.appearance.showQualitySwitch"
+      data-player-toolbar-quality
+      class="contents lt-md:hidden"
+    >
+      <QualityControl
+        :cover="cover"
+        @quick-menu-open-change="emit('quick-menu-open-change', $event)"
+      />
     </div>
     <SongHighlightButton :cover="cover" />
     <div class="contents lt-xs:hidden">

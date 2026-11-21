@@ -1,19 +1,22 @@
 import { useSettingsStore } from "@/stores/settings";
 import { useStatusStore } from "@/stores/status";
 import { coverTransitionActive } from "@/services/coverTransition";
+import { useThemeStore } from "@/stores/theme";
+import { activePlayerLayout } from "@/themes/playerLayout";
 
 export const fullPlayerReady = shallowRef(false);
 export const playerTransition = shallowRef<ViewTransition | null>(null);
 export const playerTransitionActive = computed(() => playerTransition.value !== null);
 let covers: HTMLElement[] = [];
-let layoutTransition: ViewTransition | null = null;
+let layoutTransition: { transition: ViewTransition; commit: () => void } | null = null;
 
 /** 跳过进行中的布局过渡，避免与展开过渡的共享元素命名冲突 */
 const skipLayoutTransition = (): void => {
   const active = layoutTransition;
   if (!active) return;
   layoutTransition = null;
-  active.skipTransition();
+  active.commit();
+  active.transition.skipTransition();
   document.documentElement.removeAttribute("data-player-layout-transition");
 };
 
@@ -25,10 +28,11 @@ export const switchPlayerLayout = (update: () => void): void => {
   skipLayoutTransition();
   const status = useStatusStore();
   const settings = useSettingsStore();
+  const theme = useThemeStore();
   if (
     !status.isPlayerExpanded ||
     playerTransitionActive.value ||
-    !settings.appearance.seamlessTransition ||
+    !(settings.appearance.seamlessTransition || theme.definition.motion.sharedCover) ||
     settings.reducedMotion ||
     !document.startViewTransition ||
     document.hidden ||
@@ -41,19 +45,27 @@ export const switchPlayerLayout = (update: () => void): void => {
   const coverSelector = '[data-player-cover="full"] img[data-cover-image]';
   const previousCover = document.querySelector<HTMLImageElement>(coverSelector)?.src;
   root.setAttribute("data-player-layout-transition", "");
+  let committed = false;
+  /** 每个过渡只提交一次，后续快照可安全跳过 */
+  const commit = (): void => {
+    if (committed) return;
+    committed = true;
+    update();
+  };
   // 快照过渡只在合成层插值，歌词区域仅在切换瞬间重排一次
   const active = document.startViewTransition(async () => {
-    update();
+    commit();
     await nextTick();
     // 新布局重建了封面节点；仅等待同地址原图的内存缓存解码，避免网络请求卡住过渡回调
     const image = document.querySelector<HTMLImageElement>(coverSelector);
-    if (image && image.src === previousCover) await image.decode().catch(() => {});
+    if (layoutTransition?.transition === active && image && image.src === previousCover)
+      await image.decode().catch(() => {});
   });
-  layoutTransition = active;
+  layoutTransition = { transition: active, commit };
   void active.ready.catch(() => {});
   void active.finished
     .finally(() => {
-      if (layoutTransition !== active) return;
+      if (layoutTransition?.transition !== active) return;
       layoutTransition = null;
       root.removeAttribute("data-player-layout-transition");
     })
@@ -84,14 +96,15 @@ export const setPlayerExpanded = (expanded: boolean): void => {
   const status = useStatusStore();
   if (status.isPlayerExpanded === expanded) return;
   const settings = useSettingsStore();
+  const theme = useThemeStore();
   // 全屏歌词没有可衔接的大封面，展开时沿用默认滑入动画
   if (
-    !settings.appearance.seamlessTransition ||
+    !(settings.appearance.seamlessTransition || theme.definition.motion.sharedCover) ||
     settings.reducedMotion ||
     !document.startViewTransition ||
     document.hidden ||
     coverTransitionActive.value ||
-    (expanded && settings.player.layout === "fullLyric")
+    (expanded && activePlayerLayout() === "fullLyric")
   ) {
     status.isPlayerExpanded = expanded;
     return;
@@ -117,7 +130,9 @@ export const setPlayerExpanded = (expanded: boolean): void => {
     status.isPlayerExpanded = expanded;
     // 首次展开等待懒加载挂载，取消时也结束等待
     if (expanded) {
-      await until(() => fullPlayerReady.value || playerTransition.value !== active).toBe(true);
+      await until(() => fullPlayerReady.value || playerTransition.value !== active).toBe(true, {
+        timeout: 700,
+      });
     }
     await nextTick();
     if (playerTransition.value !== active) return;

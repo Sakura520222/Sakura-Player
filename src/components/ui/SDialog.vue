@@ -42,6 +42,7 @@ const props = withDefaults(defineProps<SDialogProps>(), {
 });
 
 const DESTROY_DELAY_MS = 180;
+const { t } = useI18n();
 const dialogContent = ref<ComponentPublicInstance>();
 const closingHeight = ref<number>();
 
@@ -132,6 +133,7 @@ const setOpen = (val: boolean): void => {
       <DialogContent
         ref="dialogContent"
         data-dialog-content
+        :data-theme-tone="cover ? 'cover' : undefined"
         :style="[containerStyle, { zIndex: activeZIndex }]"
         :class="[
           'fixed left-1/2 -translate-x-1/2',
@@ -186,6 +188,7 @@ const setOpen = (val: boolean): void => {
         <!-- 关闭按钮 -->
         <DialogClose v-if="closable" as-child>
           <SButton
+            :aria-label="t('common.close')"
             :type="cover ? 'cover' : 'default'"
             variant="ghost"
             size="small"

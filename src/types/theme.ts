@@ -1,3 +1,5 @@
+import type { PlayerLayout } from "./settings";
+
 /** 主题模式 */
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -6,6 +8,32 @@ export type ThemeSource = "default" | "custom" | "cover" | "solid";
 
 /** 背景层外观风格 */
 export type AppearanceStyle = "solid" | "image";
+
+export type RenderQuality = "auto" | "high" | "balanced" | "low";
+export type ThemeMotion = "expressive" | "reduced";
+export type MaterialTier = "refraction" | "frosted" | "opaque";
+
+/** 由主题独立保存的材质与动效参数 */
+export interface LiquidOptions {
+  material: {
+    refraction: number;
+    transparency: number;
+    quality: RenderQuality;
+  };
+  layout: { player: PlayerLayout | "liquid" };
+  motion: ThemeMotion;
+}
+
+/** 可跨主题复用的外观配置 */
+export interface ThemeProfile {
+  mode: ThemeMode;
+  source: ThemeSource;
+  customColor: string;
+  globalTint: boolean;
+  appearanceStyle: AppearanceStyle;
+  imageBackground: ImageBackgroundConfig;
+  options: Record<string, unknown>;
+}
 
 /** 图片背景配置 */
 export interface ImageBackgroundConfig {

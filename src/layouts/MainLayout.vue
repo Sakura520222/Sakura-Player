@@ -2,6 +2,8 @@
 import { useStatusStore } from "@/stores/status";
 import { useMediaStore } from "@/stores/media";
 import { useSettingsStore } from "@/stores/settings";
+import { useThemeStore } from "@/stores/theme";
+import { materialKey } from "@/themes/material";
 import { useOrpheusProtocol } from "@/composables/useOrpheusProtocol";
 import { useExternalFileHandler } from "@/composables/useExternalFileHandler";
 import { useResponsiveLayout } from "@/composables/useResponsiveLayout";
@@ -16,6 +18,12 @@ const route = useRoute();
 const router = useRouter();
 const status = useStatusStore();
 const settings = useSettingsStore();
+const theme = useThemeStore();
+const documentVisibility = useDocumentVisibility();
+const themeMaterial = inject(materialKey);
+const visibility = computed(
+  () => themeMaterial?.value.visible ?? documentVisibility.value === "visible",
+);
 const { sidebarCollapsed } = useResponsiveLayout();
 
 // 接入 orpheus 协议唤起与外部音频文件播放
@@ -43,7 +51,7 @@ const { appearance } = settings;
 /** 路由切换动效 */
 const routeTransitionName = computed(() => {
   const transition = appearance.routeTransition;
-  return transition === "none" ? "" : `route-${transition}`;
+  return theme.definition.motion.route ?? (transition === "none" ? "" : `route-${transition}`);
 });
 
 /** 详情按路径和服务器隔离实例，列表沿用父路由缓存 */
@@ -96,13 +104,20 @@ const handleAfterEnter = (): void => {
 
 let disposeCoverTransitions: (() => void) | undefined;
 watch(
-  () => appearance.seamlessTransition && !settings.reducedMotion,
-  (enabled) => {
-    if (!enabled) cancelPlayerTransition();
+  [
+    () => theme.themeId,
+    () =>
+      (appearance.seamlessTransition || theme.definition.motion.sharedCover) &&
+      !settings.reducedMotion,
+    visibility,
+  ],
+  ([themeId, enabled, visible], previous) => {
+    if (!enabled || !visible || themeId !== previous?.[0]) cancelPlayerTransition();
     disposeCoverTransitions?.();
-    disposeCoverTransitions = enabled
-      ? installCoverTransitions(router, () => mainContainerRef.value, handleAfterEnter)
-      : undefined;
+    disposeCoverTransitions =
+      enabled && visible
+        ? installCoverTransitions(router, () => mainContainerRef.value, handleAfterEnter)
+        : undefined;
   },
   { immediate: true },
 );
@@ -113,70 +128,44 @@ onBeforeUnmount(() => {
   fullPlayerReady.value = false;
 });
 
-/** 侧边栏样式 */
-const sidebarClass = computed(() => {
-  const classes: string[] = [];
-  if (appearance.layoutMode === "floating") {
-    classes.push("ml-3 mt-3 mb-3 rounded-xl border border-solid border-primary/10");
-  } else {
-    classes.push("border-r border-r-solid border-r-primary/10");
-    if (showPlayerBar.value && appearance.layoutMode === "default") classes.push("mb-20");
-  }
-  return classes.join(" ");
-});
-
-/** 主界面底部边距 */
-const mainMarginClass = computed(() =>
-  showPlayerBar.value && appearance.layoutMode !== "floating" ? "mb-20" : "",
+/** 计算当前主题的布局槽位 */
+const shell = computed(() =>
+  theme.definition.shell({
+    layout: appearance.layoutMode,
+    collapsed: sidebarCollapsed.value,
+    hasTrack: showPlayerBar.value,
+    expanded: isPlayerExpanded.value,
+  }),
 );
-
-/** 外层播放条样式 */
-const playerBarWrapperClass = computed(() => {
-  const base = "fixed bottom-0 z-50 transition-[left] duration-300 pointer-events-none";
-  const collapsed = sidebarCollapsed.value;
-  switch (appearance.layoutMode) {
-    case "sidebar-full":
-      return `${base} ${collapsed ? "left-16" : "left-60"} right-0`;
-    case "floating":
-      return `${base} ${collapsed ? "left-[76px]" : "left-[252px]"} right-0 px-4 pb-6`;
-    default:
-      return `${base} left-0 right-0`;
-  }
-});
-
-/** 内层播放条样式 */
-const playerBarInnerClass = computed(() => {
-  // 禁用底部播放栏交互
-  const base = isPlayerExpanded.value ? "pointer-events-none" : "pointer-events-auto";
-  switch (appearance.layoutMode) {
-    case "floating":
-      return `${base} mx-auto max-w-4xl glass-panel rounded-full shadow-xl border border-solid border-primary/10`;
-    default:
-      return `${base} h-20 bg-surface-panel border-t border-t-solid border-t-primary/10`;
-  }
-});
+const lens = computed(() => theme.definition.material.lens);
+const chrome = computed(() => theme.definition.chrome);
 </script>
 
 <template>
   <!-- 主界面 -->
   <div
-    class="player-shell h-screen flex overflow-hidden bg-app text-on-surface transition-[transform,opacity] duration-360 ease-[cubic-bezier(0.25,1,0.35,1)] origin-center"
+    class="player-shell text-on-surface transition-[transform,opacity] duration-360 ease-[cubic-bezier(0.25,1,0.35,1)] origin-center"
     :style="playerTransitionActive ? { transition: 'none' } : undefined"
-    :class="isPlayerExpanded && fullPlayerReady ? 'scale-95 opacity-0 pointer-events-none' : ''"
+    :inert="isPlayerExpanded && fullPlayerReady"
+    :class="[
+      shell.root,
+      isPlayerExpanded && fullPlayerReady ? 'scale-95 opacity-0 pointer-events-none' : '',
+    ]"
   >
     <!-- 侧边栏 -->
-    <aside
-      class="shrink-0 bg-surface-panel overflow-y-auto z-10 transition-[width,margin] duration-300"
-      :class="[sidebarCollapsed ? 'w-16' : 'w-60', sidebarClass]"
-    >
-      <SideBar />
+    <aside :class="shell.sidebar">
+      <component :is="lens" v-if="lens" :inactive="isPlayerExpanded" />
+      <component :is="chrome.sidebar" v-if="chrome?.sidebar" />
+      <SideBar v-else />
     </aside>
 
     <!-- 右侧主区域 -->
-    <div class="flex-1 flex flex-col min-w-0 min-h-0" :class="mainMarginClass">
+    <div class="flex-1 flex flex-col min-w-0 min-h-0" :class="shell.workspace">
       <!-- 顶部导航 -->
-      <header class="h-16 shrink-0 flex items-center px-3">
-        <NavHeader />
+      <header :class="shell.header">
+        <component :is="lens" v-if="lens" priority :inactive="isPlayerExpanded" />
+        <component :is="chrome.navigation" v-if="chrome?.navigation" />
+        <NavHeader v-else />
       </header>
 
       <!-- 主内容区 -->
@@ -198,15 +187,12 @@ const playerBarInnerClass = computed(() => {
   </div>
 
   <!-- 底部播放栏 -->
-  <Transition
-    enter-active-class="transition-transform duration-300 ease-out"
-    leave-active-class="transition-transform duration-300 ease-in"
-    enter-from-class="translate-y-full"
-    leave-to-class="translate-y-full"
-  >
-    <div v-if="showPlayerBar" :class="playerBarWrapperClass">
-      <footer :class="playerBarInnerClass">
-        <PlayerBar />
+  <Transition v-bind="theme.definition.motion.dock">
+    <div v-if="showPlayerBar" :class="shell.dockPosition">
+      <footer :class="shell.dockSurface" :inert="isPlayerExpanded">
+        <component :is="lens" v-if="lens" priority :inactive="isPlayerExpanded" />
+        <component :is="chrome.dock" v-if="chrome?.dock" />
+        <PlayerBar v-else />
       </footer>
     </div>
   </Transition>
@@ -218,7 +204,7 @@ const playerBarInnerClass = computed(() => {
   <!-- Dialog -->
   <SDialogProvider />
   <!-- 全屏播放器 -->
-  <FullPlayer v-if="fullPlayerLoaded" @vue:mounted="fullPlayerReady = true" />
+  <FullPlayer v-if="fullPlayerLoaded" />
   <!-- 全局设置 -->
   <SettingsDialog />
   <!-- 更新弹窗 -->

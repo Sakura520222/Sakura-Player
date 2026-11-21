@@ -1,17 +1,24 @@
 <script setup lang="ts">
 import type { SSelectOption } from "@/components/ui/SSelect.vue";
+import type { DropdownMenuItem } from "@/components/ui/SDropdownMenu.vue";
 import type { QualityLevel } from "@/utils/quality";
 import { useMediaStore } from "@/stores/media";
 import { useSettingsStore } from "@/stores/settings";
+import { useStatusStore } from "@/stores/status";
+import { AUDIO_OUTPUT_MODE_CONFIG_KEY, audioOutputModeSetting } from "@/settings/audioOutputMode";
+import { confirmSettingChange } from "@/settings/confirmSettingChange";
 import { getQualityLabel } from "@/utils/quality";
 import * as player from "@/core/player";
 import { isPlatform } from "@shared/types/platform";
 
-withDefaults(defineProps<{ cover?: boolean }>(), { cover: false });
+const props = withDefaults(defineProps<{ cover?: boolean }>(), { cover: false });
+const emit = defineEmits<{ "quick-menu-open-change": [open: boolean] }>();
 
 const { t } = useI18n();
 const media = useMediaStore();
 const settings = useSettingsStore();
+const status = useStatusStore();
+const switchingOutput = ref(false);
 
 /** 是否支持切换在线音质 */
 const canSwitchQuality = computed(() => isPlatform(media.track?.source) && !media.track?.cloud);
@@ -19,6 +26,10 @@ const canSwitchQuality = computed(() => isPlatform(media.track?.source) && !medi
 /** 实际播放音质；详情加载前使用歌曲自身的音质信息。 */
 const quality = computed(() => media.detail?.quality ?? media.track?.quality);
 const qualityLabel = computed(() => getQualityLabel(quality.value));
+const canSwitchOutput = computed(
+  () =>
+    props.cover === status.isPlayerExpanded && audioOutputModeSetting.visible() && !!media.track,
+);
 
 /** 音质偏好下拉选项 */
 const qualityOptions = computed<SSelectOption[]>(() => [
@@ -32,16 +43,107 @@ const qualityOptions = computed<SSelectOption[]>(() => [
 const chipBase =
   "inline-flex min-w-9 shrink-0 items-center justify-center px-2 py-1 leading-none rounded-md border border-solid text-xs";
 
-/** 切换音质 */
+/**
+ * 应用所选在线音质并重新加载当前歌曲
+ * @param value - 在线音质选项的值
+ */
 const onQualityChange = (value: string | number | boolean): void => {
   settings.player.songLevel = value as QualityLevel;
   void player.reloadCurrentTrack();
 };
+
+const quickMenuItems = computed<DropdownMenuItem[]>(() => {
+  const items: DropdownMenuItem[] = audioOutputModeSetting.options.map(({ value, labelKey }) => ({
+    key: value,
+    label: t(labelKey),
+    checked: settings.system.player.audioOutputMode === value,
+  }));
+  if (canSwitchQuality.value) {
+    items.push({
+      key: "sourceQuality",
+      label: t("settings.songLevel.switchTitle"),
+      separator: true,
+      children: qualityOptions.value.map(({ value, label }) => ({
+        key: String(value),
+        label,
+        checked: settings.player.songLevel === value,
+      })),
+    });
+  }
+  return items;
+});
+
+/**
+ * 从播放栏菜单应用输出模式或在线音质
+ * @param key - 菜单所选项的标识
+ */
+const onQuickMenuSelect = async (key: string): Promise<void> => {
+  if (switchingOutput.value) return;
+  const mode = audioOutputModeSetting.options.find((option) => option.value === key)?.value;
+  if (!mode) {
+    const option = qualityOptions.value.find(({ value }) => value === key);
+    if (canSwitchQuality.value && option && option.value !== settings.player.songLevel)
+      onQualityChange(option.value);
+    return;
+  }
+  if (settings.system.player.audioOutputMode === mode) return;
+  switchingOutput.value = true;
+  try {
+    const confirmation = confirmSettingChange(audioOutputModeSetting.confirm, mode, t);
+    if (confirmation && !(await confirmation)) return;
+    await settings.setSystem(AUDIO_OUTPUT_MODE_CONFIG_KEY, mode);
+  } finally {
+    switchingOutput.value = false;
+  }
+};
+
+watch(canSwitchOutput, (enabled) => {
+  if (!enabled) emit("quick-menu-open-change", false);
+});
+onBeforeUnmount(() => emit("quick-menu-open-change", false));
 </script>
 
 <template>
+  <SDropdownMenu
+    v-if="canSwitchOutput"
+    :items="quickMenuItems"
+    side="top"
+    align="end"
+    :side-offset="8"
+    :cover="cover"
+    :modal="!cover"
+    trigger-as-child
+    @select="onQuickMenuSelect"
+    @update:open="emit('quick-menu-open-change', $event)"
+  >
+    <template #header>
+      <div
+        class="px-2 pt-1 pb-1.5 text-xs font-medium"
+        :class="cover ? 'text-cover/70' : 'text-on-surface-variant'"
+      >
+        {{ t("settings.audioOutputMode.label") }}
+      </div>
+    </template>
+    <template #trigger>
+      <button
+        type="button"
+        data-audio-output-mode-trigger
+        :aria-label="`${qualityLabel} · ${t('settings.audioOutputMode.label')}`"
+        :disabled="switchingOutput"
+        :class="[
+          chipBase,
+          'cursor-pointer bg-transparent transition-colors focus-visible:outline-2 data-[state=open]:pointer-events-auto disabled:cursor-wait disabled:opacity-55',
+          cover
+            ? 'border-cover/30 text-cover/85 hover:border-cover/65 hover:bg-cover/10 focus-visible:outline-cover'
+            : 'border-on-surface-variant/30 text-on-surface-variant hover:border-on-surface-variant/60 hover:bg-on-surface/5 focus-visible:outline-primary',
+        ]"
+      >
+        {{ qualityLabel }}
+      </button>
+    </template>
+  </SDropdownMenu>
   <SPopselect
-    v-if="canSwitchQuality && media.track"
+    v-else-if="canSwitchQuality && media.track"
     :model-value="settings.player.songLevel"
     :options="qualityOptions"
     side="top"

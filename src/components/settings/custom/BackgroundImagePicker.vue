@@ -14,19 +14,20 @@ const picking = ref(false);
 /** 选图 */
 const handlePick = async (): Promise<void> => {
   if (picking.value) return;
+  const id = theme.themeId;
   picking.value = true;
   try {
-    const url = await window.api.theme.pickBackgroundImage();
-    if (url) theme.imageBackground.src = url;
+    const url = await window.api.theme.pickBackgroundImage(id);
+    if (url) theme.profiles[id].imageBackground.src = url;
   } finally {
     picking.value = false;
   }
 };
 
-/** 清除 */
+/** 清除当前主题的背景，保留其他主题的图片 */
 const handleClear = (): void => {
   theme.imageBackground.src = "";
-  void window.api.theme.clearBackgroundImages();
+  void window.api.theme.clearBackgroundImages(theme.themeId);
 };
 </script>
 
@@ -61,6 +62,7 @@ const handleClear = (): void => {
     </SButton>
     <SButton
       v-if="theme.imageBackground.src"
+      :disabled="picking"
       variant="ghost"
       size="small"
       circle

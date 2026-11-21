@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SettingItem } from "@/types/settings-schema";
 import { useSettingModel } from "@/settings/useSettingModel";
-import { dialog } from "@/composables/useDialog";
+import { confirmSettingChange } from "@/settings/confirmSettingChange";
 
 const props = defineProps<{
   item: SettingItem;
@@ -14,17 +14,8 @@ const model = props.item.binding ? useSettingModel(props.item.binding) : ref<any
 
 /** 应用变更 */
 const applyChange = async (next: unknown): Promise<void> => {
-  const cfg = props.item.confirm;
-  if (cfg && (!cfg.when || cfg.when(next))) {
-    const confirmed = await dialog.confirm({
-      title: cfg.titleKey ? t(cfg.titleKey) : undefined,
-      content: t(cfg.contentKey),
-      type: cfg.type ?? "warning",
-      confirmText: cfg.confirmTextKey ? t(cfg.confirmTextKey) : undefined,
-      cancelText: cfg.cancelTextKey ? t(cfg.cancelTextKey) : undefined,
-    });
-    if (!confirmed) return;
-  }
+  const confirmation = confirmSettingChange(props.item.confirm, next, t);
+  if (confirmation && !(await confirmation)) return;
   model.value = next;
   await props.item.action?.(next);
 };
@@ -60,6 +51,7 @@ const descriptionText = computed(() =>
     />
     <div
       v-else
+      data-theme-setting-row
       class="flex items-center justify-between gap-4 rounded-xl bg-surface-panel border border-solid border-outline-variant/15 px-4 py-3.5 transition-all duration-300"
       :class="highlightKey === item.key ? 'animate-highlight-pulse' : ''"
     >
@@ -75,7 +67,7 @@ const descriptionText = computed(() =>
         </div>
       </div>
 
-      <div class="shrink-0 w-50 flex justify-end">
+      <div data-theme-setting-control class="shrink-0 w-50 flex justify-end">
         <SSwitch
           v-if="item.type === 'switch'"
           :model-value="model"

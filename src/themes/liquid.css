@@ -1,0 +1,606 @@
+html[data-theme-material="liquid"] {
+  --liquid-text: rgb(var(--s-on-surface));
+  --liquid-surface: color-mix(in srgb, rgb(var(--s-surface-panel)) 90%, #323142);
+  --liquid-base: color-mix(in srgb, rgb(var(--s-surface)) 94%, #363246);
+  --liquid-sheen: rgb(200 196 226 / 0.08);
+  --liquid-edge: color-mix(in srgb, var(--liquid-text) 11%, transparent);
+  --liquid-shadow: rgb(9 7 18 / 0.26);
+  --liquid-tint: calc(93% - var(--liquid-transparency) * 25%);
+  --liquid-reading-tint: calc(97% - var(--liquid-transparency) * 12%);
+  --liquid-aurora: rgb(124 142 184 / 0.16);
+  --liquid-bloom: rgb(var(--s-primary) / 0.09);
+  --liquid-muted: color-mix(in srgb, var(--liquid-text) 69%, transparent);
+}
+
+html:not(.dark)[data-theme-material="liquid"] {
+  --liquid-surface: color-mix(in srgb, rgb(var(--s-surface-panel)) 92%, #eee9e4);
+  --liquid-base: color-mix(in srgb, rgb(var(--s-surface)) 93%, #e2dfdd);
+  --liquid-sheen: rgb(255 250 245 / 0.29);
+  --liquid-shadow: rgb(57 45 55 / 0.13);
+  --liquid-aurora: rgb(156 168 193 / 0.21);
+  --liquid-bloom: rgb(var(--s-primary) / 0.14);
+}
+
+.liquid-shell {
+  display: grid;
+  grid-template-columns: var(--liquid-rail-width) minmax(0, 1fr);
+  gap: var(--liquid-gap);
+  height: 100dvh;
+  overflow: clip;
+  padding: var(--liquid-gap);
+  background:
+    radial-gradient(ellipse at 0 8%, var(--liquid-aurora), transparent 62%),
+    radial-gradient(ellipse at 100% 100%, var(--liquid-bloom), transparent 66%), var(--liquid-base);
+}
+
+html[data-appearance-style="image"] .liquid-shell {
+  background:
+    radial-gradient(ellipse at 0 8%, var(--liquid-aurora), transparent 66%),
+    radial-gradient(ellipse at 100% 100%, var(--liquid-bloom), transparent 75%),
+    color-mix(in srgb, var(--liquid-base) 60%, transparent);
+}
+
+.liquid-shell-narrow,
+.liquid-dock-position-narrow {
+  --liquid-rail-width: 64px;
+}
+
+.liquid-pane {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--liquid-radius);
+  background: transparent;
+  box-shadow: 0 10px 28px var(--liquid-shadow);
+}
+
+.liquid-lens {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  display: block;
+  overflow: clip;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(156deg, var(--liquid-sheen), transparent 62%),
+    color-mix(
+      in srgb,
+      var(--liquid-optical-tone, var(--liquid-surface)) var(--liquid-tint),
+      transparent
+    );
+  backdrop-filter: var(--liquid-refraction, blur(16px) saturate(1.18));
+}
+
+.liquid-lens-defs {
+  position: absolute;
+  pointer-events: none;
+}
+
+.liquid-rail {
+  --liquid-tint: calc(96% - var(--liquid-transparency) * 17%);
+
+  min-height: 0;
+  z-index: 12;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 5px 22px color-mix(in srgb, var(--liquid-shadow) 65%, transparent);
+}
+
+.liquid-rail > :not(.liquid-lens) {
+  height: 100%;
+  overflow-y: auto;
+}
+
+:is(.liquid-workspace, .liquid-workspace-with-dock) {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+:is(.liquid-workspace, .liquid-workspace-with-dock) > main {
+  padding-block-start: 68px;
+  scroll-padding-block-start: 68px;
+}
+
+.liquid-workspace-with-dock > main {
+  /* 列表保留完整滚动视口，末尾留白由滚动内容承担 */
+  scroll-padding-block-end: calc(var(--liquid-dock-height) + var(--liquid-gap));
+}
+
+.liquid-workspace-with-dock {
+  container: liquid-workspace / inline-size;
+}
+
+.liquid-workspace-with-dock [data-song-list-shortcuts] {
+  bottom: calc(var(--liquid-dock-height) + 12px);
+  flex-direction: row;
+}
+
+@container liquid-workspace (min-width: 1064px) {
+  .liquid-workspace-with-dock [data-song-list-shortcuts] {
+    bottom: 0;
+    flex-direction: column;
+  }
+}
+
+.liquid-command-bar {
+  position: absolute;
+  z-index: 11;
+  inset: 0 0 auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding-inline: 8px;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--liquid-shadow) 65%, transparent);
+}
+
+.liquid-command-bar .s-button:not(:hover, :active) {
+  background-color: transparent;
+}
+
+.liquid-command-bar [data-theme-search-trigger] {
+  border-color: var(--liquid-edge);
+}
+
+.liquid-command-bar [data-theme-search-trigger] > *,
+.liquid-command-bar input::placeholder,
+html[data-theme-material="liquid"] [data-theme-settings] input::placeholder {
+  color: var(--liquid-muted);
+}
+
+.liquid-dock-position {
+  position: fixed;
+  z-index: 50;
+  inset: auto var(--liquid-gap) var(--liquid-gap)
+    calc(var(--liquid-rail-width) + 2 * var(--liquid-gap));
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.liquid-dock {
+  width: min(100%, 920px);
+  height: var(--liquid-dock-height);
+  box-shadow:
+    0 10px 28px var(--liquid-shadow),
+    0 2px 5px var(--liquid-shadow);
+}
+
+.liquid-dock {
+  --liquid-tint: calc(85% - var(--liquid-transparency) * 49%);
+}
+
+.liquid-dock [data-theme-dock-info] {
+  order: -1;
+}
+
+.liquid-dock [data-theme-dock-track] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.liquid-dock [data-theme-dock-track] > :last-child {
+  justify-self: end;
+}
+
+.liquid-dock [data-theme-play-toggle] {
+  color: rgb(var(--s-on-primary-container));
+  background-color: rgb(var(--s-primary-container));
+}
+
+:is(.liquid-dock, .liquid-command-bar) :focus-visible,
+html[data-theme-material="liquid"]
+  :is(.s-button, [data-theme-popup] [role^="menuitem"]):focus-visible {
+  outline: 2px solid rgb(var(--s-primary));
+  outline-offset: 2px;
+}
+
+html[data-theme-material="liquid"] :is([data-theme-popup], [data-dialog-content]) {
+  color: var(--liquid-text);
+  background: color-mix(in srgb, var(--liquid-surface) var(--liquid-reading-tint), transparent);
+  border: 0;
+  box-shadow:
+    0 16px 38px var(--liquid-shadow),
+    0 3px 10px var(--liquid-shadow);
+  backdrop-filter: blur(16px) saturate(1.18);
+}
+
+html[data-theme-material="liquid"] [data-theme-popup] {
+  border-radius: 12px;
+}
+
+html[data-theme-material="liquid"] [data-dialog-content] {
+  border-radius: var(--liquid-radius);
+}
+
+html[data-theme-material="liquid"] [data-theme-tone="cover"] {
+  --liquid-text: rgb(var(--s-cover));
+  --liquid-surface: color-mix(in srgb, rgb(var(--s-cover-base)) 28%, #151419);
+  --liquid-sheen: rgb(227 203 209 / 0.08);
+  --liquid-edge: rgb(188 170 187 / 0.15);
+}
+
+html[data-theme-material="liquid"] [data-theme-settings-nav] {
+  width: clamp(160px, 27%, 256px);
+  background: transparent;
+  border-inline-end: 1px solid var(--liquid-edge);
+}
+
+html[data-theme-material="liquid"] [data-theme-settings-pane] {
+  background: color-mix(in srgb, var(--liquid-base) 86%, var(--liquid-surface));
+  padding-inline: clamp(16px, 3vw, 32px);
+}
+
+html[data-theme-material="liquid"] [data-theme-setting-row] {
+  border: 0;
+  border-block-end: 1px solid var(--liquid-edge);
+  border-radius: 0;
+  background: transparent;
+  padding-inline: 4px;
+}
+
+html[data-theme-material="liquid"] [data-theme-setting-row] > :first-child > :nth-child(2) {
+  color: var(--liquid-muted);
+}
+
+html[data-theme-material="liquid"] [data-theme-setting-heading] > span:first-child {
+  display: none;
+}
+
+.liquid-rail [data-menu-active],
+[data-theme-material="liquid"] [data-theme-settings] [data-menu-active] {
+  border-radius: 10px;
+  color: var(--liquid-text);
+  background: color-mix(in srgb, rgb(var(--s-primary)) 13%, transparent);
+}
+
+html[data-theme-material="liquid"] [data-home-quick-actions] {
+  gap: 0;
+  border-block: 1px solid var(--liquid-edge);
+}
+
+html[data-theme-material="liquid"] [data-home-shortcut] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme-material="liquid"] [data-home-shortcut] + [data-home-shortcut] {
+  border-inline-start: 1px solid var(--liquid-edge);
+}
+
+html[data-theme-material="liquid"] [data-home-shortcut]:hover {
+  background: color-mix(in srgb, var(--liquid-text) 6%, transparent);
+}
+
+html[data-theme-material="liquid"] [data-home-shortcut] > :first-child {
+  background: transparent;
+}
+
+html[data-theme-material="liquid"] [data-home-shortcut] > :last-child > :last-child {
+  color: var(--liquid-muted);
+}
+
+html[data-theme-material="liquid"] [data-home-continue-empty] {
+  align-items: center;
+  flex-direction: row;
+  justify-content: start;
+  gap: 12px;
+  border: 0;
+  border-radius: 0;
+  color: var(--liquid-muted);
+  padding: 14px 0;
+}
+
+html[data-theme-material="liquid"] [data-home-continue-empty] svg {
+  width: 20px;
+  height: 20px;
+}
+
+html[data-theme-material="liquid"] [data-theme-row-action] {
+  border: 0;
+  background: transparent;
+}
+
+html[data-theme-material="liquid"] [data-theme-row-action]:hover {
+  background: color-mix(in srgb, var(--liquid-text) 9%, transparent);
+}
+
+.liquid-shell [data-song-list-head]::after {
+  content: "";
+  flex: 0 0 28px;
+}
+
+.liquid-playing {
+  --liquid-stage-top: 62px;
+  --liquid-stage-bottom: 112px;
+
+  position: absolute;
+  inset: 0;
+}
+
+.liquid-playing-top {
+  inset-inline: clamp(8px, 2vw, 28px);
+}
+
+.liquid-playing-stage {
+  position: absolute;
+  inset: var(--liquid-stage-top) clamp(24px, 6vw, 100px) var(--liquid-stage-bottom);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+}
+
+.liquid-playing-stage[data-companion="true"] {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.3fr);
+  gap: clamp(24px, 5vw, 76px);
+}
+
+.liquid-album {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: center;
+  justify-items: start;
+  gap: clamp(10px, 2.6vh, 22px);
+  width: min(100%, 49vh, 460px);
+  max-height: 100%;
+  min-width: 0;
+}
+
+.liquid-album-art {
+  width: min(100%, max(108px, calc(100dvh - 325px)));
+  aspect-ratio: 1;
+  border-radius: clamp(16px, 2vw, 24px);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.27);
+}
+
+.liquid-playing-companion {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgb(16 12 26 / 0.19);
+  border-radius: var(--liquid-radius);
+  overflow: hidden;
+}
+
+.liquid-playing-lyrics {
+  --liquid-lyric-fade: clamp(32px, 9vh, 72px);
+  --liquid-lyric-bottom-inset: var(--liquid-stage-top);
+  --player-lyric-mask: linear-gradient(
+    to bottom,
+    transparent,
+    #fff var(--liquid-lyric-fade),
+    #fff calc(100% - var(--liquid-lyric-bottom-inset) - var(--liquid-lyric-fade)),
+    transparent calc(100% - var(--liquid-lyric-bottom-inset)),
+    transparent
+  );
+
+  /* 歌词延伸至 Dock 背后，封面和队列仍在播放栏上方 */
+  align-self: start;
+  height: calc(100% + var(--liquid-stage-bottom));
+  border-radius: 0;
+  background: transparent;
+}
+
+.liquid-playing .liquid-playing-dock {
+  --liquid-optical-tone: rgb(var(--s-cover-base));
+  --liquid-tint: calc(36% - var(--liquid-transparency) * 26%);
+
+  position: absolute;
+  inset: auto 12px 16px;
+  width: min(1000px, calc(100% - 24px));
+  margin-inline: auto;
+}
+
+html[data-theme-material="liquid"][data-material-tier="opaque"]
+  :is(.liquid-lens, [data-theme-popup], [data-dialog-content]),
+html[data-theme-material="liquid"][data-theme-visibility="hidden"]
+  :is(.liquid-lens, [data-theme-popup], [data-dialog-content]) {
+  background: var(--liquid-surface);
+  backdrop-filter: none;
+}
+
+@media (max-width: 1023px) {
+  .liquid-dock [data-theme-dock-track] {
+    gap: 8px;
+    padding-inline: 10px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .liquid-playing .liquid-playing-dock {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .liquid-playing-dock [data-player-dock-transport] {
+    width: clamp(190px, min(37%, calc(100% - 580px)), 350px);
+  }
+  .liquid-playing-stage[data-companion="true"] {
+    gap: 16px;
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .liquid-playing {
+    --liquid-stage-top: 56px;
+    --liquid-stage-bottom: 132px;
+  }
+
+  .liquid-playing .liquid-playing-dock {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 104px;
+    padding-block: 5px;
+    gap: 4px 6px;
+  }
+
+  .liquid-playing-dock [data-player-dock-transport] {
+    grid-area: 1 / 1 / 2 / -1;
+    justify-self: center;
+    width: min(340px, 100%);
+  }
+
+  .liquid-playing-dock [data-player-dock-transport] > :first-child {
+    gap: 8px;
+  }
+
+  .liquid-playing-dock [data-player-dock-actions] {
+    grid-row: 2;
+    gap: 3px;
+  }
+
+  :is(.liquid-dock, .liquid-playing-dock) [data-player-toolbar] {
+    gap: 3px;
+  }
+
+  :is(.liquid-dock, .liquid-playing-dock) [data-player-toolbar] .s-button,
+  .liquid-playing-dock [data-player-dock-actions] .s-button,
+  .liquid-playing-dock [data-player-dock-transport] .s-button {
+    width: 30px;
+    height: 30px;
+  }
+
+  :is(.liquid-dock, .liquid-playing-dock) [data-player-toolbar-quality] {
+    display: contents;
+  }
+}
+
+@media (max-width: 700px) {
+  .liquid-command-bar [data-theme-nav-group] {
+    gap: 3px;
+  }
+
+  .liquid-command-bar [data-theme-nav-space] {
+    min-width: 0;
+  }
+
+  .liquid-command-bar :is(.s-button, [data-theme-search-trigger]) {
+    width: 30px;
+    height: 30px;
+  }
+
+  .liquid-command-bar .window-control-button::before {
+    inset: -6px 0;
+  }
+
+  .liquid-workspace-with-dock,
+  .liquid-dock-position {
+    --liquid-dock-height: 84px;
+  }
+
+  .liquid-dock [data-theme-dock-track] {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 0 8px;
+  }
+
+  .liquid-dock [data-theme-dock-info] {
+    padding-block: 0;
+    gap: 1px;
+  }
+
+  .liquid-dock [data-theme-dock-info] [data-player-expand] {
+    width: 28px;
+    height: 28px;
+  }
+
+  .liquid-dock [data-theme-dock-track] > :nth-child(1) {
+    grid-area: 1 / 1 / 2 / -1;
+    justify-self: center;
+  }
+
+  .liquid-dock [data-theme-play-toggle] {
+    width: 34px;
+    height: 34px;
+  }
+
+  .liquid-shell [data-song-list-toolbar] {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .liquid-shell [data-song-list-toolbar] > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .liquid-shell [data-song-list-toolbar] [data-search-input] {
+    width: clamp(84px, 28vw, 160px);
+  }
+
+  .liquid-shell :is([data-song-item], [data-song-list-head]) {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .liquid-shell [data-song-list-extra] {
+    display: none;
+  }
+
+  .liquid-shell [data-song-list-index] {
+    width: 20px;
+  }
+
+  .liquid-shell [data-song-list-favorite] {
+    width: 34px;
+  }
+
+  .liquid-shell [data-song-list-time] {
+    width: 44px;
+  }
+
+  html[data-theme-material="liquid"] [data-theme-setting-row] {
+    gap: 8px;
+  }
+
+  html[data-theme-material="liquid"] [data-theme-setting-control] {
+    width: min(48%, 200px);
+    min-width: 0;
+  }
+}
+
+@media (max-height: 440px) {
+  html[data-theme-material="liquid"] [data-theme-settings-nav] {
+    padding-block: 12px;
+  }
+
+  html[data-theme-material="liquid"]
+    :is([data-theme-settings-description], [data-theme-settings-footer]) {
+    display: none;
+  }
+
+  .liquid-album {
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .liquid-album-art {
+    width: min(
+      100%,
+      max(46px, calc(100dvh - var(--liquid-stage-top) - var(--liquid-stage-bottom) - 72px))
+    );
+  }
+
+  .liquid-album-data {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-contrast: more), (forced-colors: active) {
+  html[data-theme-material="liquid"] {
+    --liquid-edge: currentColor;
+    --liquid-sheen: transparent;
+    --liquid-shadow: transparent;
+    --liquid-bloom: transparent;
+    --liquid-aurora: transparent;
+  }
+  .liquid-lens {
+    border: 1px solid currentColor;
+  }
+}

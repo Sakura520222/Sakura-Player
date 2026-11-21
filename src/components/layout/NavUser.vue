@@ -175,7 +175,14 @@ const handleLogout = async (): Promise<void> => {
     </div>
   </SPopover>
 
-  <SButton v-else class="app-no-drag" variant="tertiary" :size="40" circle @click="onTriggerClick">
+  <SButton
+    v-else
+    class="app-no-drag"
+    variant="tertiary"
+    size="large"
+    circle
+    @click="onTriggerClick"
+  >
     <template #icon><IconLucideUserRound /></template>
   </SButton>
 

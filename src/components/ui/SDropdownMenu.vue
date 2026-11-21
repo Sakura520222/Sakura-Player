@@ -11,6 +11,8 @@ export interface DropdownMenuItem {
   icon?: Component;
   /** 是否禁用 */
   disabled?: boolean;
+  /** 选项是否为当前值，省略时不显示选中指示区 */
+  checked?: boolean;
   /** 是否显示 */
   show?: boolean;
   /** 分割线：在此项上方显示分割线 */
@@ -31,20 +33,35 @@ const props = withDefaults(
     sideOffset?: number;
     /** 封面主题模式 */
     cover?: boolean;
+    /** 将菜单触发语义交给插槽中的按钮 */
+    triggerAsChild?: boolean;
+    /** 是否在展开时阻止外部指针交互 */
+    modal?: boolean;
   }>(),
   {
     side: "bottom",
     align: "center",
     sideOffset: 4,
     cover: false,
+    modal: true,
   },
 );
 
 const emit = defineEmits<{
   select: [key: string];
+  "update:open": [open: boolean];
 }>();
 
 const { zIndex, onOpenChange } = usePopupZIndex();
+
+/**
+ * 同步弹层层级并通知宿主当前菜单状态
+ * @param open - 菜单是否已打开
+ */
+const handleOpenChange = (open: boolean): void => {
+  onOpenChange(open);
+  emit("update:open", open);
+};
 
 /** 显示的项 */
 const visibleItems = computed(() =>
@@ -85,13 +102,15 @@ const menuItemClass = computed(() =>
 </script>
 
 <template>
-  <DropdownMenuRoot @update:open="onOpenChange">
-    <DropdownMenuTrigger as="div" class="inline-flex">
+  <DropdownMenuRoot :modal="modal" @update:open="handleOpenChange">
+    <DropdownMenuTrigger as="div" :as-child="triggerAsChild" class="inline-flex">
       <slot name="trigger" />
     </DropdownMenuTrigger>
 
     <DropdownMenuPortal>
       <DropdownMenuContent
+        data-theme-popup
+        :data-theme-tone="cover ? 'cover' : undefined"
         :side="side"
         :align="align"
         :side-offset="sideOffset"
@@ -100,6 +119,8 @@ const menuItemClass = computed(() =>
         :style="{ zIndex }"
         :class="contentClass"
       >
+        <slot name="header" />
+        <SDivider v-if="$slots.header" class="mx-1.5 my-0.5" :cover="cover" />
         <template v-for="(item, index) in visibleItems" :key="item.key">
           <SDivider v-if="item.separator && index > 0" class="mx-1.5 my-0.5" :cover="cover" />
           <!-- 子菜单 -->
@@ -111,6 +132,8 @@ const menuItemClass = computed(() =>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent
+                data-theme-popup
+                :data-theme-tone="cover ? 'cover' : undefined"
                 :side-offset="4"
                 :avoid-collisions="true"
                 :collision-padding="12"
@@ -126,6 +149,7 @@ const menuItemClass = computed(() =>
                   <DropdownMenuItem
                     v-else
                     :disabled="child.disabled"
+                    :aria-current="child.checked || undefined"
                     :class="menuItemClass"
                     @select="handleSelect(child)"
                   >
@@ -135,6 +159,12 @@ const menuItemClass = computed(() =>
                       class="size-3.5 opacity-60 shrink-0"
                     />
                     <span>{{ child.label }}</span>
+                    <IconLucideCheck
+                      v-if="child.checked !== undefined"
+                      aria-hidden="true"
+                      class="ml-auto size-3.5 shrink-0"
+                      :class="{ invisible: !child.checked }"
+                    />
                   </DropdownMenuItem>
                 </template>
               </DropdownMenuSubContent>
@@ -144,11 +174,18 @@ const menuItemClass = computed(() =>
           <DropdownMenuItem
             v-else
             :disabled="item.disabled"
+            :aria-current="item.checked || undefined"
             :class="menuItemClass"
             @select="handleSelect(item)"
           >
             <component :is="item.icon" v-if="item.icon" class="size-3.5 opacity-60 shrink-0" />
             <span>{{ item.label }}</span>
+            <IconLucideCheck
+              v-if="item.checked !== undefined"
+              aria-hidden="true"
+              class="ml-auto size-3.5 shrink-0"
+              :class="{ invisible: !item.checked }"
+            />
           </DropdownMenuItem>
         </template>
       </DropdownMenuContent>

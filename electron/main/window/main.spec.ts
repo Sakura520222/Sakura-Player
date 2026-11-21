@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   order: [] as string[],
   settings: {} as Record<string, unknown>,
   createWindow: vi.fn(),
+  sendToMain: vi.fn(),
 }));
 
 vi.mock("electron", () => ({ shell: { openExternal: vi.fn() } }));
@@ -30,7 +31,7 @@ vi.mock("@main/utils/protocol", () => ({
   MAIN_PARTITION: "persist:main",
 }));
 vi.mock("@main/utils/lifecycle", () => ({ isAppQuitting: () => false }));
-vi.mock("@main/utils/broadcast", () => ({ broadcast: vi.fn() }));
+vi.mock("@main/utils/broadcast", () => ({ broadcast: vi.fn(), sendToMain: mocks.sendToMain }));
 
 beforeEach(() => {
   vi.resetModules();
@@ -45,6 +46,7 @@ beforeEach(() => {
     loadFile: vi.fn().mockResolvedValue(undefined),
     isDestroyed: () => false,
     isMinimized: () => false,
+    isVisible: () => true,
     show: vi.fn(() => {
       mocks.order.push("main-show");
       mocks.main.emit("show");
@@ -57,6 +59,21 @@ beforeEach(() => {
 });
 
 describe("主窗口启动交接", () => {
+  it("将原生显隐变化同步给渲染层", async () => {
+    const service = await import("./main");
+    service.createMainWindow();
+    mocks.main.emit("show");
+    mocks.main.emit("minimize");
+    mocks.main.emit("restore");
+    mocks.main.emit("hide");
+    expect(mocks.sendToMain.mock.calls).toEqual([
+      ["window:mainVisibilityChange", true],
+      ["window:mainVisibilityChange", false],
+      ["window:mainVisibilityChange", true],
+      ["window:mainVisibilityChange", false],
+    ]);
+  });
+
   it.each([false, true])("旧版最大化状态只在首次迁移时应用：已迁移=%s", async (migrated) => {
     mocks.settings["windowStates.main"] = { maximized: true, nativeStateMigrated: migrated };
     const service = await import("./main");

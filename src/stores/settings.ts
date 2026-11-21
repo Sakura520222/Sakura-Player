@@ -20,6 +20,7 @@ import { ALL_PLATFORMS } from "@shared/types/platform";
 import { defaultSystemConfig } from "@shared/defaults/settings";
 import { setByPath } from "@shared/utils/path";
 import { DEFAULT_SKIP_TRACK_KEYWORDS } from "@/utils/preset/skipKeywords";
+import { useThemeStore } from "./theme";
 
 /**
  * 对账有序集合：保留存档中仍有效的项（顺序不变），
@@ -129,7 +130,10 @@ export const useSettingsStore = defineStore(
 
     const systemMotion = usePreferredReducedMotion();
     const reducedMotion = computed(
-      () => appearance.reduceMotion || systemMotion.value === "reduce",
+      () =>
+        appearance.reduceMotion ||
+        systemMotion.value === "reduce" ||
+        useThemeStore().prefersReducedMotion,
     );
 
     /** 播放器 */

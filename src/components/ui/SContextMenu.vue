@@ -56,6 +56,7 @@ const menuItemClass =
 
     <ContextMenuPortal>
       <ContextMenuContent
+        data-theme-popup
         :align-offset="alignOffset"
         :avoid-collisions="true"
         :collision-padding="12"
@@ -75,6 +76,7 @@ const menuItemClass =
             </ContextMenuSubTrigger>
             <ContextMenuPortal>
               <ContextMenuSubContent
+                data-theme-popup
                 :side-offset="4"
                 :avoid-collisions="true"
                 :collision-padding="12"

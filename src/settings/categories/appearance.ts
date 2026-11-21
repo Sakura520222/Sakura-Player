@@ -4,6 +4,9 @@ import { useThemeStore } from "@/stores/theme";
 import FontConfig from "@/components/settings/custom/FontConfig.vue";
 import BackgroundImagePicker from "@/components/settings/custom/BackgroundImagePicker.vue";
 import SidebarCustomizeConfig from "@/components/settings/custom/SidebarCustomizeConfig.vue";
+import ThemePicker from "@/components/settings/custom/ThemePicker.vue";
+import { activePlayerLayout, playerLayoutChoices } from "@/themes/playerLayout";
+import { getTheme, themeIds } from "@/themes/registry";
 import IconLucidePalette from "~icons/lucide/palette";
 
 const appearanceCategory: SettingCategory = {
@@ -13,6 +16,12 @@ const appearanceCategory: SettingCategory = {
     {
       id: "theme",
       items: [
+        {
+          key: "themePicker",
+          type: "custom",
+          component: ThemePicker,
+          fullWidth: true,
+        },
         {
           key: "themeMode",
           type: "select",
@@ -24,7 +33,7 @@ const appearanceCategory: SettingCategory = {
           ],
           defaultValue: "system",
           // 图片背景下强制暗色，禁用此开关
-          disabled: () => useThemeStore().appearanceStyle === "image",
+          disabled: () => useThemeStore().imageForcesDark,
         },
         {
           key: "themeSource",
@@ -56,10 +65,16 @@ const appearanceCategory: SettingCategory = {
           binding: { store: "theme", path: "globalTint" },
           defaultValue: false,
           // 图片背景下强制开启全局着色，禁用切换
-          disabled: () => useThemeStore().appearanceStyle === "image",
+          disabled: () => useThemeStore().imageForcesDark,
         },
       ],
     },
+    ...themeIds.flatMap((id) =>
+      (getTheme(id).settingsSections ?? []).map((section) => ({
+        ...section,
+        visible: () => useThemeStore().themeId === id && (section.visible?.() ?? true),
+      })),
+    ),
     {
       id: "appearanceStyle",
       items: [
@@ -130,6 +145,7 @@ const appearanceCategory: SettingCategory = {
         {
           key: "layoutMode",
           type: "select",
+          visible: () => !useThemeStore().definition.capabilities.customShell,
           binding: { store: "settings", path: "appearance.layoutMode" },
           options: [
             { value: "default", labelKey: "settings.layoutMode.default" },
@@ -185,6 +201,7 @@ const appearanceCategory: SettingCategory = {
         {
           key: "routeTransition",
           type: "select",
+          visible: () => !useThemeStore().definition.motion.route,
           binding: { store: "settings", path: "appearance.routeTransition" },
           options: [
             { value: "none", labelKey: "settings.routeTransition.none" },
@@ -197,6 +214,7 @@ const appearanceCategory: SettingCategory = {
         {
           key: "seamlessTransition",
           type: "switch",
+          visible: () => !useThemeStore().definition.motion.sharedCover,
           binding: { store: "settings", path: "appearance.seamlessTransition" },
           defaultValue: false,
         },
@@ -264,16 +282,13 @@ const appearanceCategory: SettingCategory = {
         {
           key: "playerLayout",
           type: "select",
-          binding: { store: "settings", path: "player.layout" },
-          options: [
-            { value: "classic", labelKey: "settings.playerLayout.classic" },
-            { value: "fullCover", labelKey: "settings.playerLayout.fullCover" },
-            { value: "fullLyric", labelKey: "settings.playerLayout.fullLyric" },
-            { value: "apple", labelKey: "settings.playerLayout.apple" },
-          ],
+          binding: { store: "settings", path: "activePlayerLayout" },
+          get options() {
+            return playerLayoutChoices();
+          },
           defaultValue: "classic",
           // 封面占比与自动居中只作用于经典布局
-          childrenCondition: () => useSettingsStore().player.layout === "classic",
+          childrenCondition: () => activePlayerLayout() === "classic",
           hideChildren: true,
           children: [
             {

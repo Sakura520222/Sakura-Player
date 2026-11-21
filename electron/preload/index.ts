@@ -424,6 +424,14 @@ const api = {
       subscribe<boolean>("taskbarLyric:visibilityChange", callback),
     // 主窗口控制
     minimize: () => ipcRenderer.send("window:minimize"),
+    /**
+     * 订阅主窗口的原生可见状态
+     * @param callback - 收到显示或隐藏事件的回调
+     */
+    onMainVisibilityChange: (callback: (visible: boolean) => void): (() => void) => {
+      ipcRenderer.removeAllListeners("window:mainVisibilityChange");
+      return subscribe<boolean>("window:mainVisibilityChange", callback);
+    },
     toggleMaximize: () => ipcRenderer.send("window:toggleMaximize"),
     isMaximized: () => ipcRenderer.invoke("window:isMaximized"),
     onMaximizeChange: (callback: (maximized: boolean) => void) =>
@@ -685,11 +693,12 @@ const api = {
       ipcRenderer.invoke("motionCover:resolve", track, source),
   },
   theme: {
-    // 弹出文件选择框
-    pickBackgroundImage: (): Promise<string | null> =>
-      ipcRenderer.invoke("theme:pickBackgroundImage"),
-    // 清空已缓存的背景图
-    clearBackgroundImages: (): Promise<void> => ipcRenderer.invoke("theme:clearBackgroundImages"),
+    /** @param themeId - 发起图片选择的主题 */
+    pickBackgroundImage: (themeId: string): Promise<string | null> =>
+      ipcRenderer.invoke("theme:pickBackgroundImage", themeId),
+    /** @param themeId - 清理背景图的主题 */
+    clearBackgroundImages: (themeId: string): Promise<void> =>
+      ipcRenderer.invoke("theme:clearBackgroundImages", themeId),
   },
   cache: {
     // 各类别占用统计

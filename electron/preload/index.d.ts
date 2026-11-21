@@ -93,8 +93,8 @@ declare global {
         resolve: (track: Track, source: MotionCoverSource) => Promise<string | null>;
       };
       theme: {
-        pickBackgroundImage: () => Promise<string | null>;
-        clearBackgroundImages: () => Promise<void>;
+        pickBackgroundImage: (themeId: string) => Promise<string | null>;
+        clearBackgroundImages: (themeId: string) => Promise<void>;
       };
       cache: {
         getStats: () => Promise<{ id: string; kind: "file" | "db"; path: string; size: number }[]>;

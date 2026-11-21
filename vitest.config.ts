@@ -31,6 +31,8 @@ export default defineConfig({
     }),
   ],
   test: {
+    // 色板依赖的 ESM 包含无扩展名的内部引用，由 Vite 解析
+    server: { deps: { inline: ["@material/material-color-utilities"] } },
     environment: "happy-dom",
     include: [
       "electron/**/*.spec.ts",

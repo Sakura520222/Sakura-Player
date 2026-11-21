@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { useSettingsStore } from "@/stores/settings";
+import ThemeProvider from "@/themes/ThemeProvider.vue";
 
 const settings = useSettingsStore();
 
 watchEffect(() => {
-  document.documentElement.toggleAttribute("data-reduced-motion", settings.reducedMotion);
   const v = settings.appearance.fontFamily;
   const root = document.documentElement.style;
   if (v) root.setProperty("--user-font", `${v}, var(--app-font)`);
@@ -13,6 +13,8 @@ watchEffect(() => {
 </script>
 
 <template>
-  <AppBackground />
-  <RouterView />
+  <ThemeProvider>
+    <AppBackground />
+    <RouterView />
+  </ThemeProvider>
 </template>

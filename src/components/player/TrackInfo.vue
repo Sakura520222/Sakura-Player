@@ -30,8 +30,11 @@ const isArtistLinkable = (artist: Artist): boolean => {
 <template>
   <div class="flex items-center min-w-0" :class="compact ? 'gap-2' : 'gap-3'">
     <!-- 封面 -->
-    <div
-      class="relative shrink-0 rounded-lg overflow-hidden cursor-pointer group"
+    <button
+      type="button"
+      data-player-expand
+      :aria-label="$t('player.expand')"
+      class="relative shrink-0 p-0 border-0 bg-transparent rounded-lg overflow-hidden cursor-pointer group"
       :class="compact ? 'size-10 shadow-sm' : 'size-14'"
       @click="setPlayerExpanded(true)"
     >
@@ -45,7 +48,7 @@ const isArtistLinkable = (artist: Artist): boolean => {
           :class="compact ? 'size-4.5' : 'size-6'"
         />
       </div>
-    </div>
+    </button>
     <!-- 歌曲信息 -->
     <Transition name="slide-left" mode="out-in">
       <div v-if="media.track" :key="media.track.id" class="min-w-0 flex-1">

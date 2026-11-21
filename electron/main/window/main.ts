@@ -8,7 +8,7 @@ import { initTray } from "@main/services/tray";
 import { store } from "@main/store";
 import { MAIN_PARTITION } from "@main/utils/protocol";
 import { isAppQuitting } from "@main/utils/lifecycle";
-import { broadcast } from "@main/utils/broadcast";
+import { broadcast, sendToMain } from "@main/utils/broadcast";
 import { CURRENT_AGREEMENT_VERSION } from "@shared/constants/agreement";
 import { coreLog } from "@main/utils/logger";
 import { setMainWindowVisible, setPlayerExpanded } from "@main/utils/powerBlocker";
@@ -66,10 +66,18 @@ export const createMainWindow = (): BrowserWindow => {
     initThumbar(mainWindow!);
   });
 
-  mainWindow.on("show", () => setMainWindowVisible(!mainWindow!.isMinimized()));
-  mainWindow.on("hide", () => setMainWindowVisible(false));
-  mainWindow.on("minimize", () => setMainWindowVisible(false));
-  mainWindow.on("restore", () => setMainWindowVisible(mainWindow!.isVisible()));
+  /**
+   * 同步原生窗口状态，覆盖页面可见性事件未及时到达的情况
+   * @param visible - 主窗口是否可绘制
+   */
+  const reportVisibility = (visible: boolean): void => {
+    setMainWindowVisible(visible);
+    sendToMain("window:mainVisibilityChange", visible);
+  };
+  mainWindow.on("show", () => reportVisibility(!mainWindow!.isMinimized()));
+  mainWindow.on("hide", () => reportVisibility(false));
+  mainWindow.on("minimize", () => reportVisibility(false));
+  mainWindow.on("restore", () => reportVisibility(mainWindow!.isVisible()));
   mainWindow.webContents.on("render-process-gone", () => setPlayerExpanded(false));
   mainWindow.webContents.on("did-start-navigation", (_event, _url, inPlace, isMainFrame) => {
     if (isMainFrame && !inPlace) setPlayerExpanded(false);

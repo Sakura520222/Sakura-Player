@@ -12,6 +12,8 @@ const props = defineProps<{
   visible: boolean;
   /** 允许初始化流体渲染器 */
   active: boolean;
+  /** 窗口被遮挡时暂停绘制，保留已经渲染的背景 */
+  suspended: boolean;
 }>();
 
 const media = useMediaStore();
@@ -41,7 +43,7 @@ const onFluidTransitionEnd = (event: TransitionEvent): void => {
 
 // 流体背景播放态
 const bgPlaying = computed(() => {
-  if (!status.isPlayerExpanded) return false;
+  if (!status.isPlayerExpanded || settings.reducedMotion) return false;
   if (!status.isPlaying && settings.player.playerBgFreezeOnPause) return false;
   return true;
 });
@@ -58,14 +60,14 @@ let switchToken = 0;
 
 watch([() => media.track?.cover, () => status.isPlayerExpanded], ([newCover, expanded]) => {
   const targetCover = newCover || DEFAULT_COVER;
-  // 相同不切换
-  if (blurLayers[currentLayerIndex].src === targetCover) return;
+  // 即使切回正在显示的封面，也要取消上一首尚未提交的解码及动画帧
   const token = ++switchToken;
 
   if (preloadImg) {
     preloadImg.src = "";
     preloadImg = null;
   }
+  if (blurLayers[currentLayerIndex].src === targetCover) return;
   const nextIndex = currentLayerIndex === 0 ? 1 : 0;
   /**
    * 应用已加载的封面，收起状态直接替换当前图层
@@ -140,6 +142,7 @@ onBeforeUnmount(() => {
     <BackgroundRender
       :album="media.track?.cover || DEFAULT_COVER"
       :playing="bgPlaying"
+      :suspended="props.suspended"
       :fps="settings.player.playerBgFps"
       :flow-speed="settings.player.playerBgFlowSpeed"
       :render-scale="settings.player.playerBgRenderScale"
