@@ -36,9 +36,9 @@ The right-hand full-player toolbar provides lyric offset, AI translation, algori
 
 ## AI generation and local alignment
 
-Use [AI Features](/en/ai) to add translation or romanization to existing primary lyrics. To map existing text to word timing without a model API key, use [Local Lyric Alignment](/en/lyric-alignment). Both require an explicit save after applying results to write files.
+Use [AI Features](/en/ai) to add translation or romanization to existing primary lyrics. Use [Generate primary word timing](/en/lyric-alignment#generate-primary-word-timing) to align line-timed lyrics to local or cached audio. Local alignment can also map existing translations and romanization to the primary word timings.
 
-Local alignment runs in the bundled Rust worker without installing Python. Romanization needs no model download; translation runs offline after model setup. See [Model management](/en/lyric-alignment#model-management).
+Primary timing and translation each require a [local model](/en/lyric-alignment#model-management). Romanization alignment works without a model download. After applying results, use **Save and export lyrics** to write a file.
 
 ## Copy, share, and save
 

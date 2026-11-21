@@ -12,7 +12,7 @@ Sakura Player 将性能敏感的能力下沉到 **Rust**。音频与系统集成
 | `taskbar-lyric`     | Windows 任务栏歌词文字渲染                                                   |
 | `taskbar-thumbnail` | Windows 任务栏悬停缩略图 / Peek 预览替换为专辑封面                           |
 | `opencc`            | 基于 ferrous-opencc 的简繁、地区用字与日文字形转换                           |
-| `lyric-alignment`   | 独立工作进程，完成已有翻译与音译的分词、读音匹配和本地语义推理               |
+| `lyric-alignment`   | 独立工作进程，完成主歌词声学对齐、翻译语义对齐和音译读音匹配                 |
 | `automix-worker`    | 独立工作进程，使用 ONNX Runtime 检测节拍并分离声部                           |
 
 `audio-capture` 仅在 Windows / Linux 构建，任务栏歌词和缩略图模块仅在 Windows 构建，其余 NAPI 模块与对齐工作进程跨平台构建。
@@ -22,7 +22,8 @@ Sakura Player 将性能敏感的能力下沉到 **Rust**。音频与系统集成
 核心音频引擎，负责解码与播放：
 
 - 使用 `ffmpeg_audio` crate 进行解码，支持 MP3、FLAC、WAV、AAC、OGG、APE 等格式；
-- 基于 rodio 输出，支持渐入渐出、变速变调、音量均衡与均衡器；
+- 常规链路支持渐入渐出、变速变调、音量均衡与均衡器，Windows 提供独立的 WASAPI 独占直通链路；
+- 读取本地文件的标签、声道和采样参数，提供源频谱诊断及外部、内嵌 CUE 所需的容器时间范围读取；
 - 实时 FFT 频谱数据，驱动可视化与歌词律动；
 - 解码时同步提取封面缩略图；
 - 在线音源通过 `ffmpeg_audio::HttpAudioSource`（配合 `HttpCancelHandle` 实现打断与 Seek 状态重置，基于 `reqwest` + `rustls`）以 `Read + Seek` 方式按需拉取，TLS 在 Rust 内处理，跨平台且无系统依赖。
@@ -55,7 +56,7 @@ Windows 任务栏缩略图自定义（仅 Windows）：
 
 ### lyric-alignment
 
-[算法智能对齐](/lyric-alignment)使用独立可执行文件，通过标准输入输出传递有界 JSON。Rust 完成日语词典读音、中文拼音、时间范围匹配以及 Candle 多语言 BERT 推理，无需 Python、PyTorch、CUDA 或外部模型运行时。
+[算法智能对齐](/lyric-alignment)使用独立可执行文件，通过标准输入输出传递有界 JSON。主歌词对齐复用音频引擎的 FFmpeg 解码和 AutoMix 的 ONNX Runtime，通过 MMS_FA 和 CTC 计算时间。辅助对齐使用 Rust 词典、读音和范围匹配，翻译通过 Candle 运行多语言 BERT。
 
 每个任务单独启动进程，结束或取消后释放词典、模型和计算线程。Electron 主进程负责模型管理、输入输出校验和取消控制，渲染进程保留现有预览、应用与保存流程。Windows 工作进程静态链接 CRT；其他 NAPI 模块沿用各自的链接方式。
 
@@ -108,6 +109,8 @@ SKIP_NATIVE_BUILD=true pnpm dev
 :::
 
 ## 对齐验证
+
+主歌词声学对齐的歌曲样本、警告覆盖与复现命令见 [声学对齐验证记录](https://github.com/Sakura520222/Sakura-Player/blob/dev/native/lyric-alignment/ACOUSTIC_VALIDATION.md)。下方记录的是辅助歌词对齐的验证。
 
 ### 测试与复现
 

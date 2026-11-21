@@ -1,20 +1,31 @@
 # Algorithmic lyric alignment
 
-The alignment action beside full-player lyrics maps existing translations and romanization to the original word timings. Tokenization, reading matching, and semantic inference run in the bundled **Rust worker**, without installing Python, PyTorch, or another runtime.
+Open **Algorithmic lyric alignment** beside the lyrics in the full-screen player. It can generate word timing for existing line-timed primary lyrics from audio, then map existing translations and romanization to that timeline. Alignment preserves the text and runs in the bundled **Rust worker**. To generate new translation or romanization text, use [AI Lyric Translation](/en/ai).
 
-The feature preserves existing text and original timing. It does not recognize audio or generate lyrics. AI lyric translation and model configuration remain independent.
+## Generate primary word timing
+
+1. Play a local audio file or a fully cached source and load primary lyrics with line timings.
+2. Prepare the **Primary lyric model** in **Settings → Lyrics → Lyric alignment models**. If it is missing, the dialog offers **Open settings**.
+3. In **Algorithmic lyric alignment**, select **Generate primary word timing**, choose Mandarin Chinese, Japanese, or English, and click **Start alignment**.
+4. Listen to the lines marked **Review**, select the candidates you want, and click **Apply selected**. To write the result to a file, choose [Complete TTML](/en/lyrics#copy-share-and-save) under **Copy Lyrics → Save and export lyrics**.
+
+You can select existing translation and romanization in the same run. The worker processes primary timing first and aligns the selected auxiliary text to the resulting words. Translation also requires the translation model. The two models run in sequence. Changes to primary words or timings invalidate dependent auxiliary alignments while preserving their text.
+
+Timing is in beta. The worker returns low-confidence candidates with a warning, so check word boundaries against the audio, especially for sustained notes, heavy accompaniment, and overlapping voices. It can recalculate existing word timings and processes long lines and full songs in internal batches. Background vocals are outside the scope of primary timing generation.
+
+The acoustic worker uses a pinned MMS_FA UINT8 ONNX model and CTC alignment. It keeps the original wording, spacing, and punctuation. Mandarin aligns by character, English by word, and Japanese uses dictionary readings and groups kana where appropriate. CUE offsets locate audio in the source file, while lyric times stay relative to the track.
 
 ## Using alignment
 
-1. Load original lyrics with actual word timings and an existing translation or romanization
-2. Open alignment and select either auxiliary track or both
-3. For translation, click **Download or verify model** once; romanization requires no model download
-4. Start alignment, inspect each candidate, and select the lines to apply
-5. Apply selected lines to update the display immediately; explicitly save lyrics to write files
+1. Load primary lyrics with word timings and an existing translation or romanization.
+2. Open **Algorithmic lyric alignment** and select either auxiliary track or both.
+3. For translation, prepare the **Translation model** in **Settings → Lyrics → Lyric alignment models**. Romanization works without a model download.
+4. Click **Start alignment**, review the candidates, and select the lines to apply.
+5. Click **Apply selected** to update the display. Use the lyric save controls to write the result to a file.
 
-Complete auxiliary alignments are preserved by default. Enable realignment to recalculate selected tracks. Unselected, unmatched, and unchecked content remains unchanged. The preview reports requested, matched, and previously aligned counts separately.
+For auxiliary-only alignment, complete alignments are preserved by default. Enable **Realign existing translation and romanization** to recalculate selected tracks. The preview reports requested, matched, and previously aligned counts separately.
 
-Line-timed lyrics, missing auxiliary text, and results without two independent timing anchors do not produce word-level candidates. Scores are screening criteria rather than calibrated accuracy estimates; review candidates before applying them.
+Auxiliary-only alignment needs existing auxiliary text and at least two independent timing anchors in the primary line. Review the resulting candidates before applying them.
 
 ## Romanization
 
@@ -34,24 +45,31 @@ Translation failures preserve completed romanization and existing translations. 
 
 ### Download and storage
 
-The model is `google-bert/bert-base-multilingual-cased` at revision `3f076fdb1ab68d5b2880cb87a0886f315b8146f8`, with approximately 714 MB of weights. Downloads respect the player proxy configuration and verify every file's size and SHA-256. The ready marker is published only after native inference succeeds. Prepared alignment runs offline.
+Both models are managed in **Settings → Lyrics → Lyric alignment models**. After setup, alignment runs offline.
+
+| Model               | Download and storage                                                                                                                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primary lyric model | [MMS_FA UINT8](https://huggingface.co/xycld/lyric-align-mms-fa), approximately 302 MiB, under `{userData}/app-data/runtimes/lyric-acoustic/model/`. The weights are subject to Meta's CC BY-NC 4.0 non-commercial license and are downloaded separately from the player |
+| Translation model   | `google-bert/bert-base-multilingual-cased` at revision `3f076fdb1ab68d5b2880cb87a0886f315b8146f8`, approximately 714 MB of weights, under `{userData}/app-data/runtimes/lyric-alignment/model/`                                                                         |
+
+The primary lyric model shares the ONNX Runtime used by AutoMix. If that runtime is missing, model setup installs it without downloading AutoMix beat or stem-separation models.
+
+Downloads respect the player proxy configuration. Setup verifies file sizes and SHA-256 and writes the ready marker after native inference succeeds.
 
 Opening the dialog or starting alignment never starts a download automatically. Downloads can be cancelled and retried. Closing the dialog or main window keeps maintenance running; reopening restores progress. Explicitly quitting cancels maintenance and waits for cleanup.
 
-Model files and `ready.json` live in `{userData}/app-data/runtimes/lyric-alignment/`. The native worker is bundled with the application.
-
-**Download or verify model** checks local files first, reuses complete valid files, and downloads only missing or damaged files. Failed verification can be retried without downloading complete model files again.
+**Download** and **Verify** check local files first and only fetch missing or damaged files. Retry after failed verification to reuse valid files.
 
 ### Removing the model
 
-The ready marker is independent of absolute paths and platforms, so moving a portable installation does not require downloading the model again. **Remove model** deletes this feature's model directory. Romanization remains available; translation requires preparing the model again. Maintenance and active alignment hold exclusive access.
+**Remove** deletes the selected model. Removing the primary lyric model leaves the shared ONNX Runtime available to AutoMix. Romanization can run without either model. Maintenance and active alignment hold exclusive access.
 
 ## Resource limits
 
 - One task runs at a time in an independent Rust process; completion or cancellation releases its dictionaries, model, and threads
 - Computation stays outside the main process and does not block playback controls or lyric animation
-- Requests allow up to 1,000 lines and 64,000 UTF-16 code units; process input and output are each limited to 1 MiB
-- Each model input is limited to 512 subwords; truncated inputs cannot become apparently complete candidates
+- Each native request supports up to 1,000 lines and 64,000 UTF-16 code units, with a 1 MiB limit each for input and output. Primary timing splits full songs into requests automatically
+- The translation model accepts up to 512 subwords per input and rejects truncated inputs
 - Track changes, source changes, lyric edits, closing the dialog, and cancellation invalidate stale results
 - Existing auxiliary display settings, lyric-window synchronization, TTML export, and file saving remain shared
 

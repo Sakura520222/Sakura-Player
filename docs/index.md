@@ -19,10 +19,10 @@ hero:
 
 features:
   - icon: 🎵
-    title: 广泛的格式支持
-    details: 基于 FFmpeg + Rust 的高性能音频引擎，支持 MP3、FLAC、WAV、AAC、OGG、APE 等众多格式，提供渐入渐出、音量均衡、均衡器与歌曲高潮查询和跳转。
-    link: /playback
-    linkText: 播放控制与高潮跳转
+    title: 本地播放与音质诊断
+    details: 支持 FLAC、ALAC、WAV、APE 等格式和 CUE 分轨，可查看源文件、解码和输出参数。Windows 支持 WASAPI 独占直通。
+    link: /playback#音质诊断
+    linkText: 查看音质与输出
   - icon: 📝
     title: 丰富的歌词展现
     details: 支持 TTML / LYS / QRC / KRC / YRC / LRC / ASS / SRT，提供手动匹配、逐字高亮、翻译与音译、歌词导出及外部歌词窗口。
@@ -44,16 +44,16 @@ features:
     link: /integrations
     linkText: 服务与听歌识曲
   - icon: 🎨
-    title: 自适应主题
-    details: 封面取色、浅色与深色主题、音乐频谱和多种全屏布局，可在全屏播放器开启动态封面。
-    link: /playback#动态封面
-    linkText: 设置动态封面
+    title: Classic 与 Sakura Liquid
+    details: 可在经典布局与实时折射玻璃主题之间切换。各主题独立保存外观配置，Sakura Liquid 提供专用全屏布局。
+    link: /playback#sakura-liquid-主题
+    linkText: 切换主题与调整材质
   - icon: 🧩
     title: 可扩展能力
     details: 内置插件系统与外部 API（HTTP + WebSocket），可编写脚本扩展音源，或通过接口远程控制播放。
   - icon: 🔤
     title: 本地歌词对齐
-    details: 原生 Rust 将已有翻译、音译关联到主歌词时间轴，无需 Python 或 API Key。音译开箱即用，翻译准备模型后离线运行，支持预览和选择应用。
+    details: 用本地或已缓存的音频为普通话、日语和英语主歌词生成逐字时间，也可将已有翻译和音译对齐到主歌词。支持逐行预览与选择应用。
     link: /lyric-alignment
     linkText: 了解本地对齐
   - icon: 🔌

@@ -12,7 +12,7 @@ Performance-sensitive features are implemented in **Rust**. The main process loa
 | `taskbar-lyric`     | Windows taskbar lyric rendering                                                                                 |
 | `taskbar-thumbnail` | Replaces Windows taskbar thumbnail and Peek preview with album art                                              |
 | `opencc`            | Simplified/traditional, regional vocabulary, and Japanese character conversion through ferrous-opencc           |
-| `lyric-alignment`   | Independent worker for tokenization, reading matches, and local semantic alignment of existing auxiliary lyrics |
+| `lyric-alignment`   | Independent worker for acoustic primary-lyric timing, semantic translation alignment, and romanization matching |
 | `automix-worker`    | Independent worker for beat detection and stem separation through ONNX Runtime                                  |
 
 The build script enables `audio-capture` on Windows/Linux, taskbar lyrics and thumbnails on Windows, and the remaining addons and lyric alignment worker across platforms.
@@ -20,7 +20,8 @@ The build script enables `audio-capture` on Windows/Linux, taskbar lyrics and th
 ### audio-engine
 
 - Decodes MP3, FLAC, WAV, AAC, OGG, APE, and more through `ffmpeg_audio`.
-- Outputs through rodio with fades, speed/pitch control, loudness normalization, and an equalizer.
+- Supports fades, speed and pitch control, loudness normalization, and EQ in the standard path. Windows also offers a dedicated WASAPI exclusive direct path.
+- Reads local tags and sample parameters, analyzes source spectra, and supports time ranges from external and embedded CUE sheets.
 - Produces realtime FFT data for visualizations and lyric motion.
 - Extracts cover thumbnails while decoding.
 - Streams remote audio through `ffmpeg_audio::HttpAudioSource`. `HttpCancelHandle` supports immediate cancellation and seek reset, while `reqwest` and `rustls` handle TLS without system FFmpeg dependencies.
@@ -47,7 +48,7 @@ Uses DWM iconic representation on Windows to replace the taskbar hover thumbnail
 
 ### lyric-alignment
 
-[Algorithmic lyric alignment](/en/lyric-alignment) uses an independent executable with bounded JSON over standard input and output. Rust handles Japanese dictionary readings, Chinese pinyin, timing-range matches, and Candle multilingual BERT inference without Python, PyTorch, CUDA, or an external model runtime.
+[Algorithmic lyric alignment](/en/lyric-alignment) uses an independent executable with bounded JSON over standard input and output. Primary timing reuses the audio engine's FFmpeg decoder and AutoMix's ONNX Runtime for MMS_FA and CTC alignment. Auxiliary alignment uses Rust dictionaries, reading and range matching, and multilingual BERT through Candle for translation.
 
 Each task starts a separate process and releases dictionaries, model memory, and threads when completed or cancelled. The Electron main process manages the model, validates requests and responses, and controls cancellation. The renderer retains the existing preview, apply, and save workflow. The Windows worker statically links the CRT; other NAPI addons keep their existing linking configuration.
 
@@ -95,6 +96,8 @@ Do not edit `native/*/index.d.ts`. Import native types from `@splayer/*`.
 :::
 
 ## Alignment validation
+
+See the [acoustic alignment validation record](https://github.com/Sakura520222/Sakura-Player/blob/dev/native/lyric-alignment/ACOUSTIC_VALIDATION.md) for singing samples, warnings, and reproduction commands for primary timing. The checks below cover auxiliary lyric alignment.
 
 ### Tests and reproduction
 

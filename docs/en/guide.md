@@ -2,15 +2,17 @@
 
 This page covers the basics of Sakura Player. See [Download](/en/download) for installation packages.
 
-| Task                                                     | Guide                                           |
-| -------------------------------------------------------- | ----------------------------------------------- |
-| Scan folders, manage likes/playlists, inspect statistics | [Library and Statistics](/en/library)           |
-| Find song highlights and jump to them                    | [Song highlights](/en/playback#song-highlights) |
-| Equalizer, speed, A-B loop, timer, and crossfade         | [Playback and Effects](/en/playback)            |
-| Match lyrics manually, adjust fonts, copy, and save      | [Lyrics](/en/lyrics)                            |
-| Download songs, retry, and manage files                  | [Music Downloads](/en/music-downloads)          |
-| Accounts, recognition, Last.fm, and Discord              | [Integrations](/en/integrations)                |
-| Caches, settings backup, and migration                   | [Data Management](/en/data-management)          |
+| Task                                                     | Guide                                                   |
+| -------------------------------------------------------- | ------------------------------------------------------- |
+| Scan folders, manage likes/playlists, inspect statistics | [Library and Statistics](/en/library)                   |
+| Find song highlights and jump to them                    | [Song highlights](/en/playback#song-highlights)         |
+| Equalizer, speed, A-B loop, timer, and crossfade         | [Playback and Effects](/en/playback)                    |
+| Switch themes, adjust glass and motion                   | [Sakura Liquid theme](/en/playback#sakura-liquid-theme) |
+| Switch WASAPI modes and check the active stream          | [Output devices](/en/playback#output-devices)           |
+| Match lyrics manually, adjust fonts, copy, and save      | [Lyrics](/en/lyrics)                                    |
+| Download songs, retry, and manage files                  | [Music Downloads](/en/music-downloads)                  |
+| Accounts, recognition, Last.fm, and Discord              | [Integrations](/en/integrations)                        |
+| Caches, settings backup, and migration                   | [Data Management](/en/data-management)                  |
 
 ## Playing music
 
@@ -26,6 +28,8 @@ Click the playback-bar cover to open the full-screen player and view [playback l
 2. After scanning, browse the library by track, album, or artist.
 3. Local track tags and cover art can be edited in the metadata editor.
 
+The library also scans external multi-file CUE sheets and embedded CUE sheets. See [Add and scan local music](/en/library#add-and-scan-local-music).
+
 ## Streaming
 
 Connect self-hosted Subsonic, Navidrome, Jellyfin, or Emby servers. See [Streaming Services](/en/streaming).
@@ -34,7 +38,7 @@ Connect self-hosted Subsonic, Navidrome, Jellyfin, or Emby servers. See [Streami
 
 Sakura Player supports TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT, including word highlighting, translation, and romanization. Selection considers source preference, platform/format order, smart preference, and existing lyrics. See [Lyrics](/en/lyrics).
 
-[Local lyric alignment](/en/lyric-alignment) can also associate existing translations and romanization with the word-level timing of the primary lyrics. Its bundled Rust worker requires neither Python nor an API key. Romanization works immediately; translation requires downloading or verifying the model first. Use [AI features](/en/ai) to generate missing translation or romanization.
+[Local lyric alignment](/en/lyric-alignment) can generate primary word timing from audio and map existing translations and romanization to a word-timed lyric. Prepare the primary lyric or translation model in **Settings → Lyrics → Lyric alignment models**. Romanization alignment works without a model download. Use [AI Features](/en/ai) to generate missing translation or romanization.
 
 ### Online TTML lyrics
 

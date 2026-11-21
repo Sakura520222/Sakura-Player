@@ -7,15 +7,15 @@ Open **Library** in the sidebar and add folders to scan. Once tracks are present
 - The refresh button performs an incremental scan; **More → Full scan** scans the configured folders again.
 - Progress appears during scanning. Afterwards, search the list and sort using its column headers.
 - Artist, album, and folder pages browse the same library. Music files do not need to be copied into the application's data directory.
-- CUE tracks play a time range of their referenced audio file. Keep the CUE file and referenced audio paths valid.
+- The library supports single-file and multi-file external CUE sheets and embedded CUE tags. Each track plays a range of its referenced audio, and the library hides the corresponding full-file entry. When moving an external CUE sheet, keep the referenced files at the expected relative paths.
 
 Folders are managed on the library page; there is no separate Local Music category in Settings. Entering a library with configured directories starts a scan. Scan again after files change to refresh the index.
 
 ## Tags and artwork
 
-Local track menus provide metadata editing for titles, artists, albums, covers, and other supported fields. This writes to the audio file. Ensure the file is writable and keep originals before making batch changes.
+Open **Edit Metadata** from a local track's menu to inspect its tags. Writable formats let you edit fields such as title, album, release date, track and disc numbers and totals, and comments. Enter artists, album artists, genres, and composers one per line. You can also replace or remove embedded artwork.
 
-CUE tracks share an audio file and cannot use the ordinary standalone-track workflow to write separate file tags for every segment. Editing tags and changing display preferences are separate operations.
+Saving writes to the audio file. Write support depends on the format and file permissions, and the editor marks read-only files. CUE segments share their source audio. Manage each segment's title, performer, and related metadata in its CUE sheet.
 
 Lyrics have their own complete-save and diff-preview workflow; see [Lyrics](/en/lyrics).
 

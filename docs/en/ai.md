@@ -4,11 +4,11 @@ Sakura Player's **AI Lyric Translation** generates translations, romanization, a
 
 ## Features and entry points
 
-| Feature                                      | Entry point                                               | Purpose                                                                                      | Setup                                                                             |
-| -------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| AI Lyric Translation                         | Language icon to the right of the full-player lyrics      | Generate translation and romanization, mapped to existing lyric timings                      | An active AI model                                                                |
-| [Local lyric alignment](/en/lyric-alignment) | Algorithmic lyric alignment beside the full-player lyrics | Map existing translation and romanization to word-timed primary lyrics while preserving text | Romanization works immediately; download or verify the model once for translation |
-| [MCP interface](/en/mcp)                     | Settings → AI Integration → MCP                           | Let an external AI client search the library, inspect the queue, and control playback        | Enable MCP and configure its URL and connection key in the client                 |
+| Feature                                      | Entry point                                               | Purpose                                                                                 | Setup                                                                                     |
+| -------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| AI Lyric Translation                         | Language icon to the right of the full-player lyrics      | Generate translation and romanization, mapped to existing lyric timings                 | An active AI model                                                                        |
+| [Local lyric alignment](/en/lyric-alignment) | Algorithmic lyric alignment beside the full-player lyrics | Generate primary word timing from audio and align existing translation and romanization | Primary timing and translation need separate local models. Romanization works immediately |
+| [MCP interface](/en/mcp)                     | Settings → AI Integration → MCP                           | Let an external AI client search the library, inspect the queue, and control playback   | Enable MCP and configure its URL and connection key in the client                         |
 
 AI Lyric Translation uses your configured model service. Local alignment runs in the bundled Rust worker without Python or a model API key, while MCP exposes playback tools to an external client. They are configured independently; lyric translation does not require MCP.
 
@@ -106,7 +106,7 @@ After applying, open **Copy Lyrics → Save and export lyrics** to preview and s
 - The main process encrypts API keys in local operating-system secure storage. Settings exposes only whether a key is saved. Saving or reusing keys is refused when secure storage is unavailable, including the Linux `basic_text` backend.
 - Requests go directly from your device to the configured service. Its operator determines retention, quotas, and billing; testing and generation can both consume usage.
 
-For existing text that you want to process without calling your configured text model, use [local lyric alignment](/en/lyric-alignment). Romanization needs no model download; translation runs offline after downloading or verifying the model once.
+[Local lyric alignment](/en/lyric-alignment) processes audio and existing lyrics on your device. Primary timing and translation run offline after model setup.
 
 ## Troubleshooting
 

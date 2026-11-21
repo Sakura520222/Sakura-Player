@@ -18,10 +18,10 @@ hero:
 
 features:
   - icon: 🎵
-    title: Broad format support
-    details: A high-performance FFmpeg + Rust audio engine supporting MP3, FLAC, WAV, AAC, OGG, APE, and more, with fades, loudness normalization, an equalizer, and song highlight lookup and seeking.
-    link: /en/playback
-    linkText: Playback controls and highlights
+    title: Local playback and audio diagnostics
+    details: Play FLAC, ALAC, WAV, APE, and CUE tracks and inspect source, decoder, and output formats. On Windows, compatible setups can use WASAPI exclusive direct output.
+    link: /en/playback#audio-quality-diagnostics
+    linkText: Inspect audio quality and output
   - icon: 📝
     title: Expressive lyrics
     details: TTML, LYS, QRC, KRC, YRC, LRC, ASS, and SRT with manual matching, word highlighting, translation, romanization, export, and external lyric windows.
@@ -43,16 +43,16 @@ features:
     link: /en/integrations
     linkText: Services and recognition
   - icon: 🎨
-    title: Adaptive themes
-    details: Cover-driven colors, light and dark modes, a music spectrum, and multiple full-screen layouts with optional animated covers.
-    link: /en/playback#animated-covers
-    linkText: Set up animated covers
+    title: Classic and Sakura Liquid
+    details: Switch between the original layout and a theme with refractive glass. Each theme saves its appearance settings independently, and Sakura Liquid adds its own full-screen layout.
+    link: /en/playback#sakura-liquid-theme
+    linkText: Switch themes and adjust the glass
   - icon: 🧩
     title: Extensible by design
     details: Built-in plugins and external HTTP and WebSocket APIs let you add music sources or control playback remotely.
   - icon: 🔤
     title: Local lyric alignment
-    details: Native Rust maps existing translation and romanization to the primary timeline without Python or an API key. Romanization works immediately; translation runs offline after model setup, with candidate preview and selection.
+    details: Generate word timing for Mandarin, Japanese, and English lyrics from local or cached audio. Align existing translations and romanization, then review and apply results line by line.
     link: /en/lyric-alignment
     linkText: Explore local alignment
   - icon: 🔌

@@ -25,7 +25,7 @@ app-data/
 ├── logs/          Application and native logs
 ├── plugins/       Plugin scripts, data, and logs
 ├── models/        Manually downloaded AutoMix models and analysis runtime
-└── runtimes/      Local lyric translation alignment model and ready marker
+└── runtimes/      Local primary lyric and translation models and ready markers
 ```
 
 Library indexes and playlists do not contain the audio files themselves. Quit before a complete migration, and back up the actual user-data directory plus the original music folders. Avoid copying only `library.db` while the app is writing. Credentials protected by operating-system secure storage may require sign-in or re-entry on another device.
@@ -44,11 +44,11 @@ In **Cache Management**, set the **Animated Cover Cache Limit** (300 MB by defau
 
 ## Alignment model
 
-The Rust alignment worker ships with the player. User data stores the model and ready marker under `app-data/runtimes/lyric-alignment/`. Once prepared, the model works offline. Romanization requires no model download.
+The Rust alignment worker ships with the player. User data stores the primary lyric model under `app-data/runtimes/lyric-acoustic/` and the translation model under `app-data/runtimes/lyric-alignment/`. Both work offline after setup. Romanization works without a model download.
 
-Click **Download or verify model** in the [alignment dialog](/en/lyric-alignment#model-management) to download missing or damaged files. The model becomes ready after file integrity checks and native inference verification succeed.
+In **Settings → Lyrics → Lyric alignment models**, select **Download** or **Verify** for the model you need. The player reuses verified local files. See [Model management](/en/lyric-alignment#model-management).
 
-Use **Remove model** to delete this feature's model directory. Clearing ordinary image or song caches does not remove the model. Removal is blocked during alignment or maintenance. A full backup can include the model directory; settings JSON does not contain these files.
+Use **Remove** to delete the selected model directory. You can include both directories in a full backup of user data.
 
 ## Reset and complete cleanup
 
