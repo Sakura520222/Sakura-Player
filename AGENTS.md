@@ -6,6 +6,8 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 Sakura Player — desktop music player on **Electron + Vue 3 + TypeScript**, with Rust native modules (NAPI-RS) for audio decoding, system media integration, and Windows taskbar lyric. Unofficial fork of SPlayer-Next (successor to SPlayer), maintained by Sakura520222.
 
+`CLAUDE.md` (Claude Code) and `.github/copilot-instructions.md` (Copilot) hold the counterpart guidance for other agents — update them alongside this file.
+
 ## Commands
 
 ```bash
@@ -16,9 +18,25 @@ pnpm build:{win,mac,linux}# Platform packages
 pnpm typecheck            # tsc + vue-tsc (node + web targets)
 pnpm lint / format        # ESLint / Prettier
 pnpm build:native         # Rust only; add `--dev` for debug
+
+pnpm test                 # node-runner + vitest + release-script tests
+pnpm test:web             # Vitest only (happy-dom)
+pnpm test:node            # Node test runner via tsx only
+pnpm test:native          # cargo test --workspace
+pnpm test:alignment       # Lyric alignment suite (cargo -p lyric-alignment + related vitest specs)
+pnpm test:local-audio     # audio-engine local decode smoke test (real files, node --test)
+pnpm docs:dev             # VitePress docs site (docs/)
 ```
 
-`SKIP_NATIVE_BUILD=true` skips Rust during dev.
+`SKIP_NATIVE_BUILD=true` skips Rust during dev. Requires Node ≥ 24 and pnpm ≥ 12; `postinstall` runs `electron-rebuild` for better-sqlite3.
+
+Test file convention: `*.spec.ts` (under `electron/`, `src/`, `windows/`, `docs/`) runs under Vitest with happy-dom; `*.test.ts` (under `electron/`, `src/`) runs under the Node test runner via tsx. Run a single file:
+
+```bash
+pnpm test:web src/services/lyric/localAlignment.spec.ts                # one vitest file
+pnpm exec tsx --test electron/main/services/streaming/pagination.test.ts   # one node-runner file
+cargo test -p lyric-alignment --test semantic                          # one Rust test target
+```
 
 `audio-engine` static-links FFmpeg via the `ffmpeg_audio` crate (vendor zip + cc-built at compile time). Zero environment dependency — no `FFMPEG_DIR` / `PKG_CONFIG_PATH`, no system FFmpeg required.
 
@@ -37,12 +55,14 @@ The development shell is Git Bash on Windows. Write all terminal commands in bas
 
 ### Native Modules (Rust + NAPI-RS)
 
-Four `.node` modules in `native/`, built via `scripts/build-native.ts`, lazy-loaded by `electron/main/utils/nativeLoader.ts`. NAPI-RS auto-generates `index.d.ts`, imported via path aliases `@splayer/audio-engine`, `@splayer/audio-capture`, `@splayer/media-ctrl`, `@splayer/taskbar-lyric`.
+Six `.node` NAPI modules in `native/`, built via `scripts/build-native.ts`, lazy-loaded by `electron/main/utils/nativeLoader.ts` (file name + `native/` dir name). NAPI-RS auto-generates `index.d.ts`, imported via the `@splayer/*` aliases. Two additional Rust crates are standalone worker executables, not NAPI modules: `lyric-alignment` and `automix-worker` (short-lived child processes for model inference).
 
 - `audio-engine` — `ffmpeg_audio` decode (static FFmpeg) + rodio playback + FFT + cover extraction. URLs wrapped as `Read + Seek` via `ffmpeg_audio::HttpAudioSource` (using `HttpCancelHandle` for cancellation/reset) — TLS handled in Rust (`reqwest` + `rustls`), cross-platform with no system deps. Pushes events (state/position/ended/outputStalled) via ThreadsafeFunction. Has load_token race protection and an `HttpCancelHandle` handle injected into `HttpAudioSource` for instant stop and reset.
 - `audio-capture` — System sound / microphone capture for song recognition. Windows via WASAPI Loopback; Linux via PulseAudio (`libpulse-binding`, needs `libpulse-dev` at build time — CI `dev.yml`/`release.yml` install it). Collects 8 kHz mono f32 PCM.
 - `media-ctrl` — Cross-platform system media controls (Windows SMTC / Linux MPRIS / macOS MPNowPlaying) + Discord RPC.
 - `taskbar-lyric` — Windows taskbar lyric text rendering with RegistryWatcher / UiaWatcher / TrayWatcher.
+- `taskbar-thumbnail` — Windows taskbar thumbnail / Peek cover (DWM), driven by `electron/main/services/thumbnail.ts`.
+- `opencc` — Simplified/Traditional Chinese conversion.
 
 ### Playback Data Flow
 
@@ -190,9 +210,12 @@ Renderer uses `vue-i18n` with `src/i18n/locales/{zh-CN,en-US}.json`. Main proces
 @shared/               → shared/                (both processes)
 @main/                 → electron/main/         (main, tsconfig.node.json)
 @windows/              → windows/               (lyric windows)
-@splayer/audio-engine  → native/audio-engine    (main)
-@splayer/media-ctrl    → native/media-ctrl      (main)
-@splayer/taskbar-lyric → native/taskbar-lyric   (main)
+@splayer/audio-engine      → native/audio-engine       (main)
+@splayer/audio-capture     → native/audio-capture      (main)
+@splayer/media-ctrl        → native/media-ctrl         (main)
+@splayer/taskbar-lyric     → native/taskbar-lyric      (main)
+@splayer/taskbar-thumbnail → native/taskbar-thumbnail  (main)
+@splayer/opencc            → native/opencc             (main)
 ```
 
 ## Conventions
@@ -262,6 +285,10 @@ Frontend time is **milliseconds** everywhere. Rust engine uses seconds internall
 
 Never hand-write native module types — import from `@splayer/*`. Use `shallowRef` for `Track` arrays/collections (avoid deep proxy). Vue proxied objects can't be cloned by IDB (`DataCloneError`); use `toRaw` before persisting.
 
+### Auto-generated Files
+
+Don't edit `auto-imports.d.ts`, `components.d.ts`, `native/*/index.d.ts` — regenerated by tooling.
+
 ### Auto-imports
 
 In Vue components, `vue / pinia / vue-router / @vueuse/core / vue-i18n` are auto-imported, and UI components in `src/components/` are auto-registered.
@@ -274,7 +301,7 @@ Use scoped loggers from `@main/utils/logger` (`coreLog / playerLog / mediaLog / 
 
 ### IPC Listeners
 
-In preload's `onEvent`, always `ipcRenderer.removeAllListeners()` before adding a new listener (HMR accumulates otherwise). Renderer composables call the returned `unsubscribe` in `onBeforeUnmount`.
+Main-process push events are exposed through the preload `subscribe` helper (`ipcRenderer.on` returning a per-handler `unsubscribe`). Add new preload subscriptions with this helper — not raw `ipcRenderer.on`, and not per-channel `removeAllListeners` (the few channels that call it are legacy HMR cleanup, not the pattern). Renderer composables store the returned `unsubscribe` and call it in `onBeforeUnmount` / `onScopeDispose`; app-level singletons (a Pinia setup store bound once) intentionally keep the subscription for the process lifetime — that is not a leak.
 
 ### Prettier
 
