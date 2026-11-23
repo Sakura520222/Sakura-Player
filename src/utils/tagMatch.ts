@@ -28,7 +28,7 @@ export interface RankedTagCandidate {
 /** 字符串归一化（与歌词匹配同规则） */
 const normalize = (text: string | undefined | null): string => {
   if (!text) return "";
-  return text.toLowerCase().replace(/[、&;，,/|()·・\s\-_'"`~!?？！.。]+/g, "");
+  return text.toLowerCase().replace(/[、&;，,/|()·・\s\-_'"‘’“”`~!?？！.。]+/g, "");
 };
 
 /** 双向 includes 命中 */

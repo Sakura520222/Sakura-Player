@@ -37,6 +37,14 @@ const content = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:amll="http://www.ex
   <body><div><p begin="0s" end="1s">Original</p></div></body>
 </tt>`;
 
+const singleQuoteContent = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:amll="http://www.example.com/ns/amll">
+  <head><metadata>
+    <amll:meta key='musicName' value='Single Quoted' />
+    <amll:meta key='ncmMusicId' value='2001' />
+  </metadata></head>
+  <body><div><p begin="0s" end="1s">Original</p></div></body>
+</tt>`;
+
 /**
  * 构建标题无法兜底匹配的歌曲，确保测试命中平台 ID 索引
  * @param source - 歌曲来源
@@ -57,6 +65,7 @@ describe("本地 TTML 多值元数据索引", () => {
     fixtures.enabled = true;
     fixtures.matchedIds.clear();
     await writeFile(join(fixtures.dir, "existing.ttml"), content);
+    await writeFile(join(fixtures.dir, "single-quote.ttml"), singleQuoteContent);
   });
 
   afterEach(async () => {
@@ -105,6 +114,10 @@ describe("本地 TTML 多值元数据索引", () => {
     expect(
       (await matchLocalTTML({ ...makeTrack("local", "local-track"), title: "A & B" }))?.content,
     ).toBe(content);
+  });
+
+  it("兼容单引号包裹的元数据属性", async () => {
+    expect((await matchLocalTTML(makeTrack("netease", "2001")))?.content).toBe(singleQuoteContent);
   });
 
   it("关闭本地覆盖时不返回匹配结果", async () => {

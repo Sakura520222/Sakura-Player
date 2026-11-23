@@ -54,14 +54,25 @@ interface TTMLMeta {
   qqIds: string[];
 }
 
+/**
+ * 读取 amll:meta 标签的属性值，兼容双引号与单引号两种包裹方式
+ * @param tag - 标签原文
+ * @param name - 属性名
+ * @returns 属性值原文，属性缺失时为 undefined
+ */
+const readAttr = (tag: string, name: string): string | undefined => {
+  const match = tag.match(new RegExp(`\\b${name}=("([^"]*)"|'([^']*)')`));
+  return match?.[2] ?? match?.[3];
+};
+
 /** 从 TTML 文本头部提取 AMLL 元信息 */
 const extractMeta = (text: string): TTMLMeta => {
   const bodyAt = text.indexOf("<body");
   const head = bodyAt > 0 ? text.slice(0, bodyAt) : text.slice(0, 8000);
   const meta: TTMLMeta = { ncmIds: [], qqIds: [] };
   for (const tag of head.matchAll(/<amll:meta\b[^>]*>/gi)) {
-    const key = tag[0].match(/\bkey="([^"]*)"/)?.[1];
-    const encoded = tag[0].match(/\bvalue="([^"]*)"/)?.[1];
+    const key = readAttr(tag[0], "key");
+    const encoded = readAttr(tag[0], "value");
     if (!key || !encoded) continue;
     const value = encoded.replace(
       /&(#x[\da-f]+|#\d+|quot|apos|lt|gt|amp);/gi,
