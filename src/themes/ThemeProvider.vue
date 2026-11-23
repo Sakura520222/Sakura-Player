@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useThemeStore } from "@/stores/theme";
 import { useSettingsStore } from "@/stores/settings";
-import { materialKey, probeAcceleration, resolveMaterial } from "./material";
+import { materialKey, probeAcceleration, probeSvgRefraction, resolveMaterial } from "./material";
 
 const theme = useThemeStore();
 const settings = useSettingsStore();
@@ -16,18 +16,30 @@ const highContrast = useMediaQuery(
   "(prefers-contrast: more), (forced-colors: active), (prefers-reduced-transparency: reduce)",
 );
 const accelerated = shallowRef(false);
+const svgFilterVerified = shallowRef(false);
 const backdrop = CSS.supports("backdrop-filter", "blur(1px)");
-const displacement = CSS.supports("backdrop-filter", "url(#sakura-lens)");
+const displacement = CSS.supports("backdrop-filter", "url(#sakura-lens) saturate(1.2)");
 const limitedDevice = navigator.hardwareConcurrency <= 4;
 const optics = computed(() => theme.definition.material.configure?.(theme.options));
 let probed = false;
+let disposed = false;
+
+onScopeDispose(() => {
+  disposed = true;
+});
 
 watchEffect(() => {
   const config = optics.value;
   if (!config || probed || !visible.value || !displacement) return;
   if (config.quality === "low" || highContrast.value || !config.refraction) return;
   probed = true;
-  accelerated.value = probeAcceleration();
+  const hw = probeAcceleration();
+  accelerated.value = hw;
+  if (!hw) return;
+  // 真实渲染验证 SVG 位移管线，未通过前保持 frosted 稳定回退
+  void probeSvgRefraction().then((verified) => {
+    if (!disposed) svgFilterVerified.value = verified;
+  });
 });
 
 const material = computed(() => ({
@@ -37,6 +49,7 @@ const material = computed(() => ({
     accelerated: accelerated.value,
     highContrast: highContrast.value,
     limitedDevice,
+    svgFilterVerified: svgFilterVerified.value,
   }),
   visible: visible.value,
 }));

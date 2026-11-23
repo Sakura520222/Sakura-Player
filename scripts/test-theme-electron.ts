@@ -283,14 +283,24 @@ async function verifyRefraction(): Promise<void> {
     'repeating-linear-gradient(0deg, #eef 0 5px, #14141f 5px 10px)'`);
   await delay(120);
   const bent = await capture("refraction-on", clip);
+  const centerClip = {
+    x: clip.x,
+    y: Math.floor(box.top + box.height * 0.45),
+    width: 24,
+    height: 12,
+    scale: 1,
+  };
+  const centerFrosted = await capture("refraction-center", centerClip);
   await evaluate(
     `for (const node of document.querySelectorAll('${lens} feDisplacementMap')) node.setAttribute('scale', '0')`,
   );
   await delay(120);
   const flat = await capture("refraction-off", clip);
-  const { difference, edgePeak } = await evaluate<{
+  const { difference, edgePeak, edgeChromaShift, centerContrast } = await evaluate<{
     difference: number;
     edgePeak: number;
+    edgeChromaShift: number;
+    centerContrast: number;
   }>(`(async () => {
     async function pixels(data) {
       const bitmap = await createImageBitmap(await (await fetch('data:image/png;base64,' + data)).blob());
@@ -300,24 +310,55 @@ async function verifyRefraction(): Promise<void> {
       bitmap.close();
       return ctx.getImageData(0, 0, canvas.width, canvas.height);
     }
-    const [a, b, edge] = await Promise.all([${JSON.stringify(bent)}, ${JSON.stringify(flat)}, ${JSON.stringify(uniform)}].map(pixels));
-    const rows = Array.from({ length: edge.height }, (_, y) => {
-      let total = 0;
-      for (let x = 0; x < edge.width; x++) {
-        const i = (y * edge.width + x) * 4;
-        total += .2126 * edge.data[i] + .7152 * edge.data[i + 1] + .0722 * edge.data[i + 2];
+    const [a, b, edge, center] = await Promise.all([
+      ${JSON.stringify(bent)},
+      ${JSON.stringify(flat)},
+      ${JSON.stringify(uniform)},
+      ${JSON.stringify(centerFrosted)},
+    ].map(pixels));
+    const rowRgb = (img) => Array.from({ length: img.height }, (_, y) => {
+      let r = 0, g = 0, bl = 0;
+      for (let x = 0; x < img.width; x++) {
+        const i = (y * img.width + x) * 4;
+        r += img.data[i];
+        g += img.data[i + 1];
+        bl += img.data[i + 2];
       }
-      return total / edge.width;
+      return [r / img.width, g / img.width, bl / img.width];
     });
+    const lum = ([r, g, bl]) => .2126 * r + .7152 * g + .0722 * bl;
+    const edgeRgb = rowRgb(edge);
+    const rows = edgeRgb.map(lum);
+    const base = edgeRgb.at(-1);
+    const topHalf = edgeRgb.slice(0, Math.ceil(edgeRgb.length / 2));
+    // 校验边缘高光保持中性，不偏向固定紫色等偏色
+    const edgeChromaShift = Math.max(...topHalf.map(([r, g, bl]) => {
+      const dr = r - base[0], dg = g - base[1], db = bl - base[2];
+      return Math.max(Math.abs(dr - dg), Math.abs(db - dg), Math.abs(dr - db));
+    }));
+    const centerRows = rowRgb(center).map(lum);
     return {
       difference: a.data.reduce((sum, value, index) => sum + Math.abs(value - b.data[index]), 0) / a.data.length,
       edgePeak: Math.max(...rows.slice(0, Math.ceil(rows.length / 2))) - rows.at(-1),
+      edgeChromaShift,
+      centerContrast: Math.max(...centerRows) - Math.min(...centerRows),
     };
   })()`);
   assert.ok(difference > 3, `Background pixel difference was ${difference}`);
   assert.ok(edgePeak < 18, `Uniform backdrop had a bright edge of ${edgePeak.toFixed(2)} levels`);
+  assert.ok(
+    edgeChromaShift < 10,
+    `Uniform backdrop edge had color cast of ${edgeChromaShift.toFixed(2)} levels`,
+  );
+  assert.ok(
+    centerContrast < 16,
+    `Refracting glass center must remain frosted (contrast was ${centerContrast.toFixed(2)})`,
+  );
   console.log(`Refractive edge mean pixel delta: ${difference.toFixed(2)}`);
-  console.log(`Uniform backdrop edge overshoot: ${edgePeak.toFixed(2)}`);
+  console.log(
+    `Uniform backdrop edge overshoot: ${edgePeak.toFixed(2)}, chroma shift: ${edgeChromaShift.toFixed(2)}`,
+  );
+  console.log(`Refracting glass center stripe contrast: ${centerContrast.toFixed(2)}`);
   await evaluate("document.querySelector('#optics-fixture').remove()");
 }
 
@@ -726,6 +767,10 @@ try {
       "Liquid song action",
     );
     await click("[data-theme-fixture-next]");
+    await until(
+      () => evaluate("!document.querySelector('[data-theme-popup]')"),
+      "song action popup closed",
+    );
     assert.equal(await evaluate<string>(`${status}.currentTrack?.id`), identity);
     await evaluate(`${theme}.mode = 'dark'`);
     await evaluate(`${stores}.get('settings').player.autoImmersive = false`);
@@ -847,6 +892,17 @@ try {
       await capture(`full-player-compact-${width}`);
     }
     await send("Emulation.clearDeviceMetricsOverride");
+    if (material === "refraction") {
+      await until(
+        () =>
+          evaluate(`(() => {
+            const lens = document.querySelector('.liquid-playing-dock .liquid-lens');
+            const filter = lens?.querySelector('filter');
+            return !!filter && Math.abs(Number(filter.getAttribute('width')) - lens.clientWidth) <= 1;
+          })()`),
+        "live filter region matches restored dock width",
+      );
+    }
     await capture("full-player");
     const tint = await evaluate<{ colorDifference: number; opacity: number }>(`(() => {
       const ctx = document.createElement('canvas').getContext('2d');

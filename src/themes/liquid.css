@@ -1,22 +1,36 @@
 html[data-theme-material="liquid"] {
   --liquid-text: rgb(var(--s-on-surface));
-  --liquid-surface: color-mix(in srgb, rgb(var(--s-surface-panel)) 90%, #323142);
-  --liquid-base: color-mix(in srgb, rgb(var(--s-surface)) 94%, #363246);
-  --liquid-sheen: rgb(200 196 226 / 0.08);
-  --liquid-edge: color-mix(in srgb, var(--liquid-text) 11%, transparent);
-  --liquid-shadow: rgb(9 7 18 / 0.26);
-  --liquid-tint: calc(93% - var(--liquid-transparency) * 25%);
-  --liquid-reading-tint: calc(97% - var(--liquid-transparency) * 12%);
+  --liquid-surface: color-mix(in oklab, rgb(var(--s-surface-panel)) 94%, #20222a);
+  --liquid-base: color-mix(in oklab, rgb(var(--s-surface)) 96%, #1c1e26);
+  --liquid-sheen: rgb(255 255 255 / 0.045);
+  --liquid-sheen-bounce: rgb(255 255 255 / 0.02);
+  --liquid-specular-primary: rgb(255 255 255 / 0.22);
+  --liquid-specular-mid: rgb(255 255 255 / 0.055);
+  --liquid-specular-secondary: rgb(255 255 255 / 0.13);
+  --liquid-inner-glow: rgb(255 255 255 / 0.025);
+  --liquid-edge: color-mix(in oklab, var(--liquid-text) 11%, transparent);
+  --liquid-shadow: rgb(6 8 14 / 0.28);
+  --liquid-blur: 10px;
+  --liquid-saturate: 1.28;
+  --liquid-refract-strength: 1;
+  --liquid-tint: calc(80% - var(--liquid-transparency) * 30%);
+  --liquid-reading-tint: calc(94% - var(--liquid-transparency) * 14%);
   --liquid-aurora: rgb(124 142 184 / 0.16);
   --liquid-bloom: rgb(var(--s-primary) / 0.09);
-  --liquid-muted: color-mix(in srgb, var(--liquid-text) 69%, transparent);
+  --liquid-muted: color-mix(in oklab, var(--liquid-text) 69%, transparent);
 }
 
 html:not(.dark)[data-theme-material="liquid"] {
-  --liquid-surface: color-mix(in srgb, rgb(var(--s-surface-panel)) 92%, #eee9e4);
-  --liquid-base: color-mix(in srgb, rgb(var(--s-surface)) 93%, #e2dfdd);
-  --liquid-sheen: rgb(255 250 245 / 0.29);
-  --liquid-shadow: rgb(57 45 55 / 0.13);
+  --liquid-surface: color-mix(in oklab, rgb(var(--s-surface-panel)) 94%, #ffffff);
+  --liquid-base: color-mix(in oklab, rgb(var(--s-surface)) 95%, #eceae8);
+  --liquid-sheen: rgb(255 255 255 / 0.26);
+  --liquid-sheen-bounce: rgb(255 255 255 / 0.1);
+  --liquid-specular-primary: rgb(255 255 255 / 0.78);
+  --liquid-specular-mid: rgb(255 255 255 / 0.34);
+  --liquid-specular-secondary: rgb(255 255 255 / 0.52);
+  --liquid-inner-glow: rgb(255 255 255 / 0.2);
+  --liquid-shadow: rgb(32 36 48 / 0.12);
+  --liquid-tint: calc(82% - var(--liquid-transparency) * 28%);
   --liquid-aurora: rgb(156 168 193 / 0.21);
   --liquid-bloom: rgb(var(--s-primary) / 0.14);
 }
@@ -61,14 +75,44 @@ html[data-appearance-style="image"] .liquid-shell {
   overflow: clip;
   pointer-events: none;
   border-radius: inherit;
-  background:
-    linear-gradient(156deg, var(--liquid-sheen), transparent 62%),
-    color-mix(
-      in srgb,
-      var(--liquid-optical-tone, var(--liquid-surface)) var(--liquid-tint),
-      transparent
-    );
-  backdrop-filter: var(--liquid-refraction, blur(16px) saturate(1.18));
+  background-color: color-mix(
+    in oklab,
+    var(--liquid-optical-tone, var(--liquid-surface)) var(--liquid-tint),
+    transparent
+  );
+  background-image: linear-gradient(
+    155deg,
+    var(--liquid-sheen) 0%,
+    transparent 48%,
+    var(--liquid-sheen-bounce) 100%
+  );
+  box-shadow: inset 0 0 12px var(--liquid-inner-glow);
+  backdrop-filter: var(--liquid-refraction, blur(var(--liquid-blur, 10px)))
+    saturate(var(--liquid-saturate, 1.28));
+}
+
+.liquid-lens::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    138deg,
+    var(--liquid-specular-primary) 0%,
+    var(--liquid-specular-mid) 34%,
+    var(--liquid-specular-mid) 68%,
+    var(--liquid-specular-secondary) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
 }
 
 .liquid-lens-defs {
@@ -77,13 +121,16 @@ html[data-appearance-style="image"] .liquid-shell {
 }
 
 .liquid-rail {
-  --liquid-tint: calc(96% - var(--liquid-transparency) * 17%);
+  --liquid-blur: 10px;
+  --liquid-saturate: 1.22;
+  --liquid-refract-strength: 0.72;
+  --liquid-tint: calc(86% - var(--liquid-transparency) * 24%);
 
   min-height: 0;
   z-index: 12;
   overflow: hidden;
   border-radius: 20px;
-  box-shadow: 0 5px 22px color-mix(in srgb, var(--liquid-shadow) 65%, transparent);
+  box-shadow: 0 5px 22px color-mix(in oklab, var(--liquid-shadow) 65%, transparent);
 }
 
 .liquid-rail > :not(.liquid-lens) {
@@ -124,6 +171,11 @@ html[data-appearance-style="image"] .liquid-shell {
 }
 
 .liquid-command-bar {
+  --liquid-blur: 7px;
+  --liquid-saturate: 1.26;
+  --liquid-refract-strength: 0.88;
+  --liquid-tint: calc(80% - var(--liquid-transparency) * 30%);
+
   position: absolute;
   z-index: 11;
   inset: 0 0 auto;
@@ -132,7 +184,7 @@ html[data-appearance-style="image"] .liquid-shell {
   align-items: center;
   padding-inline: 8px;
   border-radius: 16px;
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--liquid-shadow) 65%, transparent);
+  box-shadow: 0 4px 18px color-mix(in oklab, var(--liquid-shadow) 65%, transparent);
 }
 
 .liquid-command-bar .s-button:not(:hover, :active) {
@@ -160,15 +212,16 @@ html[data-theme-material="liquid"] [data-theme-settings] input::placeholder {
 }
 
 .liquid-dock {
+  --liquid-blur: 5.5px;
+  --liquid-saturate: 1.32;
+  --liquid-refract-strength: 1;
+  --liquid-tint: calc(76% - var(--liquid-transparency) * 34%);
+
   width: min(100%, 920px);
   height: var(--liquid-dock-height);
   box-shadow:
     0 10px 28px var(--liquid-shadow),
     0 2px 5px var(--liquid-shadow);
-}
-
-.liquid-dock {
-  --liquid-tint: calc(85% - var(--liquid-transparency) * 49%);
 }
 
 .liquid-dock [data-theme-dock-info] {
@@ -198,12 +251,13 @@ html[data-theme-material="liquid"]
 
 html[data-theme-material="liquid"] :is([data-theme-popup], [data-dialog-content]) {
   color: var(--liquid-text);
-  background: color-mix(in srgb, var(--liquid-surface) var(--liquid-reading-tint), transparent);
+  background: color-mix(in oklab, var(--liquid-surface) var(--liquid-reading-tint), transparent);
   border: 0;
   box-shadow:
+    inset 0 0 0 1px var(--liquid-specular-mid),
     0 16px 38px var(--liquid-shadow),
     0 3px 10px var(--liquid-shadow);
-  backdrop-filter: blur(16px) saturate(1.18);
+  backdrop-filter: blur(18px) saturate(1.28);
 }
 
 html[data-theme-material="liquid"] [data-theme-popup] {
@@ -216,9 +270,14 @@ html[data-theme-material="liquid"] [data-dialog-content] {
 
 html[data-theme-material="liquid"] [data-theme-tone="cover"] {
   --liquid-text: rgb(var(--s-cover));
-  --liquid-surface: color-mix(in srgb, rgb(var(--s-cover-base)) 28%, #151419);
-  --liquid-sheen: rgb(227 203 209 / 0.08);
-  --liquid-edge: rgb(188 170 187 / 0.15);
+  --liquid-surface: color-mix(in oklab, rgb(var(--s-cover-base)) 28%, #151419);
+  --liquid-sheen: rgb(255 255 255 / 0.055);
+  --liquid-sheen-bounce: rgb(255 255 255 / 0.025);
+  --liquid-specular-primary: rgb(255 255 255 / 0.24);
+  --liquid-specular-mid: rgb(255 255 255 / 0.06);
+  --liquid-specular-secondary: rgb(255 255 255 / 0.14);
+  --liquid-inner-glow: rgb(255 255 255 / 0.03);
+  --liquid-edge: rgb(255 255 255 / 0.14);
 }
 
 html[data-theme-material="liquid"] [data-theme-settings-nav] {
@@ -389,7 +448,10 @@ html[data-theme-material="liquid"] [data-theme-row-action]:hover {
 
 .liquid-playing .liquid-playing-dock {
   --liquid-optical-tone: rgb(var(--s-cover-base));
-  --liquid-tint: calc(36% - var(--liquid-transparency) * 26%);
+  --liquid-blur: 1.5px;
+  --liquid-saturate: 1.38;
+  --liquid-refract-strength: 0.8;
+  --liquid-tint: calc(24% - var(--liquid-transparency) * 20%);
 
   position: absolute;
   inset: auto 12px 16px;
@@ -402,7 +464,13 @@ html[data-theme-material="liquid"][data-material-tier="opaque"]
 html[data-theme-material="liquid"][data-theme-visibility="hidden"]
   :is(.liquid-lens, [data-theme-popup], [data-dialog-content]) {
   background: var(--liquid-surface);
+  box-shadow: none;
   backdrop-filter: none;
+}
+
+html[data-theme-material="liquid"][data-material-tier="opaque"] .liquid-lens::after,
+html[data-theme-material="liquid"][data-theme-visibility="hidden"] .liquid-lens::after {
+  opacity: 0;
 }
 
 @media (max-width: 1023px) {
@@ -596,11 +664,19 @@ html[data-theme-material="liquid"][data-theme-visibility="hidden"]
   html[data-theme-material="liquid"] {
     --liquid-edge: currentColor;
     --liquid-sheen: transparent;
+    --liquid-sheen-bounce: transparent;
+    --liquid-specular-primary: transparent;
+    --liquid-specular-mid: transparent;
+    --liquid-specular-secondary: transparent;
+    --liquid-inner-glow: transparent;
     --liquid-shadow: transparent;
     --liquid-bloom: transparent;
     --liquid-aurora: transparent;
   }
   .liquid-lens {
     border: 1px solid currentColor;
+  }
+  .liquid-lens::after {
+    display: none;
   }
 }
