@@ -131,4 +131,35 @@ describe("音源解析失败原因", () => {
     });
     expect(mocks.error).toHaveBeenCalledExactlyOnceWith(ErrorCode.NETEASE_UNAVAILABLE);
   });
+
+  it("保留 JFJT 解析来源与实际音质，并透传 skipJfjt 选项", async () => {
+    mocks.netease.mockResolvedValueOnce({
+      available: true,
+      url: "https://jfjt.cdn/song.mp3",
+      isTrial: false,
+      source: "jfjt",
+      actualLevel: "lq",
+      actualQuality: {
+        codec: "mp3",
+        sampleRate: 44100,
+        channels: 2,
+        bitsPerSample: 16,
+        bitRate: 128000,
+      },
+    });
+    const track: Track = {
+      id: "186016",
+      title: "晴天",
+      source: "netease",
+      artists: [],
+      duration: 1000,
+    };
+    const result = await resolveTrackSource(track, { skipJfjt: true });
+    expect(mocks.netease).toHaveBeenCalledWith(track, "hq", expect.any(Object), { skipJfjt: true });
+    expect(result).toMatchObject({
+      source: "https://jfjt.cdn/song.mp3",
+      provider: "jfjt",
+      actualLevel: "lq",
+    });
+  });
 });

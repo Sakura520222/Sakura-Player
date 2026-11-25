@@ -8,8 +8,10 @@ import { clearKugouSession, mergeKugouSession } from "@main/apis/kugou";
 import { openNeteaseLoginWindow } from "@main/window/login";
 import { coreLog } from "@main/utils/logger";
 import type { ApiPlatform } from "@shared/types/apis";
+import type { JfjtLevel } from "@shared/types/jfjt";
 import { callPlatformApi } from "@main/services/platformApi";
 import { getSongHighlight } from "@main/services/songHighlight";
+import { resolveJfjtSong } from "@main/services/jfjt";
 import type { Track } from "@shared/types/player";
 
 /**
@@ -17,6 +19,9 @@ import type { Track } from "@shared/types/player";
  */
 export const registerApisIpc = (): void => {
   ipcMain.handle("apis:getSongHighlight", (_evt, track: Track) => getSongHighlight(track));
+  ipcMain.handle("apis:resolveJfjtSong", (_evt, songId: string, level: JfjtLevel) =>
+    resolveJfjtSong(songId, level),
+  );
   ipcMain.handle(
     "apis:call",
     async (_evt, platform: ApiPlatform, name: string, params?: Record<string, unknown>) => {

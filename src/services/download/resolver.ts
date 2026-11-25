@@ -27,6 +27,8 @@ const resolvePayload = async (payload: DownloadResolvePayload): Promise<Download
     url: source.url,
     declaredFormat: source.format,
     declaredSize: source.size,
+    ...(source.actualQuality ? { actualQuality: source.actualQuality } : {}),
+    ...(!payload.coverUrl && source.metadata?.cover ? { coverUrl: source.metadata.cover } : {}),
   };
   if (tagOptions.embedLyric || tagOptions.writeLrc || tagOptions.saveTtml) {
     const media = useMediaStore();
@@ -40,7 +42,16 @@ const resolvePayload = async (payload: DownloadResolvePayload): Promise<Download
       sameTrack && media.lyricFormat && media.lyricContent && media.parsedLyric.length
         ? { ...media.lyricContent, format: media.lyricFormat }
         : null;
-    const lyric = active || (await resolveDownloadLyric(payload.track));
+    const jfjtFallbackLyric = source.metadata?.lyric
+      ? {
+          format: "lrc" as const,
+          content: source.metadata.lyric,
+          ...(source.metadata.tlyric
+            ? { translation: source.metadata.tlyric, translationFormat: "lrc" as const }
+            : {}),
+        }
+      : null;
+    const lyric = active || (await resolveDownloadLyric(payload.track)) || jfjtFallbackLyric;
     if (lyric) {
       const lines = active ? media.getLyricExportLines() : parseDownloadLyrics(lyric);
       if (tagOptions.embedLyric || tagOptions.writeLrc) {

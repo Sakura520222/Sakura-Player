@@ -1,4 +1,5 @@
 import type {
+  AudioQuality,
   IpcResponse,
   LoadResult,
   PlaybackContext,
@@ -6,6 +7,8 @@ import type {
   ShuffleMode,
   Track,
 } from "@shared/types/player";
+import { mergeJfjtFallbackMetadata } from "@shared/utils/jfjt";
+import { isLosslessCodec } from "@/utils/quality";
 import { AUTOMIX_LOOKAHEAD_MS, TRANSITION_LOOKAHEAD_MS } from "@shared/constants/playback";
 import type { TagEditRequest, TagWriteOutcome } from "@shared/types/tagEditor";
 import type { PersonalFmOptions } from "@shared/types/platform/netease";
@@ -57,12 +60,16 @@ interface LoadRuntimeOptions {
   context?: PlaybackContext;
   /** 原生交叉过渡已经完成时直接应用其元数据 */
   transitionResult?: IpcResponse<LoadResult>;
+  /** 原生流未解析出有效音质时的兜底展示音质（来自接口 data.level） */
+  fallbackQuality?: AudioQuality;
 }
 
 /** 单次音源兜底过程的重试状态 */
 interface SourceRetryState {
   /** 已下载文件加载失败后不再重复命中 */
   skipDownloaded: boolean;
+  /** 是否已放弃 JFJT 第三方解析，后续回落官方接口 */
+  skipJfjt: boolean;
   /** 是否已放弃官方在线接口，后续仅尝试插件 */
   skipOfficialOnline: boolean;
   /** 已尝试且需跳过的插件 ID */
@@ -195,8 +202,21 @@ export const load = async (
       const { detail, mediaInfo } = result.data;
       consecutiveFailures = 0;
       const media = useMediaStore();
+      const rawQuality = detail?.quality ?? mediaInfo.quality;
+      const hasValidNativeQuality =
+        Boolean(rawQuality?.codec && rawQuality.codec !== "unknown") &&
+        (isLosslessCodec(rawQuality!.codec) || (rawQuality!.bitRate ?? 0) > 0);
+      const effectiveQuality = hasValidNativeQuality
+        ? rawQuality
+        : (options.fallbackQuality ?? rawQuality);
+      const effectiveDetail =
+        effectiveQuality && detail ? { ...detail, quality: effectiveQuality } : detail;
+      const effectiveMediaInfo = effectiveQuality
+        ? { ...mediaInfo, quality: effectiveQuality }
+        : mediaInfo;
       // 把引擎提取的 mediaInfo 与已有 Track 合并；身份字段保留
-      media.enrichTrack(mediaInfo, detail);
+      media.enrichTrack(effectiveMediaInfo, effectiveDetail);
+      if (meta?.cover) media.patchCover?.(meta.cover);
       const enriched = media.track;
       // 更新队列中的 Track 元数据
       if (enriched) {
@@ -233,6 +253,7 @@ export const load = async (
 /** 创建音源重试状态 */
 const createSourceRetryState = (): SourceRetryState => ({
   skipDownloaded: false,
+  skipJfjt: false,
   skipOfficialOnline: false,
   skippedPluginIds: new Set<string>(),
 });
@@ -241,6 +262,8 @@ const createSourceRetryState = (): SourceRetryState => ({
  * 根据当前重试状态解析音源
  * @param track - 要解析的 Track
  * @param retry - 当前重试状态
+ * @param onError - 错误接收回调
+ * @returns 已解析音源或 null
  */
 const resolveTrackSourceWithRetry = (
   track: Track,
@@ -251,6 +274,7 @@ const resolveTrackSourceWithRetry = (
     silent: true,
     onError,
     skipDownloaded: retry.skipDownloaded,
+    skipJfjt: retry.skipJfjt,
     skipOfficialOnline: retry.skipOfficialOnline,
     skipPluginIds: [...retry.skippedPluginIds],
   });
@@ -267,6 +291,10 @@ const markRetryableSourceFailure = (
 ): boolean => {
   if (resolved.provider === "download" && !retry.skipDownloaded) {
     retry.skipDownloaded = true;
+    return true;
+  }
+  if (resolved.provider === "jfjt" && !retry.skipJfjt) {
+    retry.skipJfjt = true;
     return true;
   }
   if (resolved.provider === "official" && !retry.skipOfficialOnline) {
@@ -315,10 +343,12 @@ const loadTrackSourceWithFallback = async (
     if (!shouldContinue()) return { status: "cancelled" };
     // 没有可用插件不代表原音源失败原因，优先保留实际加载错误
     if (!resolved) return lastFailure ?? { status: "unresolved", error: resolutionError };
-    const result = await load(resolved.source, autoPlay, track, {
+    const effectiveTrack = mergeJfjtFallbackMetadata(track, resolved.metadata);
+    const result = await load(resolved.source, autoPlay, effectiveTrack, {
       preparedId: usingInitial ? preparedId : undefined,
       suppressErrorToast: true,
       context,
+      fallbackQuality: resolved.actualQuality,
     });
     if (!shouldContinue()) return { status: "cancelled" };
     if (!result.ok) lastFailure = { status: "loaded", result, resolved };
@@ -335,6 +365,7 @@ const loadTrackSourceWithFallback = async (
     const canRetry =
       !result.ok &&
       (resolved.provider === "download" ||
+        resolved.provider === "jfjt" ||
         (result.error !== ErrorCode.NETWORK_ERROR &&
           result.error !== ErrorCode.NETWORK_TIMEOUT &&
           (retryOnAnyFailure || Boolean(result.error && isSkippableError(result.error))))) &&

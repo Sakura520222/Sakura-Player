@@ -369,6 +369,35 @@ describe("单曲失败自动跳曲", () => {
     expect(mocks.toast).not.toHaveBeenCalled();
   });
 
+  it("JFJT 音频直链加载失败时自动回落官方 NCM 解析", async () => {
+    mocks.resolve.mockResolvedValueOnce({
+      source: "https://jfjt/broken.flac",
+      provider: "jfjt",
+      fromCache: false,
+    });
+    mocks.resolve.mockResolvedValueOnce({
+      source: "https://official/song.flac",
+      provider: "official",
+      fromCache: false,
+    });
+    mocks.load.mockResolvedValueOnce({ success: false, error: ErrorCode.NETWORK_ERROR });
+    const { nextTrack } = await import("./index");
+    await nextTrack();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(mocks.resolve).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.objectContaining({ skipJfjt: true, skipOfficialOnline: false }),
+    );
+    expect(mocks.load).toHaveBeenLastCalledWith(
+      "https://official/song.flac",
+      expect.objectContaining({ autoPlay: true }),
+    );
+    expect(mocks.media.track?.id).toBe("second");
+    expect(mocks.status.state).toBe("playing");
+    expect(mocks.toast).not.toHaveBeenCalled();
+  });
+
   it("暂停态恢复失败后的自动跳曲保持暂停", async () => {
     mocks.load.mockResolvedValueOnce({ success: false, error: ErrorCode.FILE_DECODE_ERROR });
     const { nextTrack } = await import("./index");

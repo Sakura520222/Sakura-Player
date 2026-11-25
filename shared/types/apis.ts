@@ -4,6 +4,7 @@
 
 import type { Track } from "./player";
 import type { SongHighlightResponse } from "./songHighlight";
+import type { JfjtLevel, JfjtResolveResponse } from "./jfjt";
 
 /** 支持的音源平台 */
 export type ApiPlatform = "netease" | "qqmusic" | "kugou";
@@ -21,6 +22,13 @@ export interface ApisApi {
    * @returns 毫秒时间轴，无标注时 data 为 null
    */
   getSongHighlight: (track: Track) => Promise<SongHighlightResponse>;
+  /**
+   * 通过受控主进程通道调用 JFJT 解析网易云单曲音源
+   * @param songId - 纯数字网易云歌曲 ID
+   * @param level - JFJT 支持的音质档位
+   * @returns 结构校验后的解析结果
+   */
+  resolveJfjtSong: (songId: string, level: JfjtLevel) => Promise<JfjtResolveResponse>;
   /**
    * 调用任意音源接口
    * @param platform 音源平台

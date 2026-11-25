@@ -1,4 +1,5 @@
-import type { Track, TrackSource } from "@shared/types/player";
+import type { AudioQuality, Track, TrackSource } from "@shared/types/player";
+import type { JfjtSongMetadata } from "@shared/types/jfjt";
 import type { Platform } from "@shared/types/platform";
 import type { QualityLevel } from "@/utils/quality";
 import { streamingSourceForTrack } from "@shared/utils/streamingSource";
@@ -26,6 +27,8 @@ export interface ResolveTrackSourceOptions {
   onError?: (error: string) => void;
   /** 要跳过的插件 ID 列表 */
   skipPluginIds?: readonly string[];
+  /** 是否跳过 JFJT 第三方解析，直接走官方在线接口 */
+  skipJfjt?: boolean;
   /** 是否跳过官方在线接口，直接进入插件兜底 */
   skipOfficialOnline?: boolean;
   /** 是否静默解析 */
@@ -65,8 +68,11 @@ export type OnlineResolveResult =
       ok: true;
       url: string;
       isTrial: boolean;
-      provider: "official" | "plugin" | "trial";
+      provider: "jfjt" | "official" | "plugin" | "trial";
       pluginId?: string;
+      actualLevel?: QualityLevel;
+      actualQuality?: AudioQuality;
+      metadata?: JfjtSongMetadata;
     }
   | { ok: false; errorCode: ErrorCode };
 
@@ -205,14 +211,27 @@ const resolveOnlineUrl = async (
   if (track.source === "netease" && !options.skipOfficialOnline) {
     const user = useUserStore();
     try {
-      const resolved = await resolveNeteaseUrl(track, songLevel, {
-        authenticated: user.isLoggedIn,
-        validate: () => user.fetchStatus(),
-      });
+      const resolved = await resolveNeteaseUrl(
+        track,
+        songLevel,
+        {
+          authenticated: user.isLoggedIn,
+          validate: () => user.fetchStatus(),
+        },
+        { skipJfjt: options.skipJfjt },
+      );
       if (!resolved.available) {
         officialErrorCode = resolved.errorCode;
       } else if (!resolved.isTrial) {
-        return { ok: true, url: resolved.url, isTrial: false, provider: "official" };
+        return {
+          ok: true,
+          url: resolved.url,
+          isTrial: false,
+          provider: resolved.source ?? "official",
+          ...(resolved.actualLevel ? { actualLevel: resolved.actualLevel } : {}),
+          ...(resolved.actualQuality ? { actualQuality: resolved.actualQuality } : {}),
+          ...(resolved.metadata ? { metadata: resolved.metadata } : {}),
+        };
       } else {
         trialUrl = resolved.url;
       }
@@ -263,8 +282,11 @@ const resolveOnlineUrl = async (
 export interface ResolvedTrackSource {
   source: string;
   fromCache: boolean;
-  provider: "local" | "download" | "cache" | "streaming" | "official" | "plugin" | "trial";
+  provider: "local" | "download" | "cache" | "streaming" | "jfjt" | "official" | "plugin" | "trial";
   pluginId?: string;
+  actualLevel?: QualityLevel;
+  actualQuality?: AudioQuality;
+  metadata?: JfjtSongMetadata;
   /**
    * 下载音源并返回可供原生预载使用的缓存路径
    * @param preloadId - 可选的预载消费者标识，用于缓存租约和独立取消
@@ -380,6 +402,9 @@ export const resolveTrackSource = async (
         fromCache: false,
         provider: resolved.provider,
         pluginId: resolved.pluginId,
+        ...(resolved.actualLevel ? { actualLevel: resolved.actualLevel } : {}),
+        ...(resolved.actualQuality ? { actualQuality: resolved.actualQuality } : {}),
+        ...(resolved.metadata ? { metadata: resolved.metadata } : {}),
       };
       if (cacheEnabled && !resolved.isTrial) {
         result.cacheRequest = async (preloadId, signal) => {

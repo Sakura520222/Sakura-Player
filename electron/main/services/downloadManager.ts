@@ -319,6 +319,13 @@ const runTask = async (
       const resolution = waitForResolution(req.taskId, controller.signal);
       broadcast("download:resolve", payload);
       Object.assign(req, await resolution);
+      if (req.actualQuality) {
+        task.track = { ...task.track, quality: req.actualQuality };
+        req.track = task.track;
+      }
+      if (req.declaredSize && task.total === 0) {
+        task.total = req.declaredSize;
+      }
     }
     const streamingDownload = req.track.source === "streaming";
     if (streamingDownload && (!req.track.serverId || !req.track.originalId))

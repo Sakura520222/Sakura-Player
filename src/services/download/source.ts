@@ -1,4 +1,5 @@
-import type { Track } from "@shared/types/player";
+import type { AudioQuality, Track } from "@shared/types/player";
+import type { JfjtSongMetadata } from "@shared/types/jfjt";
 import type { QualityLevel } from "@/utils/quality";
 import { isPlatform } from "@shared/types/platform";
 import { streamingSourceForTrack } from "@shared/utils/streamingSource";
@@ -10,10 +11,18 @@ import { resolveKugouUrl } from "@/apis/song/kugou";
 /** 下载源解析结果 */
 export interface DownloadSource {
   url: string;
+  /** 解析来源 */
+  source?: "jfjt" | "official" | "plugin" | "streaming";
   /** 已知格式（flac/mp3 等），用于扩展名 */
   format?: string;
   /** 已知体积（字节） */
   size?: number;
+  /** 接口声明的实际音质档位 */
+  actualLevel?: QualityLevel;
+  /** 接口声明的实际音质信息 */
+  actualQuality?: AudioQuality;
+  /** 可选补充元数据（仅用于缺失兜底） */
+  metadata?: JfjtSongMetadata;
 }
 
 /**

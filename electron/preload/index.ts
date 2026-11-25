@@ -557,6 +557,14 @@ const api = {
      * @returns 平台标注的毫秒时间轴
      */
     getSongHighlight: (track: Track) => ipcRenderer.invoke("apis:getSongHighlight", track),
+    /**
+     * 通过受控主进程通道调用 JFJT 解析网易云单曲
+     * @param songId - 网易云歌曲数字 ID
+     * @param level - JFJT 支持的音质档位
+     * @returns 结构校验后的解析结果
+     */
+    resolveJfjtSong: (songId: string, level: string) =>
+      ipcRenderer.invoke("apis:resolveJfjtSong", songId, level),
     // 调用任意平台的任意接口
     call: (platform: string, name: string, params?: Record<string, unknown>) =>
       ipcRenderer.invoke("apis:call", platform, name, params ?? {}),

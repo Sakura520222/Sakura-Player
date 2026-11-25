@@ -3,7 +3,7 @@
  * 跨渲染层（解析 URL/歌词）与主进程（落盘/写标签）
  */
 
-import type { Track } from "./player";
+import type { AudioQuality, Track } from "./player";
 import type { PluginQuality } from "./plugin";
 import type { LyricAuxiliaryData } from "./lyrics";
 
@@ -43,6 +43,8 @@ export interface DownloadRequest {
   declaredFormat?: string;
   /** 已知体积（字节），进度兜底 */
   declaredSize?: number;
+  /** 解析接口返回的实际音质信息，用于避免列表展示虚标 */
+  actualQuality?: AudioQuality;
   /** 封面原图 URL，主进程按需 fetch 内嵌 */
   coverUrl?: string;
   /** 歌词文本 */
@@ -92,6 +94,8 @@ export type DownloadResolution = Required<Pick<DownloadRequest, "url">> &
     DownloadRequest,
     | "declaredFormat"
     | "declaredSize"
+    | "actualQuality"
+    | "coverUrl"
     | "lyricText"
     | "lyricTranslation"
     | "lyricRomanization"
