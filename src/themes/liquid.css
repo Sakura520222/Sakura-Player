@@ -388,6 +388,7 @@ html[data-theme-material="liquid"] [data-theme-row-action]:hover {
   position: absolute;
   inset: var(--liquid-stage-top) clamp(24px, 6vw, 100px) var(--liquid-stage-bottom);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   place-items: center;
 }
@@ -399,6 +400,7 @@ html[data-theme-material="liquid"] [data-theme-row-action]:hover {
 
 .liquid-album {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   align-content: center;
   justify-items: start;
