@@ -668,7 +668,7 @@ export const registerPlayerIpc = (): void => {
         if (autoPlay) await inst.play();
       }
       if (seq !== loadSeq || inst !== getPlayer()) return fail(ErrorCode.LOAD_SUPERSEDED);
-      playerLog.debug(`加载成功: ${authoritative?.title ?? meta.title ?? source}`);
+      playerLog.debug(`加载成功: ${authoritative?.title ?? meta.title ?? authoritative?.id ?? ""}`);
       const result = completeTrackLoad(source, options, meta, seq);
       streamingPlayback.startStreamingPlayback(
         options.meta,
@@ -690,6 +690,10 @@ export const registerPlayerIpc = (): void => {
         source.startsWith(getSongCacheDir())
       ) {
         await songCache.invalidate(source);
+      }
+      if (/^https?:\/\//i.test(source)) {
+        playerLog.error(code);
+        return fail(code);
       }
       return fail(code, error);
     }

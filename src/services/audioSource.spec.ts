@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   error: vi.fn(),
   lookup: vi.fn(),
   cacheLookup: vi.fn(),
+  cacheFetch: vi.fn(),
   settings: {
     player: { songLevel: "hq", allowTrialPlay: false },
     system: { cache: { songCache: { enabled: false } } },
@@ -32,7 +33,7 @@ beforeEach(() => {
   Object.assign(window, {
     api: {
       download: { lookup: mocks.lookup },
-      cache: { song: { lookup: mocks.cacheLookup } },
+      cache: { song: { lookup: mocks.cacheLookup, fetch: mocks.cacheFetch } },
     },
   });
 });
@@ -132,6 +133,35 @@ describe("音源解析失败原因", () => {
     expect(mocks.error).toHaveBeenCalledExactlyOnceWith(ErrorCode.NETEASE_UNAVAILABLE);
   });
 
+  it("按返回的档位写缓存，未知档位的直链只供本次播放", async () => {
+    mocks.settings.system.cache.songCache.enabled = true;
+    const track: Track = {
+      id: "186016",
+      title: "测试",
+      source: "netease",
+      artists: [],
+      duration: 1000,
+    };
+    const source = {
+      available: true,
+      source: "jfjt",
+      url: "https://cdn.example/song",
+      isTrial: false,
+    };
+    mocks.netease
+      .mockResolvedValueOnce({ ...source, actualLevel: "lq" })
+      .mockResolvedValueOnce(source);
+    const downgraded = await resolveTrackSource(track);
+    await downgraded?.cacheRequest?.("preload");
+    expect(mocks.cacheFetch).toHaveBeenCalledExactlyOnceWith(
+      "o:netease:186016:lq",
+      "netease",
+      source.url,
+      "preload",
+    );
+    expect((await resolveTrackSource(track))?.cacheRequest).toBeUndefined();
+  });
+
   it("保留 JFJT 解析来源与实际音质，并透传 skipJfjt 选项", async () => {
     mocks.netease.mockResolvedValueOnce({
       available: true,
@@ -140,11 +170,12 @@ describe("音源解析失败原因", () => {
       source: "jfjt",
       actualLevel: "lq",
       actualQuality: {
-        codec: "mp3",
-        sampleRate: 44100,
-        channels: 2,
-        bitsPerSample: 16,
-        bitRate: 128000,
+        declaredLevel: "lq",
+        codec: "unknown",
+        sampleRate: 0,
+        channels: 0,
+        bitsPerSample: 0,
+        bitRate: 0,
       },
     });
     const track: Track = {

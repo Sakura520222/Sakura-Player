@@ -407,9 +407,13 @@ export const resolveTrackSource = async (
         ...(resolved.metadata ? { metadata: resolved.metadata } : {}),
       };
       if (cacheEnabled && !resolved.isTrial) {
+        const resolvedKey = resolved.actualLevel
+          ? cacheKeyForTrack(track, resolved.actualLevel)!
+          : cacheKey;
+        if (resolved.provider === "jfjt" && !resolved.actualLevel) return result;
         result.cacheRequest = async (preloadId, signal) => {
           if (signal?.aborted) return null;
-          return window.api.cache.song.fetch(cacheKey, track.source, url, preloadId);
+          return window.api.cache.song.fetch(resolvedKey, track.source, url, preloadId);
         };
       }
       return result;

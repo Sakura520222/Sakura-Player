@@ -104,6 +104,8 @@ describe("JFJT 体积、音质、格式与参数校验", () => {
     expect(parseJfjtSize("9.81MB")).toBe(Math.round(9.81 * 1024 * 1024));
     expect(parseJfjtSize("1.5 GB")).toBe(Math.round(1.5 * 1024 * 1024 * 1024));
     expect(parseJfjtSize(0)).toBeUndefined();
+    expect(parseJfjtSize("99999999999999999")).toBeUndefined();
+    expect(parseJfjtSize(0.1)).toBeUndefined();
     expect(parseJfjtSize(-10)).toBeUndefined();
     expect(parseJfjtSize("unknown")).toBeUndefined();
     expect(parseJfjtSize("")).toBeUndefined();
@@ -125,6 +127,7 @@ describe("JFJT 体积、音质、格式与参数校验", () => {
     expect(normalizeJfjtLevel("沉浸环绕声")).toBe("sky");
     expect(normalizeJfjtLevel("jymaster")).toBe("jymaster");
     expect(normalizeJfjtLevel("超清母带")).toBe("jymaster");
+    expect(normalizeJfjtLevel("constructor")).toBeUndefined();
     expect(normalizeJfjtLevel("mystery")).toBeUndefined();
   });
 

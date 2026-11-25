@@ -64,20 +64,38 @@ export const resolveJfjtSong = async (
     });
 
     if (!response.ok) {
+      await response.body?.cancel();
       coreLog.warn(`[jfjt] resolve failed: http_${response.status}`);
       return { ok: false, error: `http_${response.status}` };
     }
 
     const contentLength = Number(response.headers.get("content-length") ?? 0);
     if (contentLength > MAX_RESPONSE_BYTES) {
+      await response.body?.cancel();
       coreLog.warn("[jfjt] resolve failed: response_too_large");
       return { ok: false, error: "response_too_large" };
     }
 
-    const rawText = await response.text();
-    if (Buffer.byteLength(rawText, "utf8") > MAX_RESPONSE_BYTES) {
-      coreLog.warn("[jfjt] resolve failed: response_too_large");
-      return { ok: false, error: "response_too_large" };
+    const reader = response.body?.getReader();
+    if (!reader) return { ok: false, error: "invalid_json" };
+    const decoder = new TextDecoder();
+    let bytesRead = 0;
+    let rawText = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytesRead += value.byteLength;
+        if (bytesRead > MAX_RESPONSE_BYTES) {
+          await reader.cancel();
+          coreLog.warn("[jfjt] resolve failed: response_too_large");
+          return { ok: false, error: "response_too_large" };
+        }
+        rawText += decoder.decode(value, { stream: true });
+      }
+      rawText += decoder.decode();
+    } finally {
+      reader.releaseLock();
     }
 
     let payload: unknown;

@@ -1,7 +1,7 @@
 import type { PlaybackQueueSnapshot } from "./music";
 import type { LyricFormat, LyricInput, LyricStorageData } from "./lyrics";
 import type { Platform } from "./platform";
-import type { MusicSearchCandidate } from "./plugin";
+import type { MusicSearchCandidate, PluginQuality } from "./plugin";
 
 /** 播放器状态 */
 export type PlayerState = "idle" | "loading" | "playing" | "paused" | "stopped";
@@ -69,6 +69,8 @@ export interface Playlist {
 
 /** 音质信息 */
 export interface AudioQuality {
+  /** 解码信息不足时用于展示的服务端音质档位 */
+  declaredLevel?: PluginQuality;
   sampleRate: number;
   channels: number;
   bitsPerSample: number;

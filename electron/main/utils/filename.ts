@@ -128,11 +128,14 @@ export const extensionFromDisposition = (
  * @param declaredFormat - 已知格式（如 netease 的 flac/mp3）
  * @param contentType - 响应 Content-Type
  * @param url - 音频 URL
+ * @param fallback - 信息不足时的扩展名，传空字符串可推迟到文件探测
+ * @returns 含点的扩展名或指定的兜底值
  */
 export const resolveExtension = (
   declaredFormat: string | undefined,
   contentType: string | null,
   url: string,
+  fallback = ".mp3",
 ): string => {
   if (declaredFormat) {
     const ext = declaredFormat.startsWith(".") ? declaredFormat : `.${declaredFormat}`;
@@ -147,5 +150,5 @@ export const resolveExtension = (
     const ext = `.${match[1].toLowerCase()}`;
     if (KNOWN_EXTS.has(ext)) return ext;
   }
-  return ".mp3";
+  return fallback;
 };

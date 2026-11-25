@@ -91,7 +91,10 @@ export const isValidHttpUrl = (value: unknown): value is string => {
   try {
     const parsed = new URL(text);
     return (
-      (parsed.protocol === "http:" || parsed.protocol === "https:") && Boolean(parsed.hostname)
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      Boolean(parsed.hostname) &&
+      !parsed.username &&
+      !parsed.password
     );
   } catch {
     return false;
@@ -123,21 +126,12 @@ export const isValidJfjtLevel = (value: unknown): value is JfjtLevel =>
  * @returns 正整数字节数，缺失或无法解析时返回 undefined
  */
 export const parseJfjtSize = (value: unknown): number | undefined => {
-  if (typeof value === "number") {
-    return Number.isFinite(value) && value > 0 ? Math.round(value) : undefined;
-  }
-  const text = readNonEmptyString(value);
-  if (!text) return undefined;
-  if (/^\d+(?:\.\d+)?$/.test(text)) {
-    const num = Number(text);
-    return Number.isFinite(num) && num > 0 ? Math.round(num) : undefined;
-  }
-  const match = text.match(/^(\d+(?:\.\d+)?)\s*(b|kb|kib|mb|mib|gb|gib)$/i);
+  const text = typeof value === "number" ? String(value) : readNonEmptyString(value);
+  const match = text?.match(/^(\d+(?:\.\d+)?)\s*(b|kb|kib|mb|mib|gb|gib)?$/i);
   if (!match) return undefined;
-  const amount = Number(match[1]);
-  const multiplier = SIZE_UNIT_MULTIPLIERS[match[2].toLowerCase()];
-  if (!Number.isFinite(amount) || amount <= 0 || !multiplier) return undefined;
-  const bytes = Math.round(amount * multiplier);
+  const bytes = Math.round(
+    Number(match[1]) * SIZE_UNIT_MULTIPLIERS[(match[2] ?? "b").toLowerCase()],
+  );
   return Number.isSafeInteger(bytes) && bytes > 0 ? bytes : undefined;
 };
 
@@ -150,7 +144,7 @@ export const normalizeJfjtLevel = (value: unknown): JfjtParsedLevel | undefined 
   const text = readNonEmptyString(value);
   if (!text) return undefined;
   const compact = text.toLowerCase().replace(/\s+/g, "");
-  return LEVEL_ALIASES[compact];
+  return Object.hasOwn(LEVEL_ALIASES, compact) ? LEVEL_ALIASES[compact] : undefined;
 };
 
 /**
@@ -189,7 +183,7 @@ export const parseJfjtSongResponse = (payload: unknown): JfjtSongData | null => 
   const rawLevel = readNonEmptyString(record.level);
   const jfjtLevel = normalizeJfjtLevel(rawLevel);
   const size = parseJfjtSize(record.size);
-  const format = normalizeJfjtFormat(record.type ?? record.format);
+  const format = normalizeJfjtFormat(record.type) ?? normalizeJfjtFormat(record.format);
 
   const metadata: JfjtSongMetadata = {};
   const name = readNonEmptyString(record.name);

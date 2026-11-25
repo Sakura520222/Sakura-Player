@@ -30,12 +30,14 @@ export interface DownloadSource {
  * @param track - 要下载的歌曲
  * @param level - 下载音质档位
  * @param usePlaybackForDownload - 是否允许使用播放源下载
+ * @param skipJfjt - 是否跳过已失效的第三方直链
  * @returns 下载源；无法下载（VIP/试听/无插件/流媒体失败）返回 null
  */
 export const resolveDownloadSource = async (
   track: Track,
   level: QualityLevel,
   usePlaybackForDownload: boolean,
+  skipJfjt = false,
 ): Promise<DownloadSource | null> => {
   // 流媒体
   if (track.source === "streaming") {
@@ -48,7 +50,12 @@ export const resolveDownloadSource = async (
   // 官方接口
   if (track.source === "netease") {
     try {
-      const resolved = await resolveNeteaseDownloadUrl(track, level, usePlaybackForDownload);
+      const resolved = await resolveNeteaseDownloadUrl(
+        track,
+        level,
+        usePlaybackForDownload,
+        skipJfjt,
+      );
       if (resolved) return resolved;
     } catch {
       // 官方失败回落插件

@@ -7,8 +7,8 @@ import type {
   ShuffleMode,
   Track,
 } from "@shared/types/player";
+import type { JfjtSongMetadata } from "@shared/types/jfjt";
 import { mergeJfjtFallbackMetadata } from "@shared/utils/jfjt";
-import { isLosslessCodec } from "@/utils/quality";
 import { AUTOMIX_LOOKAHEAD_MS, TRANSITION_LOOKAHEAD_MS } from "@shared/constants/playback";
 import type { TagEditRequest, TagWriteOutcome } from "@shared/types/tagEditor";
 import type { PersonalFmOptions } from "@shared/types/platform/netease";
@@ -62,6 +62,8 @@ interface LoadRuntimeOptions {
   transitionResult?: IpcResponse<LoadResult>;
   /** 原生流未解析出有效音质时的兜底展示音质（来自接口 data.level） */
   fallbackQuality?: AudioQuality;
+  /** 仅补齐当前歌曲缺失的第三方元数据 */
+  metadata?: JfjtSongMetadata;
 }
 
 /** 单次音源兜底过程的重试状态 */
@@ -179,6 +181,7 @@ export const load = async (
   // 清除上一次 seek 残留
   seekTarget = null;
   playback.setSeeking(false);
+  if (meta) meta = mergeJfjtFallbackMetadata(meta, options.metadata);
   resetForLoad(meta?.duration ?? 0, options.transitionResult?.data?.playback);
   // 非本地并行歌词与取色
   const isOnline = meta?.source !== "local";
@@ -203,20 +206,19 @@ export const load = async (
       consecutiveFailures = 0;
       const media = useMediaStore();
       const rawQuality = detail?.quality ?? mediaInfo.quality;
-      const hasValidNativeQuality =
-        Boolean(rawQuality?.codec && rawQuality.codec !== "unknown") &&
-        (isLosslessCodec(rawQuality!.codec) || (rawQuality!.bitRate ?? 0) > 0);
-      const effectiveQuality = hasValidNativeQuality
-        ? rawQuality
-        : (options.fallbackQuality ?? rawQuality);
-      const effectiveDetail =
-        effectiveQuality && detail ? { ...detail, quality: effectiveQuality } : detail;
-      const effectiveMediaInfo = effectiveQuality
-        ? { ...mediaInfo, quality: effectiveQuality }
-        : mediaInfo;
-      // 把引擎提取的 mediaInfo 与已有 Track 合并；身份字段保留
-      media.enrichTrack(effectiveMediaInfo, effectiveDetail);
-      if (meta?.cover) media.patchCover?.(meta.cover);
+      const declaredLevel = options.fallbackQuality?.declaredLevel;
+      const quality =
+        declaredLevel && rawQuality
+          ? { ...rawQuality, declaredLevel }
+          : (rawQuality ?? options.fallbackQuality);
+      if (options.metadata && media.track) {
+        const merged = mergeJfjtFallbackMetadata(media.track, options.metadata);
+        if (merged !== media.track) media.setTrack(merged);
+      }
+      media.enrichTrack(
+        quality ? { ...mediaInfo, quality } : mediaInfo,
+        detail && quality ? { ...detail, quality } : detail,
+      );
       const enriched = media.track;
       // 更新队列中的 Track 元数据
       if (enriched) {
@@ -343,8 +345,8 @@ const loadTrackSourceWithFallback = async (
     if (!shouldContinue()) return { status: "cancelled" };
     // 没有可用插件不代表原音源失败原因，优先保留实际加载错误
     if (!resolved) return lastFailure ?? { status: "unresolved", error: resolutionError };
-    const effectiveTrack = mergeJfjtFallbackMetadata(track, resolved.metadata);
-    const result = await load(resolved.source, autoPlay, effectiveTrack, {
+    const result = await load(resolved.source, autoPlay, track, {
+      metadata: resolved.metadata,
       preparedId: usingInitial ? preparedId : undefined,
       suppressErrorToast: true,
       context,
@@ -418,6 +420,8 @@ const loadTrack = async (
         ? {
             status: "loaded",
             result: await load(transitionSource.source, true, track, {
+              metadata: transitionSource.metadata,
+              fallbackQuality: transitionSource.actualQuality,
               context,
               transitionResult,
             }),
@@ -1091,7 +1095,7 @@ export const trySmartTransition = async (
       remainingMs / Math.max(status.speed, 0.1),
       settings.player.transitionPreference,
       {
-        meta: candidate.track,
+        meta: mergeJfjtFallbackMetadata(candidate.track, prepared.source.metadata),
         context: status.currentPlaybackContext,
         autoPlay: true,
       },

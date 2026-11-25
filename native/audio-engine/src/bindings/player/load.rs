@@ -33,7 +33,7 @@ impl AudioPlayer {
         {
             return Err(Error::from_reason("无效的音频播放区间"));
         }
-        info!(source = %source, auto_play, "加载音频源");
+        info!(auto_play, "加载音频源");
 
         let handle = HttpCancelHandle::new();
         let (

@@ -290,7 +290,14 @@ export const scheduleNextTrackPreload = (): void => {
       if (source.cacheRequest) {
         const cachedPath = await source.cacheRequest(id, abort.signal);
         if (token !== currentToken) return;
-        if (cachedPath) source = { source: cachedPath, fromCache: true, provider: "cache" };
+        if (cachedPath)
+          source = {
+            ...source,
+            source: cachedPath,
+            fromCache: true,
+            provider: "cache",
+            cacheRequest: undefined,
+          };
       }
       let preparedId: string | undefined;
       let autoMixStartMs: number | undefined;

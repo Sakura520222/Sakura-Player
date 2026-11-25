@@ -43,11 +43,12 @@ describe("下载源解析链路", () => {
       size: 28000000,
       actualLevel: "lossless",
       actualQuality: {
-        codec: "flac",
-        sampleRate: 44100,
-        channels: 2,
-        bitsPerSample: 16,
-        bitRate: 1411200,
+        declaredLevel: "lossless",
+        codec: "unknown",
+        sampleRate: 0,
+        channels: 0,
+        bitsPerSample: 0,
+        bitRate: 0,
       },
     });
 
@@ -56,6 +57,7 @@ describe("下载源解析链路", () => {
       ncmTrack,
       "lossless",
       true,
+      false,
     );
     expect(mocks.resolveByPlugin).not.toHaveBeenCalled();
     expect(source?.url).toBe("https://cdn.example.com/song.flac");

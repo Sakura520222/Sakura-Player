@@ -53,8 +53,10 @@ impl DecoderData {
 /// 网络音频代理策略，由主进程按应用代理设置同步，不读取系统代理
 pub(crate) static HTTP_PROXY: RwLock<HttpProxy> = RwLock::new(HttpProxy::Direct);
 
-/// 根据 source 协议打开音频：http(s) 走延迟 Range 源，其他走本地 File
-///
+/// 根据协议打开网络或本地音频
+/// @param source - 音频地址或文件路径
+/// @param cancel_handle - 网络读取取消句柄
+/// @returns 解码器及网络音频的取消句柄
 pub(super) fn open_source(
     source: &str,
     cancel_handle: HttpCancelHandle,
@@ -62,8 +64,7 @@ pub(super) fn open_source(
     let (reader, cancel) = if source.starts_with("http://") || source.starts_with("https://") {
         let proxy = HTTP_PROXY.read().clone();
         let http = HttpAudioSource::new_with_proxy(source, &cancel_handle, &proxy)?;
-        let reader = AudioReader::new(AudioInput::new(http)?)
-            .with_context(|| format!("打开网络音频失败: {source}"))?;
+        let reader = AudioReader::new(AudioInput::new(http)?).context("打开网络音频失败")?;
         (reader, Some(cancel_handle))
     } else {
         let file = File::open(source).with_context(|| format!("打开本地文件失败: {source}"))?;
@@ -171,7 +172,7 @@ pub(super) fn run_decoding_loop(data: &mut DecoderData, shared: &Shared) {
             Err(e) => {
                 // stop/切歌触发的 HTTP 取消不是源故障
                 if shared.is_stopping() {
-                    debug!(error = %e, "解码线程因停止信号退出");
+                    debug!("解码线程因停止信号退出");
                     return;
                 }
                 // 本地 File 的 io::Error 可能经 ffmpeg_audio read 回调映射为 AVERROR(EIO)
@@ -187,7 +188,11 @@ pub(super) fn run_decoding_loop(data: &mut DecoderData, shared: &Shared) {
                 // 尾部坏帧（FLAC ID3v1 / VBR 末帧）容忍由 position timer 的 3s
                 // 阈值保障：mark_decode_failed 后若 position 接近末尾仍发 Ended
                 shared.mark_decode_failed();
-                debug!(error = %e, had_success, io_failure, "解码线程异常结束");
+                if data.cancel_handle.is_some() {
+                    debug!(had_success, io_failure, "网络音频解码异常结束");
+                } else {
+                    debug!(error = %e, had_success, io_failure, "解码线程异常结束");
+                }
                 return;
             }
         }

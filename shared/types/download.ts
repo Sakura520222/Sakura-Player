@@ -89,7 +89,12 @@ export interface DownloadProgress {
 }
 
 /** 渲染层回传的解析结果（补全 DownloadRequest 缺省的网络字段，url 必填） */
-export type DownloadResolution = Required<Pick<DownloadRequest, "url">> &
+export type DownloadResolution = {
+  /** JFJT 直链无法传输时允许重新解析官方来源 */
+  jfjt?: boolean;
+  /** 仅包含缺失标签的补充信息 */
+  metadata?: Pick<import("./jfjt").JfjtSongMetadata, "name" | "artistName" | "albumName" | "cover">;
+} & Required<Pick<DownloadRequest, "url">> &
   Pick<
     DownloadRequest,
     | "declaredFormat"
@@ -113,7 +118,7 @@ export type DownloadResolvePayload = Pick<
   | "coverUrl"
   | "usePlaybackForDownload"
   | "lyricFileFormat"
->;
+> & { skipJfjt?: boolean };
 
 /** 入队结果；ok 为 false 时 reason 说明原因 */
 export interface EnqueueResult {

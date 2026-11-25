@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getQualityLevel } from "@/utils/quality";
 import type { Track } from "@shared/types/player";
 import { ErrorCode } from "@shared/types/errors";
 
@@ -61,12 +62,21 @@ describe("JFJT 音质档位映射与实际音质回填", () => {
     expect(jfjtLevelToQualityLevel("exhigh")).toBe("hq");
     expect(jfjtLevelToQualityLevel("lossless")).toBe("lossless");
     expect(jfjtLevelToQualityLevel("hires")).toBe("hi-res");
-    expect(jfjtLevelToQualityLevel("jymaster")).toBe("hi-res");
+    expect(jfjtLevelToQualityLevel("jymaster")).toBeUndefined();
+    expect(jfjtLevelToQualityLevel("sky")).toBeUndefined();
     expect(jfjtLevelToQualityLevel(undefined)).toBeUndefined();
 
-    expect(jfjtLevelToAudioQuality("standard")?.bitRate).toBe(128000);
-    expect(jfjtLevelToAudioQuality("exhigh")?.bitRate).toBe(320000);
-    expect(jfjtLevelToAudioQuality("lossless")?.codec).toBe("flac");
+    expect(jfjtLevelToAudioQuality("lossless")).toMatchObject({
+      declaredLevel: "lossless",
+      codec: "unknown",
+      sampleRate: 0,
+      bitsPerSample: 0,
+    });
+    expect(getQualityLevel(jfjtLevelToAudioQuality("hires"))).toBe("hi-res");
+    expect(
+      getQualityLevel({ ...jfjtLevelToAudioQuality("hires")!, codec: "mp3", bitRate: 128000 }),
+    ).toBe("lq");
+    expect(getQualityLevel({ ...jfjtLevelToAudioQuality("lossless")!, codec: "aac" })).toBe("lq");
     expect(jfjtLevelToAudioQuality(undefined)).toBeUndefined();
   });
 });
@@ -93,11 +103,12 @@ describe("NCM 播放解析：JFJT 优先与官方回落", () => {
       source: "jfjt",
       actualLevel: "lq",
       actualQuality: {
-        codec: "mp3",
-        sampleRate: 44100,
-        channels: 2,
-        bitsPerSample: 16,
-        bitRate: 128000,
+        declaredLevel: "lq",
+        codec: "unknown",
+        sampleRate: 0,
+        channels: 0,
+        bitsPerSample: 0,
+        bitRate: 0,
       },
       rawLevel: "标准音质",
       metadata: { name: "晴天" },
@@ -173,17 +184,27 @@ describe("NCM 下载解析：JFJT 优先与官方回落", () => {
       size: 10485760,
       actualLevel: "hq",
       actualQuality: {
-        codec: "mp3",
-        sampleRate: 44100,
-        channels: 2,
-        bitsPerSample: 16,
-        bitRate: 320000,
+        declaredLevel: "hq",
+        codec: "unknown",
+        sampleRate: 0,
+        channels: 0,
+        bitsPerSample: 0,
+        bitRate: 0,
       },
       rawLevel: "exhigh",
     });
     expect(res?.format).toBeUndefined();
   });
 
+  it("失效直链重试时模拟播放模式只调用官方播放接口", async () => {
+    mocks.songUrl.mockResolvedValueOnce({ data: [{ url: "https://official/file" }] });
+    expect(await resolveNeteaseDownloadUrl(sampleTrack, "hq", true, true)).toMatchObject({
+      source: "official",
+    });
+    expect(mocks.resolveJfjtSong).not.toHaveBeenCalled();
+    expect(mocks.songDownloadUrl).not.toHaveBeenCalled();
+    expect(mocks.songUrl).toHaveBeenCalledOnce();
+  });
   it("JFJT 失败时按默认顺序回落官方下载接口与播放接口", async () => {
     mocks.resolveJfjtSong.mockResolvedValueOnce({ ok: false, error: "http_502" });
     mocks.songDownloadUrl.mockResolvedValueOnce({

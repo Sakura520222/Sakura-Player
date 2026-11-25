@@ -89,6 +89,21 @@ describe("主进程 JFJT 受控解析服务", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it("缺少长度头时在流式读取超过上限后立即取消", async () => {
+    const cancel = vi.fn();
+    const pull = vi.fn((controller: ReadableStreamDefaultController<Uint8Array>) => {
+      controller.enqueue(new Uint8Array(1024 * 1024));
+      if (pull.mock.calls.length === 6) controller.close();
+    });
+    const body = new ReadableStream<Uint8Array>({ pull, cancel });
+    expect(await resolveJfjtSong("1", "standard", async () => new Response(body))).toEqual({
+      ok: false,
+      error: "response_too_large",
+    });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(pull.mock.calls.length).toBeLessThan(6);
+  });
+
   it("超时、HTTP 错误、损坏 JSON 与无效响应均返回失败，且日志不泄露 URL 或敏感正文", async () => {
     const timeoutErr = new DOMException("Timed out", "TimeoutError");
     const timeoutFetcher = vi.fn().mockRejectedValue(timeoutErr);

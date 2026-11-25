@@ -14,6 +14,7 @@ import { store } from "@main/store";
 import { getDownloadDir, getCoverCacheDir, getAppCacheDir } from "@main/utils/config";
 import { broadcast } from "@main/utils/broadcast";
 import { downloadLog } from "@main/utils/logger";
+import { mergeJfjtFallbackMetadata } from "@shared/utils/jfjt";
 import { parseCompatibleExport } from "@shared/utils/lyricCompatible";
 import { writeTtmlDocument } from "./lyricDocument";
 import { writeCompatible } from "./lyricSave";
@@ -295,13 +296,18 @@ export const failResolution = (taskId: string): void => {
  * @param req - 下载参数与歌曲身份
  * @param task - 任务进度和最终结果
  * @param controller - 网络和文件写入的取消控制器
+ * @param skipJfjt - 第三方直链传输失败后直接解析官方来源
  * @returns 任务执行完成
  */
 const runTask = async (
-  req: DownloadRequest,
+  request: DownloadRequest,
   task: DownloadTask,
   controller: AbortController,
+  skipJfjt = false,
 ): Promise<void> => {
+  let req = request;
+  let jfjt = false;
+  let sourceStage: "response" | "transfer" | undefined;
   const partPath = path.join(tmpDir(), `${req.taskId}.part`);
 
   try {
@@ -309,6 +315,7 @@ const runTask = async (
     if (!req.url) {
       const payload: DownloadResolvePayload = {
         taskId: req.taskId,
+        skipJfjt,
         track: req.track,
         qualityLevel: req.qualityLevel,
         tagOptions: req.tagOptions,
@@ -318,11 +325,11 @@ const runTask = async (
       };
       const resolution = waitForResolution(req.taskId, controller.signal);
       broadcast("download:resolve", payload);
-      Object.assign(req, await resolution);
-      if (req.actualQuality) {
-        task.track = { ...task.track, quality: req.actualQuality };
-        req.track = task.track;
-      }
+      const resolved = await resolution;
+      jfjt = resolved.jfjt === true && request.track.source === "netease";
+      const track = mergeJfjtFallbackMetadata(request.track, resolved.metadata);
+      task.track = jfjt ? { ...track, quality: resolved.actualQuality } : track;
+      req = { ...request, ...resolved, track: task.track };
       if (req.declaredSize && task.total === 0) {
         task.total = req.declaredSize;
       }
@@ -347,19 +354,34 @@ const runTask = async (
     const finalNoExt = path.join(targetDir, baseName);
     const policy = store.get("download.overwritePolicy");
 
-    // skip 策略：用预估扩展名提前命中已存在文件则跳过
-    const guessExt = resolveExtension(req.declaredFormat, null, audioUrl);
-    if (!streamingDownload && policy === "skip" && fs.existsSync(`${finalNoExt}${guessExt}`)) {
+    /**
+     * 记录跳过的已有文件及其解析档位
+     * @param filePath - 已存在的目标文件
+     */
+    const finishExisting = (filePath: string): void => {
       task.status = "done";
-      task.filePath = `${finalNoExt}${guessExt}`;
+      task.filePath = filePath;
+      task.qualityLevel = req.actualQuality?.declaredLevel ?? request.qualityLevel;
       task.finishedAt = Date.now();
       broadcastState(task);
+    };
+
+    // skip 策略：用预估扩展名提前命中已存在文件则跳过
+    const guessExt = resolveExtension(req.declaredFormat, null, audioUrl, jfjt ? "" : ".mp3");
+    if (
+      guessExt &&
+      !streamingDownload &&
+      policy === "skip" &&
+      fs.existsSync(`${finalNoExt}${guessExt}`)
+    ) {
+      finishExisting(`${finalNoExt}${guessExt}`);
       return;
     }
 
     await fsp.mkdir(tmpDir(), { recursive: true });
     await fsp.mkdir(targetDir, { recursive: true });
 
+    sourceStage = "response";
     const response = streamingDownload
       ? await fetchStreamingDownload(
           req.track.serverId!,
@@ -369,6 +391,7 @@ const runTask = async (
         )
       : await fetch(audioUrl, { signal: controller.signal });
     if (!response.ok || !response.body) {
+      await response.body?.cancel();
       throw new Error(`HTTP ${response.status}`);
     }
     const mime = response.headers.get("content-type");
@@ -384,17 +407,15 @@ const runTask = async (
     // 插件音源给的地址常常没有后缀（下载接口 302 到 CDN），文件名是唯一的格式信号
     const disposition = response.headers.get("content-disposition");
     const format = req.declaredFormat || extensionFromDisposition(disposition);
-    const ext = resolveExtension(format, mime, audioUrl);
-    if (policy === "skip" && fs.existsSync(`${finalNoExt}${ext}`)) {
+    let ext = resolveExtension(format, mime, response.url || audioUrl, jfjt ? "" : ".mp3");
+    if (ext && policy === "skip" && fs.existsSync(`${finalNoExt}${ext}`)) {
       await response.body.cancel();
-      task.status = "done";
-      task.filePath = `${finalNoExt}${ext}`;
-      task.finishedAt = Date.now();
-      broadcastState(task);
+      finishExisting(`${finalNoExt}${ext}`);
       return;
     }
     const total = Number(response.headers.get("content-length")) || req.declaredSize || 0;
 
+    sourceStage = "transfer";
     const received = await streamToFile(
       response.body as ReadableStream<Uint8Array>,
       partPath,
@@ -402,8 +423,34 @@ const runTask = async (
       total,
       controller.signal,
     );
+    sourceStage = "response";
     if (received === 0) throw new Error("empty body");
-    if (!(await looksLikeAudio(partPath))) throw new Error("not audio");
+    if (jfjt) {
+      const info = await getEngine().inspectAudioFile(partPath);
+      controller.signal.throwIfAborted();
+      task.track = {
+        ...req.track,
+        quality: {
+          declaredLevel: req.actualQuality?.declaredLevel,
+          codec: info.codec,
+          channels: info.channels,
+          sampleRate: info.sampleRate,
+          bitsPerSample: info.validBits,
+          bitRate: info.audioBitRate ?? 0,
+        },
+      };
+      if (!ext) {
+        const formats = info.containerFormat?.toLowerCase().split(",") ?? [];
+        ext = formats.map((format) => resolveExtension(format, null, "", "")).find(Boolean) ?? "";
+        if (!ext) throw new Error("unknown audio format");
+        if (policy === "skip" && fs.existsSync(`${finalNoExt}${ext}`)) {
+          await fsp.unlink(partPath);
+          finishExisting(`${finalNoExt}${ext}`);
+          return;
+        }
+      }
+    } else if (!(await looksLikeAudio(partPath))) throw new Error("not audio");
+    sourceStage = undefined;
 
     const finalPath = policy === "rename" ? dedupePath(finalNoExt, ext) : `${finalNoExt}${ext}`;
     await moveFile(partPath, finalPath);
@@ -412,6 +459,7 @@ const runTask = async (
     const tagOk = await applyTags(req, finalPath);
 
     task.status = "done";
+    task.qualityLevel = req.actualQuality?.declaredLevel ?? request.qualityLevel;
     task.received = received;
     task.total = total || received;
     task.filePath = finalPath;
@@ -421,6 +469,18 @@ const runTask = async (
     downloadLog.info(`完成 ${req.track.title} → ${finalPath}`);
   } catch (err) {
     await fsp.unlink(partPath).catch(() => {});
+    if (
+      jfjt &&
+      !skipJfjt &&
+      (sourceStage === "response" || (sourceStage === "transfer" && err instanceof TypeError)) &&
+      !controller.signal.aborted
+    ) {
+      task.track = request.track;
+      task.received = 0;
+      task.total = 0;
+      broadcastState(task);
+      return runTask(request, task, controller, true);
+    }
     if (controller.signal.aborted) {
       task.status = "canceled";
     } else {

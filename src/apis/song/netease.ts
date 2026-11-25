@@ -70,9 +70,6 @@ export const jfjtLevelToQualityLevel = (
     case "lossless":
       return "lossless";
     case "hires":
-    case "jyeffect":
-    case "sky":
-    case "jymaster":
       return "hi-res";
     default:
       return undefined;
@@ -87,23 +84,16 @@ export const jfjtLevelToQualityLevel = (
 export const jfjtLevelToAudioQuality = (
   level: JfjtParsedLevel | undefined,
 ): AudioQuality | undefined => {
-  switch (level) {
-    case "standard":
-      return { codec: "mp3", sampleRate: 44100, channels: 2, bitsPerSample: 16, bitRate: 128000 };
-    case "higher":
-      return { codec: "mp3", sampleRate: 44100, channels: 2, bitsPerSample: 16, bitRate: 192000 };
-    case "exhigh":
-      return { codec: "mp3", sampleRate: 44100, channels: 2, bitsPerSample: 16, bitRate: 320000 };
-    case "lossless":
-      return { codec: "flac", sampleRate: 44100, channels: 2, bitsPerSample: 16, bitRate: 1411200 };
-    case "hires":
-    case "jyeffect":
-    case "sky":
-    case "jymaster":
-      return { codec: "flac", sampleRate: 96000, channels: 2, bitsPerSample: 24, bitRate: 2304000 };
-    default:
-      return undefined;
-  }
+  const declaredLevel = jfjtLevelToQualityLevel(level);
+  if (!declaredLevel) return undefined;
+  return {
+    declaredLevel,
+    codec: "unknown",
+    sampleRate: 0,
+    channels: 0,
+    bitsPerSample: 0,
+    bitRate: 0,
+  };
 };
 
 export type NeteasePlayUrlResult =
@@ -318,14 +308,16 @@ const fetchNeteasePlaySource = async (
  * @param track - track.id 为 songId
  * @param songLevel - 下载音质
  * @param usePlayback - 模拟播放下载：回落官方时跳过下载接口、直接用播放接口
+ * @param skipJfjt - 第三方直链失效后跳过该来源
  * @returns 下载源（带格式、体积与实际音质信息）；试听 / 无版权返回 null
  */
 export const resolveNeteaseDownloadUrl = async (
   track: Track,
   songLevel: QualityLevel,
   usePlayback = false,
+  skipJfjt = false,
 ): Promise<NeteaseDownloadSource | null> => {
-  const jfjt = await fetchNeteaseJfjtSong(track, songLevel);
+  const jfjt = skipJfjt ? null : await fetchNeteaseJfjtSong(track, songLevel);
   if (jfjt) {
     const actualLevel = jfjtLevelToQualityLevel(jfjt.jfjtLevel);
     const actualQuality = jfjtLevelToAudioQuality(jfjt.jfjtLevel);
