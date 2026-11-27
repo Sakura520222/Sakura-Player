@@ -2,7 +2,7 @@
 
 **Version: v1.3**<br>
 **Effective: October 13, 2026**<br>
-**Last updated: October 18, 2026**
+**Last updated: November 27, 2026**
 
 > [!IMPORTANT]
 > Sakura Player is an unofficial fork of [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next), maintained by [Sakura520222](https://github.com/Sakura520222). “We” in this policy means only this fork's maintainer and contributors to its modifications; it makes no data-processing promises on behalf of imsyy, `SPlayer-Dev`, or third-party service operators. Fork modifications are dated **2026-10-13**. Original copyright and applicable notices are retained in the repository's `NOTICE` and `LICENSE`.
@@ -38,9 +38,9 @@ The software processes this information to play and organize media, restore your
 1. **Self-hosted media servers:** Traffic is sent directly from your client to the configured server. You and the server operator are responsible for its security and privacy.
 2. **Plugins and source extensions:** The optional plugin market performs automated checks and maintainer review, but this is not a complete security audit or endorsement. Community plugins can make their own network requests and process data. Review their source, permissions, and origin before use.
 3. **Discord, Last.fm, and similar integrations:** Enabled options send titles, artists, and playback activity through local IPC or the platform API. The service's terms and privacy policy apply.
-4. **AI lyrics:** Explicit generation sends required lyric text, song title, artists, and necessary existing auxiliary text to your configured model service. Resume requests can include bounded error feedback. Audio, artwork, local paths, and original timestamps are not sent. The provider sets its retention and billing rules; see [AI Features](/en/ai).
+4. **AI lyrics and listening companion:** Explicit lyric generation or an active listening companion session sends required lyric text or excerpts, song title, artists, album, playback status, and highlight sections to your configured model service. Resume requests can include bounded error feedback. The listening companion exposes only read-only music context and never sends audio, artwork, signed cover URLs, local paths, or streaming credentials. The provider sets its retention and billing rules; see [AI Features](/en/ai).
 5. **Local alignment and recognition:** [Local alignment](/en/lyric-alignment) runs in the bundled Rust worker without Python or a model API key. Romanization works immediately; translation requires explicitly downloading or verifying the model, and valid existing weights can be reused. Prepared alignment runs offline, and lyrics are not sent to the model download server. Recognition captures your selected system or microphone audio, generates fingerprints locally, and sends fingerprints and excerpt duration to NetEase for matching. It is not offline; see [Integrations](/en/integrations).
-6. **Song highlights:** Enabled by default, this feature sends song IDs / Hashes or title-and-artist search terms to NetEase or Kugou and reuses the corresponding platform's existing session. It does not read or upload audio files or perform local model analysis. Turn off **Settings → Player → Playback control → Find Song Highlights** to stop new queries. See [Song highlights](/en/playback#song-highlights).
+6. **Song highlights and third-party track resolution:** Song highlight lookup is enabled by default, sending song IDs / Hashes or title-and-artist search terms to NetEase or Kugou and reusing existing sessions without reading or uploading audio files; disable it under **Settings → Player → Playback control → Find Song Highlights**, see [Song highlights](/en/playback#song-highlights). For non-cloud NetEase playback or downloads, the numeric song ID and quality tier may first be sent to `dm.jfjt.cc` without cookies or user credentials, falling back to the official NetEase API if unavailable.
 
 ## 5. Storage, retention, and protection
 

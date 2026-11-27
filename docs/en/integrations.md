@@ -2,7 +2,7 @@
 
 ## Accounts and online pages
 
-Signing into NetEase enables the account's liked playlist, collections, daily recommendations, Personal FM, and cloud-library features where available. Content depends on the account and platform responses.
+Signing into NetEase enables the account's liked playlist, collections, daily recommendations, Personal FM, and cloud-library features where available. Content depends on the account and platform responses. For non-cloud NetEase tracks, playback and download resolution tries the `dm.jfjt.cc` third-party resolver first without sending user credentials or cookies, falling back to the official NetEase API when unavailable.
 
 Manage QQ Music and Kugou accounts in **Settings → Other → Platform login**, using the web login, QR code, or manual Cookie methods shown by the interface. Choose the Kugou variant under platform configuration. One platform's account or entitlements do not apply to other platforms.
 

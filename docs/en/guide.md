@@ -64,7 +64,7 @@ If you maintain your own TTML files, select a local directory as a lyrics librar
 
 Toggle these windows from the player or tray menu and configure their styles independently.
 
-## AI lyric translation and generation
+## AI lyric translation and listening companion
 
 1. Add, test, and activate a model in **Settings → AI Integration → AI Model Configuration**.
 2. Click the language icon beside the full-player lyrics to open **AI Lyric Translation**.
@@ -72,7 +72,7 @@ Toggle these windows from the player or tray menu and configure their styles ind
 4. Review the streamed preview and **Apply selected content** when generation completes. Cancelled or failed tasks can be resumed in the current dialog.
 5. To keep the results, preview changes and save under **Copy Lyrics → Save and export lyrics**.
 
-See [AI Features](/en/ai) for configuration fields, target languages, resume conditions, and save requirements. Applying does not automatically write audio tags or lyric files.
+To chat about music while listening, enable the desktop character, proactive comments, and full-player danmaku under **Settings → AI Integration → Listening Companion**. See [AI Features](/en/ai) for configuration fields, target languages, resume conditions, companion options, and save requirements. Applying lyric results does not automatically write audio tags or lyric files.
 
 ## System integration
 

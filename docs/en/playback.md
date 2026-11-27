@@ -14,7 +14,7 @@ When annotations are available, gold bands show the highlight ranges on the prog
 
 Turn off **Highlight marks on progress bar** to hide the bands and keep highlight lookup and the flame button available.
 
-- **NetEase and Kugou tracks:** Query the original platform's song ID or Hash first. If no valid annotation is available or the request fails, try matching a version on the other platform.
+- **NetEase and Kugou tracks:** Queries NetEase chorus and Kugou highlight annotations concurrently and merges valid ranges, using the exact song ID or Hash on the native platform and metadata matching on the other.
 - **Local, QQ Music, and streaming tracks:** Search by title and artist, then use album and duration to select a matching version. No highlight range is shown when a reliable match cannot be found.
 - **Plugin-source tracks:** Do not participate in the built-in platforms' highlight queries.
 - **Retries and caching:** Valid annotations are cached in memory to reduce repeated requests and are discarded when the player exits. Click the flame button again to retry an empty or failed lookup.

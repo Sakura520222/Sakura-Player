@@ -12,7 +12,7 @@ The list below fetches the latest release for the selected channel from GitHub. 
 
 | Channel     | Intended audience                | Releases received                        | Example           |
 | ----------- | -------------------------------- | ---------------------------------------- | ----------------- |
-| **Stable**  | Everyday use                     | Stable                                   | `1.2.0`           |
+| **Stable**  | Everyday use                     | Stable                                   | `1.2.1`           |
 | **Beta**    | Early feature access             | Beta, then Stable                        | `1.3.0-beta.1`    |
 | **Nightly** | Following the development branch | Separate rolling release and update feed | `nightly` release |
 

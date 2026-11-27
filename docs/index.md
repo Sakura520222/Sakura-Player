@@ -29,8 +29,8 @@ features:
     link: /lyrics
     linkText: 歌词使用与保存
   - icon: 🤖
-    title: AI 歌词翻译与生成
-    details: 自选模型生成翻译、音译与逐字对齐内容，支持补齐缺失、重新生成、流式预览和断点续译，确认后应用并按需保存。
+    title: AI 歌词辅助与听歌陪伴
+    details: 自选模型生成歌词翻译、音译与逐字对齐，也支持桌面宠物陪伴聊歌、主动回应和全屏弹幕。
     link: /ai
     linkText: 配置与使用 AI
   - icon: 🌐

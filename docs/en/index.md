@@ -28,8 +28,8 @@ features:
     link: /en/lyrics
     linkText: Display and save lyrics
   - icon: 🤖
-    title: AI lyric translation and generation
-    details: Use your chosen model for translation, romanization, and word alignment, with fill-missing and regenerate modes, streamed previews, resumable generation, and explicit apply and save steps.
+    title: AI lyrics and companion
+    details: Use your chosen model for lyric translation, romanization, and word alignment, or chat with a desktop listening companion with proactive comments and full-screen danmaku.
     link: /en/ai
     linkText: Set up and use AI
   - icon: 🌐

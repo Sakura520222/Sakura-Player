@@ -1,16 +1,17 @@
 # AI Features
 
-Sakura Player's **AI Lyric Translation** generates translations, romanization, and word-aligned auxiliary lyrics for the current song, with streamed previews, fill-missing mode, and resumable generation. Add and activate a text model in **Settings → AI Integration → AI Model Configuration**, then open the full-screen player.
+Sakura Player includes **AI Lyric Translation** and the **AI Listening Companion**, both using the text model (`OpenAI Compatible` or `Anthropic`) enabled under **Settings → AI Integration → AI Model Configuration**.
 
 ## Features and entry points
 
 | Feature                                      | Entry point                                               | Purpose                                                                                 | Setup                                                                                     |
 | -------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | AI Lyric Translation                         | Language icon to the right of the full-player lyrics      | Generate translation and romanization, mapped to existing lyric timings                 | An active AI model                                                                        |
+| AI Listening Companion                       | Settings → AI Integration → Listening Companion           | Floating desktop character for music chat, proactive comments, and full-player danmaku  | An active AI model with tool calling                                                      |
 | [Local lyric alignment](/en/lyric-alignment) | Algorithmic lyric alignment beside the full-player lyrics | Generate primary word timing from audio and align existing translation and romanization | Primary timing and translation need separate local models. Romanization works immediately |
 | [MCP interface](/en/mcp)                     | Settings → AI Integration → MCP                           | Let an external AI client search the library, inspect the queue, and control playback   | Enable MCP and configure its URL and connection key in the client                         |
 
-AI Lyric Translation uses your configured model service. Local alignment runs in the bundled Rust worker without Python or a model API key, while MCP exposes playback tools to an external client. They are configured independently; lyric translation does not require MCP.
+AI Lyric Translation and Listening Companion use your configured model service. Local alignment runs in the bundled Rust worker without Python or a model API key, while MCP exposes playback tools to an external client. They are configured independently; neither lyric translation nor the listening companion requires exposing MCP externally.
 
 ## Configure an AI model
 
@@ -98,10 +99,21 @@ In **Settings → Lyrics**, configure translation, romanization, word romanizati
 ::: tip Applying still requires a separate save
 After applying, open **Copy Lyrics → Save and export lyrics** to preview and save the results. To keep timed translation and cross-word romanization alignment, choose **Complete TTML** and keep the matching `.sakura.json` file with the TTML if one was generated. See [Copy, share, and save](/en/lyrics#copy-share-and-save) for file locations, audio tags, and compatible formats.
 
+## AI Listening Companion
+
+Enable **Listening companion** under **Settings → AI Integration → Listening Companion** to chat about the current music with your active AI model through a desktop character (requires tool-calling support). Turning the switch off clears the active session conversation.
+
+- **Show desktop character:** Displays a floating companion character that animates with playback beats; click it to open chat or drag it to reposition. You can also toggle the character and click-through from the system tray menu.
+- **Show reply bubbles:** Displays new replies next to the desktop character while chat is collapsed, with configurable **Reply bubble duration** (`3`–`30` seconds, default `8` seconds).
+- **Keep character on top and click-through:** Keeps the character above other windows or passes mouse clicks through to windows underneath. While click-through is on, disable it in Settings or the tray menu to interact with the character again.
+- **Proactive comments:** Disabled by default. When enabled, the player looks up song sections once playback settles or enters annotated chorus/highlight segments and shares playback context with your model; if the model has nothing to add, it stays silent.
+- **Full player comments:** Displays full replies as danmaku across all five full-screen layouts, with configurable **Comment duration** (`5`–`18` seconds, default `9` seconds) and **Comment lanes** (`1`–`3`, default `2`). Under reduced motion, each line stays visible for the configured duration.
+
 ## Data and credentials
 
-- Requests are made to the configured model URL when you test a connection, start generation, or resume it.
+- Requests are made to the configured model URL when you test a connection, start or resume lyric generation, or send a companion prompt (or enable proactive comments).
 - Generation sends the song title, artists, requested lyric text or words, and existing translation or romanization needed for the selected tasks. Resume requests also include bounded failure feedback.
+- The listening companion exposes only read-only music context tools (playback status, track title/artists/album, nearby lyric lines, song highlight sections, and library summaries), omitting local file paths, signed artwork URLs, and streaming credentials.
 - Audio, artwork, local file paths, and original timestamps are not sent. Returned word mappings are converted to timing locally.
 - The main process encrypts API keys in local operating-system secure storage. Settings exposes only whether a key is saved. Saving or reusing keys is refused when secure storage is unavailable, including the Linux `basic_text` backend.
 - Requests go directly from your device to the configured service. Its operator determines retention, quotas, and billing; testing and generation can both consume usage.

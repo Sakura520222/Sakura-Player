@@ -31,23 +31,25 @@ Client configuration fields vary. Keep Sakura Player running while the client is
 
 ## Tools
 
-| Tool                            | Parameters                             | Description                                                       |
-| ------------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
-| `get_playback_status`           | —                                      | Playback state, queue index, position, volume, and modes          |
-| `get_now_playing`               | —                                      | Lightweight current-track snapshot without full lyrics            |
-| `get_queue`                     | `offset?`, `limit?`                    | Read the current playback queue; defaults to 50 tracks, up to 100 |
-| `play` / `pause` / `stop`       | —                                      | Playback control                                                  |
-| `next_track` / `previous_track` | —                                      | Change track                                                      |
-| `seek`                          | `positionMs`                           | Seek to a millisecond position                                    |
-| `set_volume`                    | `volume`                               | Set volume from `0` to `1`                                        |
-| `set_play_mode`                 | `repeat?`, `shuffle?`                  | Configure repeat and shuffle                                      |
-| `play_track`                    | `track`                                | Request playback with a complete Track from search results        |
-| `add_to_queue`                  | `tracks`, `position?`                  | Add 1–50 complete Tracks at `next` or `end`                       |
-| `search_library`                | `query`, `limit?`                      | Search the local library; default 20, max 100                     |
-| `search_online_songs`           | `platform`, `query`, `page?`, `limit?` | Search online sources; max 50 per page                            |
-| `get_random_tracks`             | `limit?`                               | Random tracks; default 10, max 50                                 |
-| `list_albums`                   | `limit?`                               | Album summaries; default 50, max 100                              |
-| `list_artists`                  | `limit?`                               | Artist summaries; default 50, max 100                             |
+| Tool                            | Parameters                             | Description                                                                 |
+| ------------------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `get_playback_status`           | —                                      | Playback state, queue index, position, volume, and modes                    |
+| `get_now_playing`               | —                                      | Lightweight current-track snapshot without full lyrics                      |
+| `get_current_lyric_context`     | `radius?`                              | Current lyric line and nearby lines (`radius` `0`–`3`, default `1`, in ms)  |
+| `get_current_song_highlights`   | —                                      | Platform chorus and climax annotations with millisecond ranges and matching |
+| `get_queue`                     | `offset?`, `limit?`                    | Read the current playback queue; defaults to 50 tracks, up to 100           |
+| `play` / `pause` / `stop`       | —                                      | Playback control                                                            |
+| `next_track` / `previous_track` | —                                      | Change track                                                                |
+| `seek`                          | `positionMs`                           | Seek to a millisecond position                                              |
+| `set_volume`                    | `volume`                               | Set volume from `0` to `1`                                                  |
+| `set_play_mode`                 | `repeat?`, `shuffle?`                  | Configure repeat and shuffle                                                |
+| `play_track`                    | `track`                                | Request playback with a complete Track from search results                  |
+| `add_to_queue`                  | `tracks`, `position?`                  | Add 1–50 complete Tracks at `next` or `end`                                 |
+| `search_library`                | `query`, `limit?`                      | Search the local library; default 20, max 100                               |
+| `search_online_songs`           | `platform`, `query`, `page?`, `limit?` | Search online sources; max 50 per page                                      |
+| `get_random_tracks`             | `limit?`                               | Random tracks; default 10, max 50                                           |
+| `list_albums`                   | `limit?`                               | Album summaries; default 50, max 100                                        |
+| `list_artists`                  | `limit?`                               | Artist summaries; default 50, max 100                                       |
 
 ## Playback status
 
