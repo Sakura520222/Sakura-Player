@@ -85,9 +85,16 @@ if (useAudio) {
   wave.write("data", 36);
   wave.writeUInt32LE(dataBytes, 40);
   await writeFile(`${audioFixture}.wav`, wave);
+  // 行首和行宽都不同，滚动时取样区内的字形也随之变化
+  const verseTexts = [
+    "低音弦轻轻振动",
+    "The light is moving across the glass",
+    "回声",
+    "A longer phrase follows the quiet opening",
+  ];
   const verses = Array.from({ length: 24 }, (_, index) => {
     const start = 14 + index * 3;
-    return `<p begin="${start}s" end="${start + 2}s">Glass fixture lyric ${index + 1}</p>`;
+    return `<p begin="${start}s" end="${start + 2}s">${verseTexts[index % verseTexts.length]} ${index + 1}</p>`;
   });
   await writeFile(
     `${audioFixture}.ttml`,
@@ -201,13 +208,21 @@ async function evaluate<T = boolean>(expression: string): Promise<T> {
   return reply.result.value;
 }
 
-/** 通过 CDP 发送真实指针事件 */
+/**
+ * 确认弹层进场结束且点击位置未被遮挡后，再派发真实指针事件
+ * @param selector - 要点击的控件选择器
+ */
 async function click(selector: string): Promise<void> {
   const point = await until(
     () =>
       evaluate<{ x: number; y: number } | null>(`(() => {
-    const rect = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect();
-    return rect?.width && { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!element) return null;
+    const popup = element.closest('[data-theme-popup], [data-dialog-content]');
+    if (popup?.getAnimations().some(animation => animation.playState === 'running')) return null;
+    const rect = element.getBoundingClientRect();
+    const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+    return rect.width && rect.height && element.contains(document.elementFromPoint(x, y)) ? { x, y } : null;
   })()`),
     selector,
   );
@@ -781,7 +796,7 @@ try {
       });
       window.coverObserver.observe(document.querySelector('body'), { attributes: true, attributeFilter: ['data-player-shared'], subtree: true });
     }`);
-    await click('footer [data-player-cover="bar"]');
+    await click("footer [data-player-expand]");
     await until(
       () =>
         evaluate(`!!document.querySelector('[data-liquid-player]') && ${status}.isPlayerExpanded`),
@@ -890,6 +905,27 @@ try {
         `Compact full-player dock at ${width}px: ${JSON.stringify(dock)}`,
       );
       await capture(`full-player-compact-${width}`);
+      if (width === 450) {
+        const readable = await evaluate<boolean>(`(async () => {
+          const settings = ${stores}.get("settings").system.companion;
+          const { enabled, danmaku, danmakuLanes } = settings;
+          try {
+            Object.assign(settings, { enabled: true, danmaku: true, danmakuLanes: 3 });
+            await new Promise(requestAnimationFrame);
+            const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+            const lanes = box('.companion-danmaku'), art = box('.liquid-album-art'), data = box('.liquid-album-data');
+            const separated = art.bottom <= data.top + 1 || art.right <= data.left + 1;
+            return data.height >= 16 && art.width > 0 && separated && data.top >= lanes.bottom - 1 &&
+              data.bottom <= box('.liquid-playing-dock').top + 1;
+          } finally {
+            Object.assign(settings, { enabled, danmaku, danmakuLanes });
+          }
+        })()`);
+        assert.ok(
+          readable,
+          "Three comment lanes must leave the cover and song information visible",
+        );
+      }
     }
     await send("Emulation.clearDeviceMetricsOverride");
     if (material === "refraction") {
@@ -1059,18 +1095,23 @@ try {
     await evaluate(
       `${playerOptions}.playerBgType = 'animation'; ${playerOptions}.enableSpectrum = true`,
     );
+    const backgroundSurface = noGpu
+      ? ".bg-blur-wrap .bg-img.active"
+      : ".bg-fluid-wrap.ready canvas";
     const visualizersReady = (): Promise<boolean> =>
-      evaluate(`!!document.querySelector('.bg-fluid-wrap.ready canvas')?.width &&
-      !!document.querySelector('.spectrum-canvas')?.width`);
-    await until(visualizersReady, "Liquid keeps the fluid renderer and spectrum");
+      evaluate(`(() => {
+        const background = document.querySelector('${backgroundSurface}');
+        const painted = ${noGpu} ? background?.complete && background.naturalWidth > 0 : background?.width > 0;
+        return painted && !!document.querySelector('.spectrum-canvas')?.width;
+      })()`);
+    await until(visualizersReady, "visible background and spectrum");
+    const previewVisible =
+      "getComputedStyle(document.querySelector('.bg-blur-wrap')).display !== 'none'";
     await until(
-      () =>
-        evaluate("getComputedStyle(document.querySelector('.bg-blur-wrap')).display === 'none'"),
-      "fluid background has finished fading in",
+      () => evaluate(`(${previewVisible}) === ${noGpu}`),
+      "background preview visibility",
     );
-    await evaluate(
-      "window.backgroundCanvas = document.querySelector('.bg-fluid-wrap.ready canvas')",
-    );
+    await evaluate(`window.backgroundSurface = document.querySelector('${backgroundSurface}')`);
     await evaluate(`Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
       document.dispatchEvent(new Event('visibilitychange'))`);
     await until(
@@ -1078,23 +1119,21 @@ try {
       "hidden window stops spectrum rendering",
     );
     assert.equal(
-      await evaluate(
-        "window.backgroundCanvas === document.querySelector('.bg-fluid-wrap.ready canvas')",
-      ),
+      await evaluate(`window.backgroundSurface === document.querySelector('${backgroundSurface}')`),
       true,
-      "hidden window retains the ready fluid background",
+      "hidden window retains its background",
     );
     await evaluate(
       "delete document.visibilityState; document.dispatchEvent(new Event('visibilitychange'))",
     );
-    await until(visualizersReady, "fluid renderer and spectrum restore together");
+    await until(visualizersReady, "background and spectrum restore together");
     assert.equal(
-      await evaluate(`window.backgroundCanvas === document.querySelector('.bg-fluid-wrap.ready canvas') &&
-        getComputedStyle(document.querySelector('.bg-blur-wrap')).display === 'none'`),
+      await evaluate(`window.backgroundSurface === document.querySelector('${backgroundSurface}') &&
+        (${previewVisible}) === ${noGpu}`),
       true,
-      "restoring the window keeps the same canvas and does not flash the preview",
+      "restoring the window keeps its background and preview state",
     );
-    await evaluate("delete window.backgroundCanvas");
+    await evaluate("delete window.backgroundSurface");
     await evaluate(
       `${playerOptions}.playerBgType = 'blur'; ${playerOptions}.enableSpectrum = false`,
     );

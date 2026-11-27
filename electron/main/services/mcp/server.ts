@@ -1,3 +1,6 @@
+import { getSongHighlightKey } from "@shared/utils/songHighlight";
+import { getLyricContext } from "./musicContext";
+import { getSongHighlight } from "@main/services/songHighlight";
 import { appVersion } from "@main/utils/config";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
@@ -21,7 +24,7 @@ const jsonContent = (value: unknown) => ({
  * 创建并注册 Sakura Player MCP 工具与资源
  * @returns 供 HTTP 会话使用的 MCP 服务
  */
-const createServer = (): McpServer => {
+export const createServer = (): McpServer => {
   const server = new McpServer({
     name: "sakura-player",
     version: appVersion,
@@ -46,6 +49,37 @@ const createServer = (): McpServer => {
       annotations: { readOnlyHint: true, idempotentHint: true },
     },
     () => jsonContent(nowPlaying.lightSnapshot()),
+  );
+
+  server.registerTool(
+    "get_current_lyric_context",
+    {
+      title: "获取当前歌词片段",
+      description:
+        "读取当前播放位置对应的歌词行及有限前后文，时间单位为毫秒，currentIndex 为 -1 表示尚未进入歌词",
+      inputSchema: { radius: z.number().int().min(0).max(3).default(1) },
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    ({ radius }) => jsonContent(getLyricContext(nowPlaying.snapshot(), radius)),
+  );
+
+  server.registerTool(
+    "get_current_song_highlights",
+    {
+      title: "获取当前歌曲段落标注",
+      description:
+        "按平台获取副歌 chorus 与高潮 climax 标注、毫秒起止时间及匹配依据，sources 报告各平台查询状态",
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    async () => {
+      const { track } = nowPlaying.lightSnapshot();
+      if (!track) return jsonContent({ title: null, ok: true, data: null, sources: [] });
+      const key = getSongHighlightKey(track);
+      const result = await getSongHighlight(track);
+      if (key !== getSongHighlightKey(nowPlaying.lightSnapshot().track))
+        throw new Error("当前歌曲已变更，请重新读取标注");
+      return jsonContent({ title: track.title, ...result });
+    },
   );
 
   server.registerTool(

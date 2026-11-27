@@ -1,5 +1,6 @@
 import type { PluginsConfig, PluginQuality } from "./plugin";
 import type { HotkeyConfig } from "./hotkey";
+import type { CompanionSettings } from "./companion";
 import type { DownloadLyricFormat, DownloadFolderScheme } from "./download";
 
 /** 支持的语言代码 */
@@ -445,6 +446,7 @@ export type KugouLoginVersion = "standard" | "concept";
 
 /** 后端配置汇总 */
 export interface SystemConfig {
+  companion: CompanionSettings;
   /** 播放器配置 */
   player: PlayerSettings;
   /** 媒体集成配置 */

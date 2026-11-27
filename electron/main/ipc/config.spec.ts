@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   replaceAll: vi.fn(),
   sync: vi.fn(),
   syncDynamicIslandVisibility: vi.fn(),
+  applyDesktopLyricAlwaysOnTop: vi.fn(),
+  applyDynamicIslandAlwaysOnTop: vi.fn(),
+  syncCompanion: vi.fn(),
   get: vi.fn(),
   broadcast: vi.fn(),
   refreshPowerBlocker: vi.fn(),
@@ -30,11 +33,14 @@ vi.mock("@main/utils/logger", () => ({ systemLog: {} }));
 vi.mock("@main/utils/powerBlocker", () => ({ refreshPowerBlocker: mocks.refreshPowerBlocker }));
 vi.mock("@main/utils/config", () => ({ isWin: true }));
 vi.mock("@main/utils/broadcast", () => ({ broadcast: mocks.broadcast }));
+vi.mock("@main/services/companion", () => ({ syncCompanionConfig: mocks.syncCompanion }));
 vi.mock("@main/services/media", () => ({}));
 vi.mock("@main/services/lastfm", () => ({}));
 vi.mock("@main/services/engine", () => ({}));
 vi.mock("@main/window", () => ({
   syncDynamicIslandVisibility: mocks.syncDynamicIslandVisibility,
+  applyDesktopLyricAlwaysOnTop: mocks.applyDesktopLyricAlwaysOnTop,
+  applyDynamicIslandAlwaysOnTop: mocks.applyDynamicIslandAlwaysOnTop,
 }));
 vi.mock("@main/server", () => ({}));
 vi.mock("@main/services/mcp/http", () => ({}));
@@ -90,10 +96,44 @@ describe("更新配置入口", () => {
   it.each([
     ["config:reset", []],
     ["config:replaceAll", [null, { dynamicIsland: { hideWhenPaused: false } }]],
-  ] as const)("%s 后重新应用暂停隐藏与电源策略", (channel, args) => {
+  ] as const)("%s 后重新应用暂停隐藏、置顶、陪伴广播与电源策略", (channel, args) => {
+    const companion = { enabled: false, showAvatar: true };
+    const desktopLyric = { alwaysOnTop: true };
+    const dynamicIsland = { alwaysOnTop: false };
+    mocks.get.mockImplementation(
+      (key: string) =>
+        ({
+          companion,
+          desktopLyric,
+          dynamicIsland,
+          "desktopLyric.alwaysOnTop": desktopLyric.alwaysOnTop,
+          "dynamicIsland.alwaysOnTop": dynamicIsland.alwaysOnTop,
+        })[key],
+    );
+    mocks.broadcast.mockClear();
+    mocks.applyDesktopLyricAlwaysOnTop.mockClear();
+    mocks.applyDynamicIslandAlwaysOnTop.mockClear();
     mocks.handlers.get(channel)!(...args);
     expect(mocks.syncDynamicIslandVisibility).toHaveBeenCalledOnce();
+    expect(mocks.applyDesktopLyricAlwaysOnTop).toHaveBeenCalledExactlyOnceWith(true);
+    expect(mocks.applyDynamicIslandAlwaysOnTop).toHaveBeenCalledExactlyOnceWith(false);
     expect(mocks.refreshPowerBlocker).toHaveBeenCalledOnce();
+    expect(mocks.syncCompanion).toHaveBeenCalledOnce();
+    expect(mocks.broadcast).toHaveBeenCalledWith("companion:configChange", companion);
+    expect(mocks.broadcast).toHaveBeenCalledWith("desktopLyric:configChange", desktopLyric);
+    expect(mocks.broadcast).toHaveBeenCalledWith("dynamicIsland:configChange", dynamicIsland);
+  });
+
+  it.each([
+    ["companion.replyBubble", false],
+    ["companion.replyBubbleSeconds", 13],
+  ])("修改 %s 后通知陪伴窗口重新读取配置", (keyPath, value) => {
+    mocks.handlers.get("config:set")!(null, keyPath, value);
+    expect(mocks.set).toHaveBeenCalledWith(keyPath, value);
+    expect(mocks.syncCompanion).toHaveBeenCalledWith(keyPath);
+    expect(mocks.set.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.syncCompanion.mock.invocationCallOrder[0],
+    );
   });
 
   it("屏幕常亮开关写入后立即刷新电源策略", () => {

@@ -8,6 +8,7 @@ import type { LocaleCode } from "@shared/types/settings";
 import { setLocale } from "@main/utils/i18n";
 import { systemLog } from "@main/utils/logger";
 import { refreshTray } from "@main/services/tray";
+import { publishCompanionState } from "@main/services/companion";
 import { getMainWindow, focusMainWindow } from "@main/window";
 import { fetchBytes } from "@main/utils/fetchBytes";
 import { logsDir } from "@main/utils/paths";
@@ -71,6 +72,7 @@ export const registerSystemIpc = (): void => {
   // 切换主进程语言
   ipcMain.on("system:setLocale", (_event, locale: LocaleCode) => {
     if (setLocale(locale)) {
+      publishCompanionState();
       refreshTray();
     }
   });

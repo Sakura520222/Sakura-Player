@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 import type { PlayerLayout } from "@/types/settings";
+import { defaultSystemConfig } from "@shared/defaults/settings";
 import { useStatusStore } from "@/stores/status";
 import { useSettingsStore } from "@/stores/settings";
 import { useThemeStore } from "@/stores/theme";
@@ -17,6 +18,7 @@ import ClassicLayout from "./layouts/standard/ClassicLayout.vue";
 import FullCoverLayout from "./layouts/standard/FullCoverLayout.vue";
 import FullLyricLayout from "./layouts/standard/FullLyricLayout.vue";
 import AppleLayout from "./layouts/apple/AppleLayout.vue";
+import CompanionDanmaku from "./shared/CompanionDanmaku.vue";
 
 /** 布局设置与布局组件的对应关系 */
 const LAYOUTS: Partial<Record<string, Component>> & Record<PlayerLayout, Component> = {
@@ -42,6 +44,21 @@ const themeMaterial = inject(materialKey);
 const visibility = computed(
   () => themeMaterial?.value.visible ?? documentVisibility.value === "visible",
 );
+
+const danmakuActive = computed(
+  () =>
+    isPlayerExpanded.value &&
+    visibility.value &&
+    settings.system.companion.enabled &&
+    settings.system.companion.danmaku,
+);
+const danmakuLanes = computed(() => {
+  if (settings.reducedMotion) return 1;
+  const lanes = settings.system.companion.danmakuLanes;
+  return Number.isFinite(lanes)
+    ? Math.max(1, Math.min(3, Math.round(lanes)))
+    : defaultSystemConfig.companion.danmakuLanes;
+});
 
 const contentActive = computed(
   () => isPlayerExpanded.value && contentPrepared.value && visibility.value,
@@ -206,6 +223,12 @@ provide(fullPlayerContextKey, {
           :show="isPlaying && immersive"
         />
         <component :is="layout" @vue:mounted="fullPlayerReady = true" />
+        <CompanionDanmaku
+          v-if="danmakuActive"
+          :lanes="danmakuLanes"
+          :seconds="settings.system.companion.danmakuSeconds"
+          :reduced-motion="settings.reducedMotion"
+        />
       </div>
     </Transition>
   </Teleport>

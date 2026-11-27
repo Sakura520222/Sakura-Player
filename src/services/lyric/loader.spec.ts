@@ -51,6 +51,9 @@ const mockWindowApi = {
   player: {
     readLyricFile: vi.fn().mockResolvedValue({ success: false, data: null }),
   },
+  companion: {
+    onConfigChange: vi.fn(() => () => {}),
+  },
   desktopLyric: {
     onConfigChange: vi.fn(() => () => {}),
   },

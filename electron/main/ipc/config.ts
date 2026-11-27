@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { syncCompanionConfig } from "@main/services/companion";
 import { dialog, ipcMain } from "electron";
 import { store } from "@main/store";
 import type { ConfigPath } from "@main/store/types";
@@ -46,6 +47,10 @@ import { refreshPowerBlocker } from "@main/utils/powerBlocker";
  * @param value - 新值
  */
 const applyConfigChange = (keyPath: string, value: unknown): void => {
+  if (keyPath === "companion" || keyPath.startsWith("companion.")) {
+    syncCompanionConfig(keyPath);
+    broadcast("companion:configChange", store.get("companion"));
+  }
   switch (keyPath) {
     case "player.keepScreenAwake":
       refreshPowerBlocker();
@@ -169,6 +174,12 @@ export const registerConfigIpc = (): void => {
   ipcMain.handle("config:reset", () => {
     if (getUpdateState().phase === "installing") throw new Error("安装启动中，无法重置配置");
     store.clear();
+    syncCompanionConfig();
+    broadcast("companion:configChange", store.get("companion"));
+    applyDesktopLyricAlwaysOnTop(store.get("desktopLyric.alwaysOnTop"));
+    applyDynamicIslandAlwaysOnTop(store.get("dynamicIsland.alwaysOnTop"));
+    broadcast("desktopLyric:configChange", store.get("desktopLyric"));
+    broadcast("dynamicIsland:configChange", store.get("dynamicIsland"));
     syncUpdateChannel();
     syncDynamicIslandVisibility();
     refreshPowerBlocker();
@@ -178,6 +189,12 @@ export const registerConfigIpc = (): void => {
   ipcMain.handle("config:replaceAll", (_event, payload: unknown) => {
     if (getUpdateState().phase === "installing") throw new Error("安装启动中，无法替换配置");
     store.replaceAll(payload);
+    syncCompanionConfig();
+    broadcast("companion:configChange", store.get("companion"));
+    applyDesktopLyricAlwaysOnTop(store.get("desktopLyric.alwaysOnTop"));
+    applyDynamicIslandAlwaysOnTop(store.get("dynamicIsland.alwaysOnTop"));
+    broadcast("desktopLyric:configChange", store.get("desktopLyric"));
+    broadcast("dynamicIsland:configChange", store.get("dynamicIsland"));
     syncUpdateChannel();
     syncDynamicIslandVisibility();
     refreshPowerBlocker();

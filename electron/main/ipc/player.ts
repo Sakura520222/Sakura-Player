@@ -9,6 +9,9 @@ import {
 } from "@main/services/playerPreload";
 import { extname } from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
+import { getCompanionWindow } from "@main/window/companion";
+import { hasFftSubscribers, isFftSubscriber, subscribeFft } from "@main/services/fftSubscriptions";
+import { getCompanionBeatLevel } from "@shared/utils/audioFeatures";
 import { sendToMain } from "@main/utils/broadcast";
 import { readLyricDocument } from "@main/services/lyricDocument";
 import { decodeLyricStorage } from "@main/services/lyricStorage";
@@ -61,39 +64,18 @@ import type { MediaEvent } from "@splayer/media-ctrl";
 import { JsPlayerEvent } from "@splayer/audio-engine";
 import type { JsMusicMetadata } from "@splayer/audio-engine";
 import type { AutoMixPrepareOptions, TransitionMode } from "@shared/types/automix";
+import {
+  activeCueRange,
+  beginPlaybackOperation,
+  playbackRevision as loadSeq,
+  setCueTrack,
+  toDisplayPositionMs,
+  toDisplayDurationMs,
+  toEnginePositionMs,
+} from "@main/services/playbackTimeline";
 import { canAutoMix } from "@main/services/automix/planner";
 
 type AudioEngineModule = typeof import("@splayer/audio-engine");
-
-interface CueRange {
-  startMs: number;
-  durationMs: number;
-}
-
-/** 当前加载的 CUE 分轨范围 */
-let activeCueRange: CueRange | null = null;
-
-/** 从 Track 元数据提取 CUE 分轨范围 */
-const cueRangeFromTrack = (track: LoadOptions["meta"] | null | undefined): CueRange | null => {
-  const start = track?.cueStartMs;
-  const end = track?.cueEndMs;
-  if (start == null || end == null || end <= start) return null;
-  return { startMs: start, durationMs: end - start };
-};
-
-/** 引擎绝对时间转换为当前曲目展示时间 */
-const toDisplayPositionMs = (positionMs: number): number => {
-  if (!activeCueRange) return positionMs;
-  return Math.max(0, Math.min(activeCueRange.durationMs, positionMs - activeCueRange.startMs));
-};
-
-/** 当前曲目展示时长 */
-const toDisplayDurationMs = (durationMs: number): number =>
-  activeCueRange?.durationMs ?? durationMs;
-
-/** 展示时间转换为引擎绝对时间 */
-const toEnginePositionMs = (positionMs: number): number =>
-  activeCueRange ? activeCueRange.startMs + positionMs : positionMs;
 
 /** 返回失败响应，附带日志 */
 const fail = (code: ErrorCode, error?: unknown) => {
@@ -135,6 +117,8 @@ const classifyLoadError = (error: unknown, source: string): ErrorCode => {
  * @param inst - 播放器实例
  */
 const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"]>): void => {
+  if (hasFftSubscribers()) inst.setFftEnabled(true);
+  let lastBeatAt = 0;
   inst.onEvent((event: JsPlayerEvent) => {
     switch (event.type) {
       case "stateChanged": {
@@ -156,7 +140,8 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
           mediaService.setPlayState({ status: "Paused" });
           setTaskbarProgress(-1);
         }
-        nowPlaying.onPlayStateChange(state);
+        const position = toDisplayPositionMs(toMs(inst.getPosition()));
+        nowPlaying.onPlayStateChange(state, position);
         syncDynamicIslandVisibility();
         lastfm.onState(state === "playing");
         neteaseScrobble.onState(state === "playing");
@@ -165,7 +150,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
           type: "status",
           data: {
             state,
-            position: toDisplayPositionMs(toMs(inst.getPosition())),
+            position,
             duration: toDisplayDurationMs(toMs(inst.getDuration())),
             volume: inst.getVolume(),
             speed: inst.getSpeed(),
@@ -177,6 +162,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
         break;
       }
       case "ended": {
+        nowPlaying.notifyDiscontinuity();
         updatePowerBlocker("stopped");
         sendToMain("player:event", { type: "ended" });
         wsBroadcast({ type: "ended" });
@@ -188,6 +174,7 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
         break;
       }
       case "sourceError": {
+        nowPlaying.notifyDiscontinuity();
         updatePowerBlocker("stopped");
         // 音源失效（网络中断 / URL 过期）
         sendToMain("player:event", { type: "sourceError" });
@@ -254,7 +241,22 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
       }
       case "fftData": {
         const fftEvent = { type: "fftData", data: event.fftData ?? { ldata: [], rdata: [] } };
-        if (getMainWindow()?.isVisible()) sendToMain("player:event", fftEvent);
+        const main = getMainWindow();
+        if (main?.isVisible() && isFftSubscriber(main.webContents)) {
+          main.webContents.send("player:event", fftEvent);
+        }
+        // 复用统一 FFT 低频脉冲并兼顾中频乐器能量，限制跨窗推送频率
+        const companion = getCompanionWindow();
+        const now = performance.now();
+        if (
+          companion?.isVisible() &&
+          isFftSubscriber(companion.webContents) &&
+          now - lastBeatAt >= 80
+        ) {
+          lastBeatAt = now;
+          const level = getCompanionBeatLevel([fftEvent.data.ldata, fftEvent.data.rdata]);
+          companion.webContents.send("companion:beat", level);
+        }
         wsBroadcast(fftEvent);
         break;
       }
@@ -281,11 +283,11 @@ const registerNativeEvents = (inst: InstanceType<AudioEngineModule["AudioPlayer"
   });
 };
 
-/** 播放操作代次，加载、停止、跳转和实例重置都会作废旧响应 */
-let loadSeq = 0;
 let streamingServerId: string | undefined;
 onPlayerReset(() => {
-  loadSeq++;
+  setCueTrack(null);
+  nowPlaying.notifyDiscontinuity();
+  beginPlaybackOperation();
   void streamingPlayback.stopStreamingPlayback();
 });
 
@@ -296,7 +298,7 @@ onPlayerReset(() => {
  */
 export const stopStreamingPlayer = (serverId: string): Promise<void> => {
   if (streamingServerId === serverId) {
-    loadSeq++;
+    beginPlaybackOperation();
     streamingServerId = undefined;
     cancelPreparedTrack();
     getPlayer().stop();
@@ -492,11 +494,12 @@ export const registerPlayerIpc = (): void => {
           playerLog.info("交叉过渡未启动，等待正常切歌");
           return { success: false };
         }
-        activeCueRange = cueRangeFromTrack(options.meta);
+        nowPlaying.notifyDiscontinuity();
+        setCueTrack(options.meta);
         streamingServerId =
           options.meta?.source === "streaming" ? options.meta.serverId : undefined;
         void streamingPlayback.stopStreamingPlayback();
-        const completedSeq = ++loadSeq;
+        const completedSeq = beginPlaybackOperation();
         cancelPreparedTrack(id);
         const inst = getPlayer();
         const state = inst.getStatus().state as PlayerState;
@@ -518,7 +521,7 @@ export const registerPlayerIpc = (): void => {
           speed: inst.getSpeed(),
           timestamp: Date.now(),
         };
-        if (options.meta) nowPlaying.prepareTransition(options.meta.id, playback);
+        if (options.meta) nowPlaying.prepareTransition(options.meta, playback);
         mediaService.setTimeline({
           currentMs: playback.position,
           totalMs: result.data.mediaInfo.duration,
@@ -551,19 +554,19 @@ export const registerPlayerIpc = (): void => {
   });
   // 加载音频文件
   ipcMain.handle("player:load", async (_event, source: string, options: LoadOptions = {}) => {
+    nowPlaying.notifyDiscontinuity();
     cancelPendingReinit();
     const autoPlay = options.autoPlay ?? true;
     const authoritative = options.meta ?? null;
-    const cueRange = cueRangeFromTrack(authoritative);
+    const cueRange = setCueTrack(authoritative);
     const nativeRange = cueRange
       ? { start: cueRange.startMs / 1000, end: (cueRange.startMs + cueRange.durationMs) / 1000 }
       : undefined;
     const preparedAutoMix = options.preparedId
       ? getPreparedAutoMixPlan(options.preparedId)
       : undefined;
-    activeCueRange = cueRange;
     setCurrentTransitionRange();
-    const seq = ++loadSeq;
+    const seq = beginPlaybackOperation();
     streamingServerId = authoritative?.source === "streaming" ? authoritative.serverId : undefined;
     void streamingPlayback.stopStreamingPlayback();
     if (!options.preparedId) cancelPreparedTrack();
@@ -678,7 +681,7 @@ export const registerPlayerIpc = (): void => {
       );
       return result;
     } catch (error) {
-      if (seq === loadSeq) activeCueRange = null;
+      if (seq === loadSeq) setCueTrack(null);
       const code = classifyLoadError(error, source);
       // 解码失败的源指向歌曲缓存目录 → 文件已损坏，把这条缓存项作废
       if (
@@ -721,14 +724,14 @@ export const registerPlayerIpc = (): void => {
 
   // 停止播放并释放资源
   ipcMain.handle("player:stop", () => {
-    loadSeq++;
+    beginPlaybackOperation();
     void streamingPlayback.stopStreamingPlayback();
     try {
       neteaseScrobble.onStopped();
       lastfm.onStopped();
       cancelPreparedTrack();
       cancelPendingReinit();
-      activeCueRange = null;
+      setCueTrack(null);
       setCurrentTransitionRange();
       getPlayer().stop();
       return { success: true };
@@ -739,7 +742,8 @@ export const registerPlayerIpc = (): void => {
 
   // 跳转到指定播放位置
   ipcMain.handle("player:seek", async (_event, positionMs: number, restartRound = false) => {
-    const seq = ++loadSeq;
+    nowPlaying.notifyDiscontinuity();
+    const seq = beginPlaybackOperation();
     try {
       /** 重播时先装配轮次，原生 seek 的播放事件才能启动新的计时 */
       if (restartRound) {
@@ -913,9 +917,9 @@ export const registerPlayerIpc = (): void => {
   });
 
   // 启用/禁用 FFT 频谱推送（前端组件挂载时启用，卸载时禁用）
-  ipcMain.handle("player:setFftEnabled", (_event, enabled: boolean) => {
+  ipcMain.handle("player:setFftEnabled", (event, enabled: boolean) => {
     try {
-      getPlayer().setFftEnabled(enabled);
+      subscribeFft(event.sender, enabled);
       return { success: true };
     } catch (error) {
       return fail(ErrorCode.UNKNOWN, error);
@@ -1051,26 +1055,39 @@ export const registerPlayerIpc = (): void => {
           inst.pause();
           break;
         case "Stop":
-          loadSeq++;
+          nowPlaying.notifyDiscontinuity();
+          setCueTrack(null);
+          beginPlaybackOperation();
           void streamingPlayback.stopStreamingPlayback();
           cancelPreparedTrack();
+          cancelPendingReinit();
           setCurrentTransitionRange();
           inst.stop();
           break;
         case "Seek":
-          if (event.positionMs != null) {
-            const seq = ++loadSeq;
-            const targetMs = event.positionMs;
+          if (
+            event.positionMs != null &&
+            Number.isFinite(event.positionMs) &&
+            event.positionMs >= 0
+          ) {
+            nowPlaying.notifyDiscontinuity();
+            const seq = beginPlaybackOperation();
+            const durationMs = toDisplayDurationMs(toMs(inst.getDuration()));
+            const targetMs =
+              durationMs > 0 ? Math.min(durationMs, event.positionMs) : event.positionMs;
             sendToMain("player:event", { type: "seek", data: { position: targetMs } });
-            void inst.seek(toEnginePositionMs(targetMs) / 1000).then(() => {
-              if (seq !== loadSeq || inst !== getPlayer()) return;
-              streamingPlayback.onStreamingSeek(targetMs);
-              mediaService.setTimeline({
-                currentMs: targetMs,
-                totalMs: toMs(inst.getDuration()),
-                seeked: true,
-              });
-            });
+            void inst
+              .seek(toEnginePositionMs(targetMs) / 1000)
+              .then(() => {
+                if (seq !== loadSeq || inst !== getPlayer()) return;
+                streamingPlayback.onStreamingSeek(targetMs);
+                mediaService.setTimeline({
+                  currentMs: targetMs,
+                  totalMs: toDisplayDurationMs(toMs(inst.getDuration())),
+                  seeked: true,
+                });
+              })
+              .catch(() => {});
           }
           break;
         case "SetVolume":

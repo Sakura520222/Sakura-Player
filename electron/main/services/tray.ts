@@ -11,6 +11,7 @@ import {
   toggleTaskbarLyricWindow,
   focusMainWindow,
 } from "@main/window";
+import { toggleDesktopPet } from "@main/services/companion";
 
 type PlayState = "playing" | "paused";
 
@@ -23,6 +24,7 @@ let shuffleMode: ShuffleMode = "off";
 let desktopLyricOpen = false;
 let dynamicIslandOpen = false;
 let taskbarLyricOpen = false;
+let desktopPetOpen = false;
 
 const repeatLabel = (mode: RepeatMode): string =>
   ({ list: t("repeatList"), one: t("repeatOne") })[mode];
@@ -129,6 +131,11 @@ const buildMenu = (): Menu => {
           },
         ]
       : []),
+    {
+      label: desktopPetOpen ? t("closeDesktopPet") : t("openDesktopPet"),
+      icon: menuIcon("companion"),
+      click: () => toggleDesktopPet(),
+    },
     { type: "separator" },
     {
       label: t("quit"),
@@ -231,6 +238,16 @@ export const setTrayTaskbarLyric = (open: boolean): void => {
   if (!isWin) return;
   if (taskbarLyricOpen === open) return;
   taskbarLyricOpen = open;
+  refreshTray();
+};
+
+/**
+ * 同步桌面宠物窗口开关状态到托盘
+ * @param open - 桌面宠物是否处于开启状态
+ */
+export const setTrayDesktopPet = (open: boolean): void => {
+  if (desktopPetOpen === open) return;
+  desktopPetOpen = open;
   refreshTray();
 };
 

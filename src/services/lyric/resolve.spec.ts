@@ -32,6 +32,7 @@ const mockWindowApi = {
     searchCandidates: (...args: unknown[]) => mockSearchCandidates(...args),
   },
   opencc: { convertBatch: (...args: unknown[]) => mockConvertBatch(...args) },
+  companion: { onConfigChange: vi.fn(() => () => {}) },
   desktopLyric: { onConfigChange: vi.fn(() => () => {}) },
   taskbarLyric: { onConfigChange: vi.fn(() => () => {}) },
   dynamicIsland: { onConfigChange: vi.fn(() => () => {}) },

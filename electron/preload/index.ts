@@ -72,6 +72,8 @@ const getInstallType = (): "nsis" | "portable" | "appx" | "dmg" | "appimage" => 
   return "nsis";
 };
 
+let companionPanelRevision = 0;
+
 // 暴露给渲染进程的自定义 API
 const api = {
   automix: {
@@ -443,6 +445,41 @@ const api = {
     hide: () => ipcRenderer.send("window:hide"),
     quit: () => ipcRenderer.send("window:quit"),
   },
+  companion: {
+    setTheme: (theme) => ipcRenderer.send("companion:setTheme", theme),
+    getTheme: () => ipcRenderer.invoke("companion:getTheme"),
+    onTheme: (callback) => subscribe("companion:theme", callback),
+    getState: () => ipcRenderer.invoke("companion:getState"),
+    send: (text) => ipcRenderer.invoke("companion:send", text),
+    setTyping: (typing) => ipcRenderer.send("companion:setTyping", typing),
+    /**
+     * 切换陪伴面板并记录本次动画
+     * @param expanded - 是否展开指定内容
+     * @param surface - 聊天面板或临时回复气泡
+     * @returns 本次切换序号，收起时交给离场完成回调
+     */
+    setExpanded: (expanded, surface = "chat") => {
+      const revision = ++companionPanelRevision;
+      ipcRenderer.send("companion:setExpanded", expanded, revision, surface);
+      return revision;
+    },
+    /**
+     * 通知主进程当前面板已完成离场
+     * @param revision - 收起时取得的切换序号
+     */
+    finishCollapse: (revision) => ipcRenderer.send("companion:finishCollapse", revision),
+    setIgnoreMouse: (ignore) => ipcRenderer.send("companion:setIgnoreMouse", ignore),
+    getLayout: () => ipcRenderer.invoke("companion:getLayout"),
+    onLayout: (callback) => subscribe("companion:layout", callback),
+    beginDrag: () => ipcRenderer.send("companion:beginDrag"),
+    endDrag: (cancelled) => ipcRenderer.invoke("companion:endDrag", cancelled),
+    moveBy: (dx, dy) => ipcRenderer.send("companion:moveBy", dx, dy),
+    onBeat: (callback) => subscribe("companion:beat", callback),
+    onConfigChange: (callback) => subscribe("companion:configChange", callback),
+    onState: (callback) => subscribe("companion:state", callback),
+    onDraft: (callback) => subscribe("companion:draft", callback),
+    onDanmaku: (callback) => subscribe("companion:danmaku", callback),
+  } satisfies import("@shared/types/companion").CompanionApi,
   desktopLyric: {
     // 订阅桌面歌词配置变化
     onConfigChange: (callback: (config: unknown) => void) =>

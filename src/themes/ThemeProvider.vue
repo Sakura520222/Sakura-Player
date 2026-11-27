@@ -42,8 +42,8 @@ watchEffect(() => {
   });
 });
 
-const material = computed(() => ({
-  ...resolveMaterial(optics.value?.quality ?? "low", optics.value?.refraction ?? 0, {
+const materialSpec = computed(() =>
+  resolveMaterial(optics.value?.quality ?? "low", optics.value?.refraction ?? 0, {
     backdrop,
     displacement,
     accelerated: accelerated.value,
@@ -51,6 +51,9 @@ const material = computed(() => ({
     limitedDevice,
     svgFilterVerified: svgFilterVerified.value,
   }),
+);
+const material = computed(() => ({
+  ...materialSpec.value,
   visible: visible.value,
 }));
 provide(materialKey, material);
@@ -70,6 +73,25 @@ watchEffect((onCleanup) => {
   for (const [key, value] of Object.entries(definition.tokens)) root.style.setProperty(key, value);
   onCleanup(() => {
     for (const key of Object.keys(definition.tokens)) root.style.removeProperty(key);
+  });
+});
+// 只发送最终外观，播放器当前曲目和主题背景图片无需跨窗复制
+watchEffect(() => {
+  const definition = theme.definition;
+  const variables = { ...theme.colorVariables, ...definition.tokens };
+  if (optics.value) variables["--liquid-transparency"] = String(optics.value.transparency / 100);
+  if (settings.appearance.fontFamily) {
+    variables["--user-font"] = `${settings.appearance.fontFamily}, var(--app-font)`;
+  }
+  window.api.companion.setTheme({
+    theme: theme.themeId,
+    material: definition.material.variant,
+    motion: definition.motion.variant,
+    tier: materialSpec.value.tier,
+    appearance: theme.effectiveStyle,
+    dark: theme.isDark,
+    reducedMotion: settings.appearance.reduceMotion || theme.prefersReducedMotion,
+    variables,
   });
 });
 </script>

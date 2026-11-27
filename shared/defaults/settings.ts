@@ -1,3 +1,4 @@
+import { COMPANION_REPLY_BUBBLE_SECONDS } from "../types/companion";
 import type { SystemConfig } from "../types/settings";
 import { defaultPluginsConfig } from "./plugin-api";
 import { defaultHotkeyConfig } from "./hotkeys";
@@ -12,6 +13,20 @@ export const DYNAMIC_ISLAND_BASE_HEIGHT = 40;
 
 /** 默认配置 */
 export const defaultSystemConfig: SystemConfig = {
+  companion: {
+    enabled: false,
+    proactive: false,
+    showAvatar: true,
+    replyBubble: true,
+    replyBubbleSeconds: COMPANION_REPLY_BUBBLE_SECONDS.default,
+    alwaysOnTop: true,
+    clickThrough: false,
+    danmaku: true,
+    danmakuSeconds: 9,
+    danmakuLanes: 2,
+    x: null,
+    y: null,
+  },
   player: {
     autoPlay: false,
     rememberLastTrack: true,

@@ -30,6 +30,7 @@ beforeEach(() => {
   const subscribe = () => () => {};
   const closed = async () => false;
   vi.stubGlobal("api", {
+    companion: { onConfigChange: subscribe },
     desktopLyric: { onConfigChange: subscribe },
     dynamicIsland: { onConfigChange: subscribe },
     window: {

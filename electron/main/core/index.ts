@@ -1,3 +1,4 @@
+import { getCompanionWindow } from "@main/window/companion";
 import { app, BrowserWindow } from "electron";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import {
@@ -32,6 +33,7 @@ import { coreLog, initLogger } from "@main/utils/logger";
 import { initNetworkProxy } from "@main/utils/proxy";
 import { isAppQuitting } from "@main/utils/lifecycle";
 import { initAppLifecycle } from "./lifecycle";
+import { syncCompanionConfig } from "@main/services/companion";
 import {
   initOrpheusRegistration,
   extractOrpheusUrl,
@@ -58,6 +60,7 @@ const logProcessMemory = (): void => {
   const windowPids = new Map<number, string>();
   const namedWindows: Array<[string, Electron.BrowserWindow | null]> = [
     ["main", getMainWindow()],
+    ["companion", getCompanionWindow()],
     ["desktop-lyric", getDesktopLyricWindow()],
     ["dynamic-island", getDynamicIslandWindow()],
     ["taskbar-lyric", getTaskbarLyricWindow()],
@@ -155,6 +158,7 @@ export const initApp = (): void => {
     initPlaybackBridge();
     // 恢复歌词相关窗口
     restoreLyricWindows();
+    syncCompanionConfig();
     // 注册全局快捷键
     initGlobalHotkey();
     initUpdater();

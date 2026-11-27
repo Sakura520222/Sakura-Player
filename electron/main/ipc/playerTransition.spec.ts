@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   seek: vi.fn(),
   metadata: vi.fn(),
   prepareTransition: vi.fn(),
+  notifyDiscontinuity: vi.fn(),
   cancel: vi.fn(),
   streamingPrepare: vi.fn(),
   streamingStart: vi.fn(),
@@ -37,7 +38,7 @@ vi.mock("@main/services/engine", () => {
     getSpeed: () => 1,
     getVolume: () => 1,
     getCoverRaw: () => null,
-    getStatus: () => ({ state: "playing" }),
+    getStatus: () => ({ state: "playing", position: 5, duration: 10 }),
   };
   return {
     getPlayer: () => player,
@@ -67,7 +68,10 @@ vi.mock("@main/services/media", () => ({
     mocks.mediaEvent = callback;
   },
 }));
-vi.mock("@main/services/nowPlaying", () => ({ prepareTransition: mocks.prepareTransition }));
+vi.mock("@main/services/nowPlaying", () => ({
+  prepareTransition: mocks.prepareTransition,
+  notifyDiscontinuity: mocks.notifyDiscontinuity,
+}));
 vi.mock("@main/services/device", () => ({
   cancelPendingReinit: vi.fn(),
   startDeviceMonitoring: vi.fn(),
@@ -101,8 +105,14 @@ vi.mock("@main/services/streaming/adapters/resolve", () => ({
 }));
 vi.mock("@main/services/songCache", () => ({}));
 vi.mock("@main/services/thumbar", () => ({ getThumbar: () => null }));
-vi.mock("@main/services/tray", () => ({ setTraySongName: vi.fn(), setTrayPlayState: vi.fn() }));
+vi.mock("@main/services/tray", () => ({
+  getTrayPlayMode: () => ({ repeat: "list", shuffle: "off" }),
+  setTraySongName: vi.fn(),
+  setTrayPlayState: vi.fn(),
+}));
 vi.mock("@main/services/thumbnail", () => ({ setTaskbarThumbnailCover: vi.fn() }));
+vi.mock("@main/services/music", () => ({ queueQuerySchema: {} }));
+vi.mock("@main/window/companion", () => ({ getCompanionWindow: () => null }));
 vi.mock("@main/window", () => ({ getMainWindow: () => null }));
 vi.mock("@main/store", () => ({ store: { get: () => false } }));
 
@@ -195,6 +205,66 @@ describe("交接响应的主进程竞态保护", () => {
     expect(await pending).toEqual({ success: false });
   });
 
+  it("通过外部播放控制跳转时使旧位置的任务失效", async () => {
+    const { playerControl } = await vi.importActual<typeof import("@main/services/playerControl")>(
+      "@main/services/playerControl",
+    );
+    await playerControl.seek(1000);
+    expect(mocks.notifyDiscontinuity).toHaveBeenCalledOnce();
+    expect(mocks.notifyDiscontinuity.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.seek.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("CUE 的外部状态和跳转与播放器按同一分轨时间轴工作", async () => {
+    const { playerControl } = await vi.importActual<typeof import("@main/services/playerControl")>(
+      "@main/services/playerControl",
+    );
+    const track = { ...options.meta, cueStartMs: 2000, cueEndMs: 8000 };
+    expect(
+      await invoke("player:load", "fixture.wav", { meta: track, autoPlay: false }),
+    ).toMatchObject({ success: true });
+    expect(playerControl.getPosition()).toBe(3000);
+    expect(playerControl.getStatus()).toMatchObject({ positionMs: 3000, durationMs: 6000 });
+    await playerControl.seek(1000);
+    expect(mocks.seek).toHaveBeenLastCalledWith(3);
+    await playerControl.seek(99999);
+    expect(mocks.seek).toHaveBeenLastCalledWith(8);
+    playerControl.stop();
+    expect(mocks.cancel).toHaveBeenCalled();
+    expect(mocks.streamingStop).toHaveBeenCalled();
+    expect(playerControl.getPosition()).toBe(5000);
+  });
+
+  it.each(["seek", "stop"])("外部 %s 后禁止迟到的流媒体地址启动旧交接", async (action) => {
+    const { playerControl } = await vi.importActual<typeof import("@main/services/playerControl")>(
+      "@main/services/playerControl",
+    );
+    const address = Promise.withResolvers<unknown>();
+    mocks.streamingPrepare.mockReturnValueOnce(address.promise);
+    const next = { ...options.meta, source: "streaming", serverId: "srv", originalId: "next" };
+    const pending = invoke(
+      "player:transitionPrepared",
+      "slot",
+      "streaming://srv/next",
+      5000,
+      "standard",
+      { meta: next },
+    );
+    if (action === "seek") await playerControl.seek(1000);
+    else playerControl.stop();
+    address.resolve({ url: "https://fixture.test/music", sessionId: "old" });
+    expect(await pending).toEqual({ success: false });
+    expect(mocks.transition).not.toHaveBeenCalled();
+  });
+
+  it("准备下一首和未启动的交接继续保留当前歌曲的任务", async () => {
+    await invoke("player:prepareNext", "slot", "next.wav", 0, "standard");
+    mocks.transition.mockResolvedValueOnce(null);
+    await invoke("player:transitionPrepared", "slot", "next.wav", 5000, "standard", options);
+    expect(mocks.notifyDiscontinuity).not.toHaveBeenCalled();
+  });
+
   it("仍有效的交接正常更新媒体元数据", async () => {
     mocks.transition.mockResolvedValueOnce(meta);
     expect(
@@ -202,6 +272,7 @@ describe("交接响应的主进程竞态保护", () => {
     ).toMatchObject({ success: true, data: { playback: { state: "playing" } } });
     expect(mocks.metadata).toHaveBeenCalledOnce();
     expect(mocks.prepareTransition).toHaveBeenCalledOnce();
+    expect(mocks.notifyDiscontinuity).toHaveBeenCalledOnce();
   });
 
   it("流媒体加载由主进程解析地址，解码成功后才绑定播放会话", async () => {

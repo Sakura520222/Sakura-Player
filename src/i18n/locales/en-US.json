@@ -1067,6 +1067,7 @@
       "externalApi": "External API",
       "mcp": "MCP",
       "aiModel": "AI Models",
+      "companion": "Listening companion",
       "systemConfig": "System",
       "pluginManage": "Import Plugins",
       "pluginsList": "Plugin Management",
@@ -2250,6 +2251,46 @@
       "running": "Server is running",
       "stopped": "Server not running"
     },
+    "companionEnabled": {
+      "label": "Listening companion",
+      "description": "Chat about music with your active AI model. Turning this off clears the conversation."
+    },
+    "companionAvatar": {
+      "label": "Show desktop character",
+      "description": "Click the character to chat or drag it to move."
+    },
+    "companionReplyBubble": {
+      "label": "Show reply bubbles",
+      "description": "Show new replies beside the desktop character while chat is collapsed."
+    },
+    "companionReplyBubbleSeconds": {
+      "label": "Reply bubble duration",
+      "description": "Seconds before a reply bubble disappears."
+    },
+    "companionTop": {
+      "label": "Keep character on top",
+      "description": "Show the character above other windows."
+    },
+    "companionThrough": {
+      "label": "Click through character",
+      "description": "Pass clicks to the window underneath. Turn off to interact with the character."
+    },
+    "companionProactive": {
+      "label": "Proactive comments",
+      "description": "Look up song sections and share listening context with your model during playback."
+    },
+    "companionDanmaku": {
+      "label": "Full player comments",
+      "description": "Show full replies near the top of the full player."
+    },
+    "companionSeconds": {
+      "label": "Comment duration",
+      "description": "Seconds for a short reply to cross the player. Longer replies get more time. With reduced motion, each line stays for this duration."
+    },
+    "companionLanes": {
+      "label": "Comment lanes",
+      "description": "Maximum number of comments on screen at once."
+    },
     "mcpEnabled": {
       "label": "Enable MCP server",
       "description": "Enable the local MCP server so AI Agents can join the app ecosystem and extend capabilities on demand"
@@ -2840,8 +2881,9 @@
       "netease": "NetEase",
       "kugou": "Kugou"
     },
+    "kinds": { "chorus": "chorus", "climax": "climax" },
     "loading": "Finding song highlights…",
-    "jump": "Jump to highlight {range} · {source}",
+    "jump": "Jump to {kind} {range} · {source}",
     "emptyRetry": "No highlight found, click to try again",
     "errorRetry": "Could not fetch highlights, click to retry",
     "empty": "No highlight annotations found for this song",

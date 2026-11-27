@@ -93,7 +93,7 @@ html[data-appearance-style="image"]:not([data-theme-material="liquid"])
 }
 
 /* 浮层 + 表单控件 */
-html[data-appearance-style="image"]:not([data-theme-material="liquid"])
+html[data-appearance-style="image"]:not([data-theme-material="liquid"], .companion-window)
   :is(.bg-surface-bright, .bg-field) {
   background-color: rgb(var(--s-surface-bright) / 0.55);
   backdrop-filter: blur(10px) saturate(1.3);

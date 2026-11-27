@@ -39,6 +39,7 @@ declare global {
   interface Window {
     electron: ElectronAPI;
     api: {
+      companion: import("@shared/types/companion").CompanionApi;
       config: ConfigApi;
       player: PlayerApi;
       automix: AutoMixApi;

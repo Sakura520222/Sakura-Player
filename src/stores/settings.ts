@@ -315,6 +315,10 @@ export const useSettingsStore = defineStore(
       window.api.window.onTaskbarLyricVisibilityChange((open) => {
         isTaskbarLyricOpen.value = open;
       }),
+      // 订阅桌面宠物与听歌陪伴配置变化：托盘开关等场景需要回流到主窗口设置页
+      window.api.companion.onConfigChange((next) => {
+        Object.assign(system.companion, next);
+      }),
     ];
 
     onScopeDispose(() => {

@@ -264,6 +264,10 @@ html[data-theme-material="liquid"] [data-theme-popup] {
   border-radius: 12px;
 }
 
+html[data-theme-material="liquid"] [data-theme-popup-arrow] {
+  fill: color-mix(in oklab, var(--liquid-surface) var(--liquid-reading-tint), transparent);
+}
+
 html[data-theme-material="liquid"] [data-dialog-content] {
   border-radius: var(--liquid-radius);
 }
@@ -468,6 +472,11 @@ html[data-theme-material="liquid"][data-theme-visibility="hidden"]
   background: var(--liquid-surface);
   box-shadow: none;
   backdrop-filter: none;
+}
+
+html[data-theme-material="liquid"][data-material-tier="opaque"] [data-theme-popup-arrow],
+html[data-theme-material="liquid"][data-theme-visibility="hidden"] [data-theme-popup-arrow] {
+  fill: var(--liquid-surface);
 }
 
 html[data-theme-material="liquid"][data-material-tier="opaque"] .liquid-lens::after,

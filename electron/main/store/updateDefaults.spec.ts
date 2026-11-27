@@ -83,3 +83,45 @@ describe("安装版本的默认更新通道", () => {
     store.flushImmediate();
   });
 });
+
+describe("陪伴配置的持久化入口", () => {
+  it("启动、导入和单项写入均不会把字符串当作主动互动授权", async () => {
+    vi.resetModules();
+    mocks.raw = {
+      companion: { enabled: "false", proactive: "false", x: "not a coordinate", futureField: 1 },
+    };
+    const { store } = await import("./index");
+    expect(store.get("companion")).toMatchObject({
+      enabled: false,
+      proactive: false,
+      x: null,
+      futureField: 1,
+    });
+    store.replaceAll({
+      companion: {
+        enabled: true,
+        proactive: "false",
+        x: 1e20,
+        y: -1e20,
+        replyBubbleSeconds: -5,
+        danmakuSeconds: 99,
+        danmakuLanes: 0,
+      },
+    });
+    expect(store.get("companion")).toMatchObject({
+      enabled: true,
+      proactive: false,
+      x: null,
+      y: null,
+      replyBubbleSeconds: 3,
+      danmakuSeconds: 18,
+      danmakuLanes: 1,
+    });
+    store.set("companion.proactive", "false");
+    expect(store.get("companion.proactive")).toBe(false);
+    store.set("companion.proactive", true);
+    expect(store.get("companion.proactive")).toBe(true);
+    store.flushImmediate();
+    expect(JSON.parse(mocks.write.mock.calls.at(-1)![1]).companion.proactive).toBe(true);
+  });
+});

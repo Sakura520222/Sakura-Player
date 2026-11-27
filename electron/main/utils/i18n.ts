@@ -17,6 +17,8 @@ interface MainMessages {
   closeDynamicIsland: string;
   openTaskbarLyric: string;
   closeTaskbarLyric: string;
+  openDesktopPet: string;
+  closeDesktopPet: string;
   loginNetease: string;
   quit: string;
 }
@@ -39,6 +41,8 @@ const messages: Record<LocaleCode, MainMessages> = {
     closeDynamicIsland: "关闭灵动岛",
     openTaskbarLyric: "开启任务栏歌词",
     closeTaskbarLyric: "关闭任务栏歌词",
+    openDesktopPet: "开启桌面宠物",
+    closeDesktopPet: "关闭桌面宠物",
     loginNetease: "登录 NCM",
     quit: "退出",
   },
@@ -59,6 +63,8 @@ const messages: Record<LocaleCode, MainMessages> = {
     closeDynamicIsland: "Close Dynamic Island",
     openTaskbarLyric: "Open Taskbar Lyric",
     closeTaskbarLyric: "Close Taskbar Lyric",
+    openDesktopPet: "Open Desktop Pet",
+    closeDesktopPet: "Close Desktop Pet",
     loginNetease: "Log in to NCM",
     quit: "Quit",
   },

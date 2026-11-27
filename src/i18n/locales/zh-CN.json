@@ -1067,6 +1067,7 @@
       "externalApi": "外部 API",
       "mcp": "MCP",
       "aiModel": "AI 模型",
+      "companion": "听歌陪伴",
       "systemConfig": "系统配置",
       "pluginManage": "导入插件",
       "pluginsList": "插件管理",
@@ -2250,6 +2251,37 @@
       "running": "服务运行中",
       "stopped": "服务未运行"
     },
+    "companionEnabled": {
+      "label": "启用听歌陪伴",
+      "description": "通过桌面角色与当前 AI 模型聊音乐，停用时清除本次对话"
+    },
+    "companionAvatar": {
+      "label": "显示桌面角色",
+      "description": "点击角色展开聊天，拖动可移动位置"
+    },
+    "companionReplyBubble": {
+      "label": "显示回复气泡",
+      "description": "聊天面板收起时，在桌面角色旁显示伙伴的新回复"
+    },
+    "companionReplyBubbleSeconds": {
+      "label": "回复气泡停留时间",
+      "description": "气泡自动隐藏前的秒数"
+    },
+    "companionTop": { "label": "角色置顶", "description": "在其他窗口上方显示角色" },
+    "companionThrough": {
+      "label": "鼠标穿透",
+      "description": "点击会传给下方窗口，关闭后可再次与角色互动"
+    },
+    "companionProactive": {
+      "label": "主动聊音乐",
+      "description": "稳定播放或进入标注段落后，允许向音乐平台查询标注并向当前模型发送歌曲上下文"
+    },
+    "companionDanmaku": { "label": "全屏弹幕", "description": "在全屏播放器上方显示完整回复" },
+    "companionSeconds": {
+      "label": "弹幕显示时长",
+      "description": "短弹幕滚过屏幕的秒数，长弹幕会延长。减少动态效果时，每行停留相同秒数"
+    },
+    "companionLanes": { "label": "弹幕轨道数", "description": "同时显示的弹幕条数上限" },
     "mcpEnabled": {
       "label": "启用 MCP 服务",
       "description": "启用本地 MCP 服务，让 AI Agent 接入应用生态，按需扩展能力"
@@ -2840,8 +2872,9 @@
       "netease": "网易云",
       "kugou": "酷狗"
     },
+    "kinds": { "chorus": "副歌", "climax": "高潮" },
     "loading": "正在获取歌曲高潮…",
-    "jump": "跳转高潮 {range} · {source}",
+    "jump": "跳转{kind} {range} · {source}",
     "emptyRetry": "暂无高潮标注，点击重新获取",
     "errorRetry": "高潮获取失败，点击重试",
     "empty": "未找到这首歌曲的高潮标注",

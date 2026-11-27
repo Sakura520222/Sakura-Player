@@ -10,8 +10,10 @@ import { disposeUpdater } from "@main/services/updater";
 import { coreLog } from "@main/utils/logger";
 import { shutdownAlignmentEnvironment } from "@main/services/lyricAlignment/environment";
 import { isAppQuitting } from "@main/utils/lifecycle";
+import { disposeCompanion } from "@main/services/companion";
 
 const cleanupTasks: Array<[string, () => void | Promise<void>]> = [
+  ["听歌陪伴", disposeCompanion],
   ["外部 API", stopServer],
   ["MCP", stopMcpServer],
   ["插件", () => pluginRegistry.shutdown()],

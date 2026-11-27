@@ -1,3 +1,4 @@
+import { registerCompanionIpc } from "@main/services/companion";
 import { registerSystemIpc } from "./system";
 import { registerPlayerIpc } from "./player";
 import { registerConfigIpc } from "./config";
@@ -32,6 +33,7 @@ import { registerAutoMixIpc } from "./automix";
  * @param onStartupComplete - 主界面启动完成后执行的应用初始化回调
  */
 export const registerIpcHandlers = (onStartupComplete: () => void): void => {
+  registerCompanionIpc();
   registerSystemIpc();
   registerPlayerIpc();
   registerAutoMixIpc();

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 import { writeFileSync as atomicWriteSync } from "atomically";
+import { COMPANION_REPLY_BUBBLE_SECONDS } from "@shared/types/companion";
 import { defaultSystemConfig } from "@shared/defaults/settings";
 import type { SystemConfig, UpdateChannel } from "@shared/types/settings";
 import type { ConfigPath, PathValue } from "./types";
@@ -17,6 +18,48 @@ const defaults: SystemConfig = {
   ...defaultSystemConfig,
   update: { ...defaultSystemConfig.update, channel: defaultUpdateChannel },
 };
+
+const COMPANION_COORD_LIMIT = 1_000_000;
+const COMPANION_NUMBER_BOUNDS = {
+  replyBubbleSeconds: [COMPANION_REPLY_BUBBLE_SECONDS.min, COMPANION_REPLY_BUBBLE_SECONDS.max],
+  danmakuSeconds: [5, 18],
+  danmakuLanes: [1, 3],
+} as const;
+
+/**
+ * 校验陪伴设置的持久化类型与取值范围，避免异常配置误启用外部请求或导致原生坐标转换报错
+ * @param raw - 从磁盘、备份或 IPC 读取的陪伴配置
+ * @returns 保留兼容字段并约束范围后的配置
+ */
+function normalizeCompanionSettings(raw: unknown): SystemConfig["companion"] {
+  const values = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const settings = { ...defaults.companion, ...values };
+  for (const key of Object.keys(defaults.companion) as (keyof typeof settings)[]) {
+    const fallback = defaults.companion[key];
+    const value = settings[key];
+    if (typeof fallback === "boolean") {
+      if (typeof value !== "boolean") Object.assign(settings, { [key]: fallback });
+      continue;
+    }
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      Object.assign(settings, { [key]: fallback });
+      continue;
+    }
+    if (key === "x" || key === "y") {
+      Object.assign(settings, {
+        [key]: Math.abs(value) <= COMPANION_COORD_LIMIT ? Math.round(value) : null,
+      });
+      continue;
+    }
+    const range = COMPANION_NUMBER_BOUNDS[key as keyof typeof COMPANION_NUMBER_BOUNDS];
+    if (range) {
+      Object.assign(settings, {
+        [key]: Math.min(range[1], Math.max(range[0], Math.round(value))),
+      });
+    }
+  }
+  return settings;
+}
 
 /** 配置文件路径 */
 const configPath = path.join(configDir, "settings.json");
@@ -73,6 +116,7 @@ const flush = (config: SystemConfig): void => {
 const init = (): SystemConfig => {
   const raw = readFile();
   const data = deepMerge(structuredClone(defaults), raw);
+  data.companion = normalizeCompanionSettings(data.companion);
 
   let currentVersion: number = (raw[META_KEY] as number) ?? 0;
   const pending = migrations
@@ -125,6 +169,8 @@ export const store = {
    */
   set(keyPath: ConfigPath | (string & {}), value: unknown): void {
     setByPath(data, keyPath, value);
+    if (keyPath === "companion" || keyPath.startsWith("companion."))
+      data.companion = normalizeCompanionSettings(data.companion);
     flush(data);
   },
 
@@ -138,6 +184,7 @@ export const store = {
   replaceAll(input: unknown): void {
     const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
     data = deepMerge(structuredClone(defaults), raw);
+    data.companion = normalizeCompanionSettings(data.companion);
     flushImmediate(data);
   },
 
