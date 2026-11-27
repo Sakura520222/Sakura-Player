@@ -404,12 +404,12 @@ const loadTrack = async (
   const myToken = ++trackToken;
   // 消费预载结果
   const preloaded = transitionResult ? null : consumePreloadedTrack(track);
-  // 乐观更新
+  // 乐观更新：先标记加载态再切曲，避免同步监听器用未补全元数据提前触发外部查询
+  resetForLoad(track.duration ?? 0, transitionResult?.data?.playback);
   const media = useMediaStore();
   media.setTrack(track);
   media.setPlaybackContext(context);
   lyricLoader.beginLoad();
-  resetForLoad(track.duration ?? 0, transitionResult?.data?.playback);
   // 已准备的槽位由原生 load 接管；提前 stop 会连同备用槽一起释放
   if (!transitionResult && !preloaded?.preparedId) void window.api.player.stop();
   // 是否可跳曲
@@ -889,6 +889,7 @@ const resumeAfterTagWrite = async (
   if (!track.path) return;
   const myToken = ++trackToken;
   invalidateNextTrackPreload();
+  useStatusStore().trackLoading = true;
   useMediaStore().setTrack(track);
   lyricLoader.beginLoad();
   const result = await load(track.path, false, track);

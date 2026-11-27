@@ -313,22 +313,21 @@ const extractColorFromImageElement = (img: HTMLImageElement): string | null => {
 };
 
 /**
- * 将色板和封面主色写入 CSS 自定义属性，并切换明暗 class
+ * 生成主窗口与独立窗口共用的色板变量
+ * @param palette - 当前外观色板
+ * @param coverColorHex - 当前封面取色
+ * @returns 色板及封面前景使用的 CSS 自定义属性
  */
-export const applyThemeToDOM = (
+export function themeColorVariables(
   palette: ThemePalette,
   coverColorHex: string | null,
-  isDark: boolean,
-): void => {
-  const root = document.documentElement;
+): Record<string, string> {
+  const colors: Record<string, string> = {
+    "--s-cover": coverColorHex ? hexToRgb(toCoverUiColor(coverColorHex)) : "239 239 239",
+    "--s-cover-base": coverColorHex ? hexToRgb(coverColorHex) : "20 20 28",
+  };
   for (const [key, value] of Object.entries(palette)) {
-    const cssVar = `--s-${key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}`;
-    root.style.setProperty(cssVar, value);
+    colors[`--s-${key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}`] = value;
   }
-  root.style.setProperty(
-    "--s-cover",
-    coverColorHex ? hexToRgb(toCoverUiColor(coverColorHex)) : "239 239 239",
-  );
-  root.style.setProperty("--s-cover-base", coverColorHex ? hexToRgb(coverColorHex) : "20 20 28");
-  root.classList.toggle("dark", isDark);
-};
+  return colors;
+}

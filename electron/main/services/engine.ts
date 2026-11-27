@@ -83,6 +83,14 @@ export const resetPlayer = (): void => {
   playerInstance = null;
 };
 
+/**
+ * 同步原生频谱采集状态，无活动播放器时在实例创建后应用
+ * @param enabled - 是否有窗口正在消费频谱
+ */
+export const setFftEnabled = (enabled: boolean): void => {
+  playerInstance?.setFftEnabled(enabled);
+};
+
 /** 同步音量均衡设置到播放器 */
 export const setNormalizationEnabled = (enabled: boolean): void => {
   if (playerInstance) {

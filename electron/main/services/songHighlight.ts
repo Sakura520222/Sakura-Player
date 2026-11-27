@@ -6,17 +6,19 @@ import {
   pickBestCandidate,
   type LyricCandidate,
 } from "@main/apis/common/lyric/utils";
+import { isMediaLocation } from "./music/metadata";
 import { coreLog } from "@main/utils/logger";
 import type { Track } from "@shared/types/player";
 import type { KGSong } from "@shared/types/platform/kugou";
 import type {
-  SongHighlight,
+  SongHighlightSegment,
+  SongHighlightSource,
   SongHighlightPlatform,
   SongHighlightResponse,
 } from "@shared/types/songHighlight";
-import { normalizeHighlightSegments } from "@shared/utils/songHighlight";
+import { getSongHighlightKey, normalizeHighlightSegments } from "@shared/utils/songHighlight";
 
-const cache = new Map<string, { value: SongHighlight; expires: number }>();
+const cache = new Map<string, { value: SongHighlightResponse; expires: number }>();
 const inflight = new Map<string, Promise<SongHighlightResponse>>();
 const MAX_CACHE_ENTRIES = 200;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -36,7 +38,13 @@ const resolvePlatformId = async (
     const valid = platform === "netease" ? /^\d+$/.test(track.id) : /^[a-f\d]{32}$/i.test(track.id);
     if (valid) return track.id;
   }
-  if (!track.title.trim() || !track.artists.some((artist) => artist.name.trim())) return null;
+  if (
+    !track.title.trim() ||
+    isMediaLocation(track.title) ||
+    !track.artists.some((artist) => artist.name.trim()) ||
+    track.artists.some((artist) => isMediaLocation(artist.name))
+  )
+    return null;
   const keyword = buildLyricSearchKeyword(track);
   let candidates: LyricCandidate<string>[];
   if (platform === "netease") {
@@ -89,56 +97,75 @@ const resolvePlatformId = async (
 };
 
 /**
- * 原平台优先查询，无标注或接口失败时尝试另一平台的同一版本
+ * 查询一个平台的版本与标注，并保留匹配依据
+ * @param track - 当前曲目
+ * @param platform - 标注来源
+ * @returns 平台查询状态及有效区间
+ */
+const queryPlatform = async (
+  track: Track,
+  platform: SongHighlightPlatform,
+): Promise<{ source: SongHighlightSource; segments: SongHighlightSegment[] }> => {
+  try {
+    const id = await resolvePlatformId(platform, track);
+    if (!id) return { source: { platform, status: "unmatched" }, segments: [] };
+    let segments: { startMs: unknown; endMs?: unknown }[];
+    if (platform === "netease") {
+      const { status, body } = await callNetease("song_chorus", { id });
+      if (status !== 200 || body.code !== 200) throw new Error("网易副歌查询失败");
+      segments = (body.chorus ?? [])
+        .filter((item: { id: number | string } | null) => item != null && String(item.id) === id)
+        .map((item: { startTime: unknown; endTime?: unknown }) => ({
+          startMs: item.startTime,
+          endMs: item.endTime,
+        }));
+    } else {
+      const body = await callKugou<{
+        status: number;
+        data?: { hash: string; start_time: unknown; end_time?: unknown }[];
+      }>("song_climax", { hash: id });
+      if (body.status !== 1) throw new Error("酷狗高潮查询失败");
+      segments = (body.data ?? [])
+        .filter(
+          (item) => typeof item?.hash === "string" && item.hash.toLowerCase() === id.toLowerCase(),
+        )
+        .map((item) => ({ startMs: item.start_time, endMs: item.end_time }));
+    }
+    const normalized = normalizeHighlightSegments(segments, track.duration);
+    return {
+      source: { platform, status: normalized.length ? "available" : "empty" },
+      segments: normalized.map((range) => ({
+        ...range,
+        platform,
+        platformId: id,
+        kind: platform === "netease" ? "chorus" : "climax",
+        confidence: track.source === platform && track.id === id ? "exact-id" : "metadata",
+      })),
+    };
+  } catch (error) {
+    coreLog.warn(`[highlight] ${platform} 查询失败:`, error);
+    return { source: { platform, status: "error" }, segments: [] };
+  }
+};
+
+/**
+ * 合并两平台同一版本的有效时间轴，保留同起点的不同标注类型
  * @param track - 待查询歌曲
- * @returns 标准化结果，保留无标注与网络失败的区别
+ * @returns 有序标注和每个平台的降级原因
  */
 const queryHighlight = async (track: Track): Promise<SongHighlightResponse> => {
-  const order: SongHighlightPlatform[] =
-    track.source === "netease" ? ["netease", "kugou"] : ["kugou", "netease"];
-  let failed = false;
-  for (const platform of order) {
-    try {
-      const id = await resolvePlatformId(platform, track);
-      if (!id) continue;
-      let segments: { startMs: unknown; endMs?: unknown }[];
-      if (platform === "netease") {
-        const { status, body } = await callNetease("song_chorus", { id });
-        if (status !== 200 || body.code !== 200) throw new Error("网易副歌查询失败");
-        segments = (body.chorus ?? [])
-          .filter((item: { id: number | string }) => String(item.id) === id)
-          .map((item: { startTime: unknown; endTime?: unknown }) => ({
-            startMs: item.startTime,
-            endMs: item.endTime,
-          }));
-      } else {
-        const body = await callKugou<{
-          status: number;
-          data?: { hash: string; start_time: unknown; end_time?: unknown }[];
-        }>("song_climax", { hash: id });
-        if (body.status !== 1) throw new Error("酷狗高潮查询失败");
-        segments = (body.data ?? [])
-          .filter((item) => item.hash.toLowerCase() === id.toLowerCase())
-          .map((item) => ({ startMs: item.start_time, endMs: item.end_time }));
-      }
-      const normalized = normalizeHighlightSegments(segments, track.duration);
-      if (normalized.length) {
-        return {
-          ok: true,
-          data: {
-            platform,
-            platformId: id,
-            matched: track.source !== platform || track.id !== id,
-            segments: normalized,
-          },
-        };
-      }
-    } catch (error) {
-      failed = true;
-      coreLog.warn(`[highlight] ${platform} 查询失败:`, error);
-    }
-  }
-  return failed ? { ok: false, error: "高潮查询失败" } : { ok: true, data: null };
+  const results = await Promise.all([
+    queryPlatform(track, "netease"),
+    queryPlatform(track, "kugou"),
+  ]);
+  const sources = results.map((result) => result.source);
+  const segments = results
+    .flatMap((result) => result.segments)
+    .sort((a, b) => a.startMs - b.startMs);
+  if (segments.length) return { ok: true, data: { segments }, sources };
+  return sources.some((source) => source.status === "error")
+    ? { ok: false, error: "歌曲段落查询失败", sources }
+    : { ok: true, data: null, sources };
 };
 
 /**
@@ -147,34 +174,25 @@ const queryHighlight = async (track: Track): Promise<SongHighlightResponse> => {
  * @returns 标准化的高潮标注或失败状态
  */
 export const getSongHighlight = (track: Track): Promise<SongHighlightResponse> => {
-  if (track.source === "plugin") return Promise.resolve({ ok: true, data: null });
-  const key = JSON.stringify([
-    track.source,
-    track.id,
-    track.serverId,
-    track.originalId,
-    track.serverRevision,
-    track.album?.name,
-    track.duration,
-    track.title,
-    track.artists.map((artist) => artist.name),
-  ]);
+  if (track.source === "plugin") return Promise.resolve({ ok: true, data: null, sources: [] });
+  const key = getSongHighlightKey(track);
   const cached = cache.get(key);
   if (cached) {
     cache.delete(key);
     if (cached.expires > Date.now()) {
       cache.set(key, cached);
-      return Promise.resolve({ ok: true, data: cached.value });
+      return Promise.resolve(cached.value);
     }
   }
   const pending = inflight.get(key);
   if (pending) return pending;
-  if (inflight.size >= MAX_INFLIGHT) return Promise.resolve({ ok: false, error: "高潮查询繁忙" });
+  if (inflight.size >= MAX_INFLIGHT)
+    return Promise.resolve({ ok: false, error: "高潮查询繁忙", sources: [] });
   const task = queryHighlight(track)
     .then((result) => {
-      if (result.ok && result.data) {
+      if (result.ok && result.data && result.sources.every((source) => source.status !== "error")) {
         if (cache.size >= MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value!);
-        cache.set(key, { value: result.data, expires: Date.now() + CACHE_TTL_MS });
+        cache.set(key, { value: result, expires: Date.now() + CACHE_TTL_MS });
       }
       return result;
     })

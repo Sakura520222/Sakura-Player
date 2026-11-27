@@ -1,5 +1,5 @@
 import type { SongHighlight, SongHighlightSegment } from "@shared/types/songHighlight";
-import { normalizeHighlightSegments } from "@shared/utils/songHighlight";
+import { getSongHighlightKey } from "@shared/utils/songHighlight";
 import { useMediaStore } from "@/stores/media";
 import { useSettingsStore } from "@/stores/settings";
 import { useStatusStore } from "@/stores/status";
@@ -14,27 +14,18 @@ export const useSongHighlightStore = defineStore("songHighlight", () => {
   const phase = ref<"idle" | "loading" | "ready" | "empty" | "error">("idle");
   let revision = 0;
 
-  const identity = computed(() => {
-    const track = media.track;
-    return track
-      ? JSON.stringify([
-          track.source,
-          track.id,
-          track.serverId,
-          track.originalId,
-          track.serverRevision,
-          track.title,
-          track.artists.map((artist) => artist.name),
-          track.album?.name,
-          track.duration,
-        ])
-      : "";
-  });
+  const identity = computed(() => getSongHighlightKey(media.track));
   const enabled = computed(
     () => settings.player.showSongHighlight && !!media.track && media.track.source !== "plugin",
   );
   const segments = computed(() =>
-    normalizeHighlightSegments(highlight.value?.segments ?? [], status.duration),
+    (highlight.value?.segments ?? [])
+      .filter((segment) => status.duration <= 0 || segment.startMs < status.duration)
+      .map((segment) =>
+        segment.endMs && status.duration > 0 && segment.endMs > status.duration
+          ? { ...segment, endMs: status.duration }
+          : segment,
+      ),
   );
   const nextSegment = computed<SongHighlightSegment | undefined>(
     () =>
@@ -59,14 +50,8 @@ export const useSongHighlightStore = defineStore("songHighlight", () => {
         phase.value = "error";
         return null;
       }
-      const validSegments = normalizeHighlightSegments(
-        response.data?.segments ?? [],
-        status.duration,
-      );
-      highlight.value =
-        response.data && validSegments.length
-          ? { ...response.data, segments: validSegments }
-          : null;
+      highlight.value = response.data;
+      if (!segments.value.length) highlight.value = null;
       phase.value = highlight.value ? "ready" : "empty";
       return highlight.value;
     } catch {
@@ -102,5 +87,14 @@ export const useSongHighlightStore = defineStore("songHighlight", () => {
   );
   onScopeDispose(() => revision++);
 
-  return { highlight, phase, enabled, segments, nextSegment, fetchHighlight, seekToHighlight };
+  return {
+    identity,
+    highlight,
+    phase,
+    enabled,
+    segments,
+    nextSegment,
+    fetchHighlight,
+    seekToHighlight,
+  };
 });

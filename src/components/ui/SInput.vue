@@ -2,6 +2,8 @@
 export interface SInputProps {
   modelValue?: string;
   placeholder?: string;
+  ariaLabel?: string;
+  maxlength?: number;
   disabled?: boolean;
   /** 只读：保留聚焦/事件，仅禁用键入 */
   readonly?: boolean;
@@ -36,6 +38,14 @@ const props = withDefaults(defineProps<SInputProps>(), {
 });
 
 const isTextarea = computed(() => props.type === "textarea");
+const field = ref<HTMLInputElement | HTMLTextAreaElement>();
+
+/** 将焦点移到实际输入框 */
+function focus(): void {
+  field.value?.focus();
+}
+
+defineExpose({ focus });
 
 const resizeClass = computed(() => {
   switch (props.resize) {
@@ -110,13 +120,33 @@ const handleBlur = (): void => {
   emit("blur");
 };
 
+/**
+ * 输入法正在选词时让原生编辑器处理回车和退出键
+ * @param event - 输入框收到的键盘事件
+ * @returns 是否已阻止快捷键向弹层传播
+ */
+const keepComposition = (event: KeyboardEvent): boolean => {
+  if (!event.isComposing && event.keyCode !== 229) return false;
+  event.stopPropagation();
+  return true;
+};
+
+/**
+ * 提交按失焦更新的输入值
+ * @param event - 输入框收到的回车事件
+ */
 const handleEnter = (event: KeyboardEvent): void => {
-  if (props.updateOn !== "blur") return;
+  if (keepComposition(event) || props.updateOn !== "blur") return;
   commitValue();
   (event.currentTarget as HTMLInputElement).blur();
 };
 
+/**
+ * 结束编辑并撤销未提交的输入值
+ * @param event - 输入框收到的退出键事件
+ */
 const handleEscape = (event: KeyboardEvent): void => {
+  if (keepComposition(event)) return;
   if (props.updateOn === "blur") rollbackValue();
   (event.currentTarget as HTMLInputElement).blur();
 };
@@ -142,6 +172,9 @@ const handleEscape = (event: KeyboardEvent): void => {
     <!-- 多行 -->
     <template v-if="isTextarea">
       <textarea
+        ref="field"
+        :aria-label="ariaLabel"
+        :maxlength="maxlength"
         :value="displayValue"
         :placeholder="placeholder"
         :disabled="disabled"
@@ -172,6 +205,9 @@ const handleEscape = (event: KeyboardEvent): void => {
       <slot name="prefix" />
 
       <input
+        ref="field"
+        :aria-label="ariaLabel"
+        :maxlength="maxlength"
         :value="displayValue"
         :type="type"
         :placeholder="placeholder"

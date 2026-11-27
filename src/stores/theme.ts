@@ -2,7 +2,7 @@ import type { ThemeMode, ThemeSource, AppearanceStyle, ThemeProfile } from "@/ty
 import { deserializeTheme, getTheme, serializeTheme, type ThemeId } from "@/themes/registry";
 import {
   generatePalette,
-  applyThemeToDOM,
+  themeColorVariables,
   extractColorFromImageUrl,
   DEFAULT_PRIMARY,
   SOLID_PALETTE_LIGHT,
@@ -92,8 +92,8 @@ export const useThemeStore = defineStore(
       return DEFAULT_PRIMARY;
     });
 
-    /** 应用主题到 DOM */
-    const apply = (): void => {
+    /** 主窗口和听歌伙伴使用同一份计算后的颜色，包括随封面变化的取色 */
+    const colorVariables = computed(() => {
       const useSolid =
         source.value === "solid" || (source.value === "cover" && !trackedColorForCover.value);
       const palette = useSolid
@@ -101,9 +101,8 @@ export const useThemeStore = defineStore(
           ? SOLID_PALETTE_DARK
           : SOLID_PALETTE_LIGHT
         : generatePalette(effectiveColor.value, isDark.value, effectiveGlobalTint.value);
-      applyThemeToDOM(palette, coverColor.value, isDark.value);
-      document.documentElement.dataset.appearanceStyle = effectiveStyle.value;
-    };
+      return themeColorVariables(palette, coverColor.value);
+    });
 
     /** 循环切换主题模式 */
     const cycleMode = (): void => {
@@ -139,19 +138,13 @@ export const useThemeStore = defineStore(
         },
         { immediate: true },
       );
-      watch(
-        [
-          isDark,
-          effectiveColor,
-          source,
-          effectiveGlobalTint,
-          coverColor,
-          trackedColorForCover,
-          effectiveStyle,
-        ],
-        apply,
-        { immediate: true },
-      );
+      watchEffect(() => {
+        const root = document.documentElement;
+        for (const [key, value] of Object.entries(colorVariables.value))
+          root.style.setProperty(key, value);
+        root.classList.toggle("dark", isDark.value);
+        root.dataset.appearanceStyle = effectiveStyle.value;
+      });
     };
 
     return {
@@ -170,6 +163,7 @@ export const useThemeStore = defineStore(
       imageForcesDark,
       isDark,
       activeColor,
+      colorVariables,
       effectiveStyle,
       cycleMode,
       setCustomColor,

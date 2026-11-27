@@ -108,15 +108,25 @@ describe("当前歌曲高潮查询", () => {
     const { getSongHighlight } = await import("./songHighlight");
     expect(await getSongHighlight(track)).toEqual({
       ok: true,
+      sources: [
+        { platform: "netease", status: "available" },
+        { platform: "kugou", status: "unmatched" },
+      ],
       data: {
-        platform: "netease",
-        platformId: "186016",
-        matched: false,
-        segments: [{ startMs: 84498, endMs: 142301 }],
+        segments: [
+          {
+            kind: "chorus",
+            platform: "netease",
+            platformId: "186016",
+            confidence: "exact-id",
+            startMs: 84498,
+            endMs: 142301,
+          },
+        ],
       },
     });
     expect(api.netease).toHaveBeenCalledExactlyOnceWith("song_chorus", { id: "186016" });
-    expect(api.kugou).not.toHaveBeenCalled();
+    expect(api.kugou).toHaveBeenCalledWith("search", expect.anything());
   });
 
   it("酷狗 Hash 不区分大小写，单个查询忽略其他歌曲标注", async () => {
@@ -128,9 +138,58 @@ describe("当前歌曲高潮查询", () => {
     const result = await getSongHighlight({ ...track, source: "kugou", id: hash });
     expect(result).toMatchObject({
       ok: true,
-      data: { platform: "kugou", matched: false, segments: [{ startMs: 84170, endMs: 142170 }] },
+      data: {
+        segments: [
+          {
+            platform: "kugou",
+            kind: "climax",
+            confidence: "exact-id",
+            startMs: 84170,
+            endMs: 142170,
+          },
+        ],
+      },
     });
+    expect(api.netease).toHaveBeenCalledWith("search", expect.anything());
+  });
+
+  it("忽略同批次的残缺标注并保留有效的副歌与高潮", async () => {
+    api.netease.mockResolvedValue({
+      status: 200,
+      body: { code: 200, chorus: [null, { id: 186016, startTime: 24000, endTime: 28000 }] },
+    });
+    api.kugou.mockImplementation(async (name) =>
+      name === "search"
+        ? {
+            code: 200,
+            songs: [{ hash, name: track.title, artist: "周杰伦", duration: track.duration }],
+          }
+        : { status: 1, data: [{ hash: null, start_time: 999 }, ...climax().data] },
+    );
+    const { getSongHighlight } = await import("./songHighlight");
+    expect(await getSongHighlight(track)).toMatchObject({
+      ok: true,
+      data: {
+        segments: [
+          { kind: "chorus", startMs: 24000 },
+          { kind: "climax", startMs: 84170 },
+        ],
+      },
+    });
+  });
+
+  it("作为标题或歌手数据的文件位置不会进入跨平台搜索词", async () => {
+    const { getSongHighlight } = await import("./songHighlight");
+    for (const metadata of [
+      { title: "/home/listener/Songs/private.wav" },
+      { artists: [{ name: "https://music.local/?token=private" }] },
+    ]) {
+      expect(
+        await getSongHighlight({ ...track, id: "local", source: "local", ...metadata }),
+      ).toMatchObject({ ok: true, data: null });
+    }
     expect(api.netease).not.toHaveBeenCalled();
+    expect(api.kugou).not.toHaveBeenCalled();
   });
 
   it("原平台失败后匹配另一个平台的相同版本，失败不会掩盖有效结果", async () => {
@@ -143,9 +202,43 @@ describe("当前歌曲高潮查询", () => {
     const { getSongHighlight } = await import("./songHighlight");
     expect(await getSongHighlight(track)).toMatchObject({
       ok: true,
-      data: { platform: "kugou", matched: true },
+      sources: [
+        { platform: "netease", status: "error" },
+        { platform: "kugou", status: "available" },
+      ],
+      data: { segments: [{ platform: "kugou", confidence: "metadata" }] },
     });
     expect(api.kugou).toHaveBeenLastCalledWith("song_climax", { hash });
+  });
+
+  it("合并并排序两平台的标注，同起点按类型保留，同类去重", async () => {
+    api.netease.mockResolvedValue({
+      status: 200,
+      body: {
+        code: 200,
+        chorus: [
+          { id: 186016, startTime: 90000, endTime: 100000 },
+          { id: 186016, startTime: 84170, endTime: 90000 },
+          { id: 186016, startTime: 84170, endTime: 90000 },
+        ],
+      },
+    });
+    api.kugou.mockImplementation(async (name) =>
+      name === "search"
+        ? { code: 200, songs: [{ hash, name: "晴天", artist: "周杰伦", duration: 269000 }] }
+        : climax(),
+    );
+    const { getSongHighlight } = await import("./songHighlight");
+    expect(await getSongHighlight(track)).toMatchObject({
+      ok: true,
+      data: {
+        segments: [
+          { startMs: 84170, kind: "chorus", confidence: "exact-id" },
+          { startMs: 84170, kind: "climax", confidence: "metadata" },
+          { startMs: 90000, kind: "chorus", confidence: "exact-id" },
+        ],
+      },
+    });
   });
 
   it("本地元数据匹配拒绝 Live、同名异歌手和时长不符的版本", async () => {
@@ -165,14 +258,21 @@ describe("当前歌曲高潮查询", () => {
     const { getSongHighlight } = await import("./songHighlight");
     expect(await getSongHighlight({ ...track, source: "local", id: "local:file" })).toMatchObject({
       ok: true,
-      data: { platformId: hash, matched: true },
+      data: { segments: [{ platformId: hash, confidence: "metadata" }] },
     });
     expect(api.kugou).toHaveBeenLastCalledWith("song_climax", { hash });
   });
 
   it("没有可靠匹配或有效时间时返回无标注，失败后可重试", async () => {
     const { getSongHighlight } = await import("./songHighlight");
-    expect(await getSongHighlight(track)).toEqual({ ok: true, data: null });
+    expect(await getSongHighlight(track)).toEqual({
+      ok: true,
+      data: null,
+      sources: [
+        { platform: "netease", status: "empty" },
+        { platform: "kugou", status: "unmatched" },
+      ],
+    });
     api.netease.mockRejectedValueOnce(new Error("network"));
     expect(await getSongHighlight(track)).toMatchObject({ ok: false });
     api.netease.mockResolvedValue({
@@ -181,7 +281,7 @@ describe("当前歌曲高潮查询", () => {
     });
     expect(await getSongHighlight(track)).toMatchObject({
       ok: true,
-      data: { platform: "netease" },
+      data: { segments: [{ platform: "netease" }] },
     });
   });
 
@@ -232,7 +332,7 @@ describe("当前歌曲高潮查询", () => {
     api.kugou.mockResolvedValue(climax());
     expect(await getSongHighlight({ ...track, source: "kugou", id: hash })).toMatchObject({
       ok: true,
-      data: { platform: "kugou" },
+      data: { segments: [{ platform: "kugou" }] },
     });
   });
 
@@ -251,6 +351,7 @@ describe("当前歌曲高潮查询", () => {
     expect(await getSongHighlight({ ...track, source: "plugin" })).toEqual({
       ok: true,
       data: null,
+      sources: [],
     });
     expect(api.kugou).toHaveBeenCalledTimes(6);
   });

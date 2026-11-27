@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from "electron";
 import { join } from "path";
 import { is } from "@electron-toolkit/utils";
+import { createAlwaysOnTopKeeper, overlayWindowType, type AlwaysOnTopKeeper } from "./alwaysOnTop";
 import { createWindow } from "./create";
 import { store } from "@main/store";
 import { broadcast } from "@main/utils/broadcast";
@@ -11,6 +12,7 @@ import { lightSnapshot } from "@main/services/nowPlaying";
 import { DYNAMIC_ISLAND_BASE_HEIGHT } from "@shared/defaults/settings";
 
 let dynamicIslandWindow: BrowserWindow | null = null;
+let dynamicIslandTopper: AlwaysOnTopKeeper | null = null;
 let dynamicIslandReady = false;
 let dynamicIslandClosing = false;
 let visibilityTarget: boolean | null = null;
@@ -169,12 +171,11 @@ const computeSnappedPos = (
 
 /**
  * 应用窗口置顶
- * @param alwaysOnTop 是否置顶
+ * @param alwaysOnTop - 是否置顶
  */
 export const applyDynamicIslandAlwaysOnTop = (alwaysOnTop: boolean): void => {
-  const win = getDynamicIslandWindow();
-  if (!win) return;
-  win.setAlwaysOnTop(alwaysOnTop, "screen-saver");
+  if (!getDynamicIslandWindow()) return;
+  dynamicIslandTopper?.sync(alwaysOnTop);
 };
 
 /**
@@ -264,8 +265,10 @@ export const syncDynamicIslandVisibility = (): void => {
   visibilityTarget = visible;
   if (!visible) {
     stopCursorPolling();
+    dynamicIslandTopper?.refresh();
   } else {
     if (!win.isVisible()) win.showInactive();
+    dynamicIslandTopper?.elevate();
     if (config.nonOcclusive) startCursorPolling();
   }
   win.webContents.send("dynamicIsland:animateVisibility", {
@@ -590,6 +593,7 @@ export const createDynamicIslandWindow = (): BrowserWindow => {
   }
 
   dynamicIslandWindow = createWindow({
+    ...overlayWindowType(),
     width: cachedSize.width,
     height: cachedSize.height,
     minWidth: 1,
@@ -614,6 +618,16 @@ export const createDynamicIslandWindow = (): BrowserWindow => {
       zoomFactor: 1.0,
     },
   });
+  dynamicIslandWindow.setBounds({
+    x: initialPos.x,
+    y: initialPos.y,
+    width: cachedSize.width,
+    height: cachedSize.height,
+  });
+  dynamicIslandTopper = createAlwaysOnTopKeeper(dynamicIslandWindow, {
+    enabled: config.alwaysOnTop,
+    shouldBeVisible: () => dynamicIslandReady && visibilityTarget === true && !dynamicIslandClosing,
+  });
 
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     dynamicIslandWindow.loadURL(
@@ -636,6 +650,8 @@ export const createDynamicIslandWindow = (): BrowserWindow => {
 
   dynamicIslandWindow.on("closed", () => {
     const wasClosing = dynamicIslandClosing;
+    dynamicIslandTopper?.dispose();
+    dynamicIslandTopper = null;
     stopCursorPolling();
     dynamicIslandReady = false;
     dynamicIslandClosing = false;

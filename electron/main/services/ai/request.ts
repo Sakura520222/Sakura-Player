@@ -92,12 +92,21 @@ const anthropicEventSchema = anthropicEventTypeSchema.extend({
   usage: anthropicUsageSchema.optional(),
 });
 
+/** 仅供主进程 Agent 使用的协议原生工具及本轮流式解析器 */
+export interface AiToolExchange {
+  definitions: readonly Record<string, unknown>[];
+  disableTools: boolean;
+  transcript: readonly Record<string, unknown>[];
+  onEvent: (event: unknown) => void;
+}
+
 /**
  * 调用文本模型；传入 onDelta 时按 SSE 增量返回，同时汇总完整结果
  * @param connection - 仅主进程持有的模型连接配置
  * @param input - 对话及生成参数
  * @param signal - 调用方取消信号
  * @param onDelta - 文本增量回调
+ * @param exchange - 本轮工具声明及先前的工具交互记录
  * @returns 统一文本结果与服务端用量
  */
 export const requestAi = async (
@@ -105,6 +114,7 @@ export const requestAi = async (
   input: AiCompletionInput,
   signal: AbortSignal,
   onDelta?: (text: string) => void,
+  exchange?: AiToolExchange,
 ): Promise<AiCompletionResult> => {
   const parsed = completionSchema.safeParse(input);
   if (!parsed.success) throw new Error("AI 对话参数无效：请检查消息顺序、内容大小和生成参数");
@@ -115,12 +125,18 @@ export const requestAi = async (
   }
   const activityTimeout = new ActivityTimeout(signal);
   const requestSignal = activityTimeout.signal;
+  const streaming = Boolean(onDelta || exchange);
+  const messages = anthropic
+    ? options.messages.filter((message) => message.role !== "system")
+    : options.messages;
   const body: Record<string, unknown> = {
     model: connection.model,
-    messages: anthropic
-      ? options.messages.filter((message) => message.role !== "system")
-      : options.messages,
-    stream: Boolean(onDelta),
+    messages: exchange ? [...messages, ...exchange.transcript] : messages,
+    ...(exchange?.definitions.length ? { tools: exchange.definitions } : {}),
+    ...(exchange?.definitions.length && exchange.disableTools
+      ? { tool_choice: anthropic ? { type: "none" } : "none" }
+      : {}),
+    stream: streaming,
   };
   if (options.temperature !== undefined) body.temperature = options.temperature;
   if (anthropic || options.maxTokens !== undefined) body.max_tokens = options.maxTokens ?? 4096;
@@ -132,7 +148,7 @@ export const requestAi = async (
       .filter((message) => message.role === "system")
       .map((message) => message.content);
     if (system.length) body.system = system.join("\n\n");
-  } else if (onDelta) body.stream_options = { include_usage: true };
+  } else if (streaming) body.stream_options = { include_usage: true };
 
   let response: Response | undefined;
   let model = connection.model;
@@ -175,7 +191,7 @@ export const requestAi = async (
           redirect: "error",
           headers: {
             "Content-Type": "application/json",
-            Accept: onDelta ? "text/event-stream" : "application/json",
+            Accept: streaming ? "text/event-stream" : "application/json",
             ...(anthropic
               ? { "x-api-key": connection.apiKey, "anthropic-version": "2023-06-01" }
               : { Authorization: `Bearer ${connection.apiKey}` }),
@@ -235,7 +251,7 @@ export const requestAi = async (
     }
     if (!response.body) throw new Error("AI 服务返回了空响应");
 
-    if (!onDelta) {
+    if (!streaming) {
       const json = await readResponseText(response.body, requestSignal, MAX_RESPONSE_LENGTH, () =>
         activityTimeout.reset(),
       );
@@ -282,6 +298,7 @@ export const requestAi = async (
         ) {
           throw new Error("AI 服务在生成过程中返回错误，请稍后重试");
         }
+        exchange?.onEvent(raw);
         if (anthropic) {
           const type = anthropicEventTypeSchema.parse(raw).type;
           if (
@@ -305,7 +322,7 @@ export const requestAi = async (
           } else if (value.type === "content_block_delta" && value.delta?.type === "text_delta") {
             append(value.delta.text ?? "");
           } else if (value.type === "message_delta") {
-            finishReason = value.delta?.stop_reason ?? finishReason;
+            finishReason = value.delta?.stop_reason || finishReason;
             if (value.usage) updateAnthropicUsage(value.usage);
           } else if (value.type === "message_stop") {
             completed = true;
@@ -320,7 +337,7 @@ export const requestAi = async (
           if (choice) {
             started = true;
             append(choice.delta?.content ?? choice.delta?.refusal ?? "");
-            finishReason = choice.finish_reason ?? finishReason;
+            finishReason = choice.finish_reason || finishReason;
           }
           if (value.usage)
             usage = {

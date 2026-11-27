@@ -6,9 +6,11 @@ import type {
   NowPlayingPositionSync,
   NowPlayingLyricOffsetSync,
 } from "@shared/types/nowPlaying";
+import { getPlaybackTrackKey } from "@shared/utils/track";
 import { store } from "@main/store";
 
 type NowPlayingEvents = {
+  discontinuity: [];
   /** 歌曲切换 */
   "track-change": [{ track: Track | null }];
   /** 歌词内容变化 */
@@ -29,19 +31,19 @@ let currentSource: LyricData = null;
 let lastPosition = 0;
 /** lastPosition 真实成立的墙钟时刻（Date.now 毫秒），用于补偿其过期时长 */
 let lastPositionAt = 0;
-let pendingTransition: { trackId: string; anchor: NonNullable<LoadResult["playback"]> } | null =
-  null;
+let currentTrackKey = "";
+let pendingTransition: { key: string; anchor: NonNullable<LoadResult["playback"]> } | null = null;
 
 /**
  * 保留新曲的真实锚点，等界面提交对应歌词时一起切换
- * @param trackId - 新曲标识
+ * @param track - 已实际交接的新曲
  * @param anchor - 引擎交接时的位置与状态
  */
 export const prepareTransition = (
-  trackId: string,
+  track: Track,
   anchor: NonNullable<LoadResult["playback"]>,
 ): void => {
-  pendingTransition = { trackId, anchor };
+  pendingTransition = { key: getPlaybackTrackKey(track), anchor };
 };
 /** 当前是否处于播放态 */
 let playing = false;
@@ -88,11 +90,13 @@ let currentOffsetKey = "";
  * @param source - 当前歌词源
  */
 export const update = (track: Track | null, lyric: LyricLine[], source: LyricData): void => {
-  const trackChanged = (currentTrack?.id ?? null) !== (track?.id ?? null);
+  const key = getPlaybackTrackKey(track);
+  const trackChanged = currentTrackKey !== key;
+  currentTrackKey = key;
   currentTrack = track;
   currentLyric = lyric;
   currentSource = source;
-  if (pendingTransition && pendingTransition.trackId === track?.id) {
+  if (pendingTransition && pendingTransition.key === key) {
     const { anchor } = pendingTransition;
     lastPosition = anchor.position;
     lastPositionAt = anchor.timestamp;
@@ -110,9 +114,9 @@ export const update = (track: Track | null, lyric: LyricLine[], source: LyricDat
     emitter.emit("track-change", { track });
   }
   // 曲目或歌词源任一变化都重读偏移并广播
-  const key = track?.id ? offsetKey(track.id, source) : "";
-  if (trackChanged || key !== currentOffsetKey) {
-    currentOffsetKey = key;
+  const lyricKey = track?.id ? offsetKey(track.id, source) : "";
+  if (trackChanged || lyricKey !== currentOffsetKey) {
+    currentOffsetKey = lyricKey;
     currentLyricOffsetMs = readOffset(track?.id, source);
     emitter.emit("lyric-offset-change", {
       trackId: track?.id ?? null,
@@ -132,6 +136,14 @@ export const onPosition = (positionMs: number, isPlaying: boolean): void => {
   lastPositionAt = Date.now();
   playing = isPlaying;
   if (isPlaying) playState = "playing";
+  if (pendingTransition) {
+    pendingTransition.anchor = {
+      ...pendingTransition.anchor,
+      position: positionMs,
+      state: playState,
+      timestamp: lastPositionAt,
+    };
+  }
   emitter.emit("position-sync", {
     position: positionMs,
     playing: isPlaying,
@@ -144,17 +156,29 @@ export const onPosition = (positionMs: number, isPlaying: boolean): void => {
 /**
  * 同步播放状态
  * @param state - 引擎播放状态（idle/loading/playing/paused/stopped）
+ * @param positionMs - 状态变化时的曲目内位置，包含暂停期间的跳转
  */
-export const onPlayStateChange = (state: PlayerState): void => {
+export const onPlayStateChange = (state: PlayerState, positionMs: number): void => {
+  lastPosition = positionMs;
+  lastPositionAt = Date.now();
   playState = state;
   playing = state === "playing";
+  if (state === "stopped" || state === "idle") {
+    pendingTransition = null;
+  } else if (pendingTransition) {
+    pendingTransition.anchor = {
+      ...pendingTransition.anchor,
+      position: positionMs,
+      state,
+      timestamp: lastPositionAt,
+    };
+  }
   emitter.emit("position-sync", {
     position: lastPosition,
     playing,
     state,
     speed: playSpeed,
-    // 暂停态接收端不补偿延迟，恢复态不能用陈旧时间戳，故取当前时刻
-    sendTimestamp: Date.now(),
+    sendTimestamp: lastPositionAt,
   });
 };
 
@@ -166,6 +190,12 @@ export const onPlayStateChange = (state: PlayerState): void => {
  */
 export const onSpeedChange = (speed: number): void => {
   playSpeed = Number.isFinite(speed) ? speed : 1.0;
+  if (pendingTransition) {
+    pendingTransition.anchor = {
+      ...pendingTransition.anchor,
+      speed: playSpeed,
+    };
+  }
   emitter.emit("position-sync", {
     position: lastPosition,
     playing,
@@ -241,14 +271,37 @@ export const lyricSnapshot = () => ({
 
 /** 清空 */
 export const clear = (): void => {
+  const hadTrack = !!currentTrack;
+  currentTrackKey = "";
+  lastPosition = 0;
+  lastPositionAt = Date.now();
+  playing = false;
+  playState = "idle";
   pendingTransition = null;
   currentTrack = null;
   currentLyric = [];
   currentSource = null;
   currentLyricOffsetMs = 0;
   currentOffsetKey = "";
+  if (hadTrack) emitter.emit("track-change", { track: null });
   emitter.emit("lyric-change", snapshot());
   emitter.emit("lyric-offset-change", { trackId: null, offsetMs: 0 });
+};
+
+/** 在装载新音源或跳转开始时使旧上下文失效，并作废尚未落地的交接锚点 */
+export const notifyDiscontinuity = (): void => {
+  pendingTransition = null;
+  emitter.emit("discontinuity");
+};
+
+/**
+ * 订阅显式跳转和音源重载
+ * @param listener - 取消依赖旧播放上下文的工作
+ * @returns 清理订阅的方法
+ */
+export const onDiscontinuity = (listener: () => void): (() => void) => {
+  emitter.on("discontinuity", listener);
+  return () => emitter.off("discontinuity", listener);
 };
 
 /** 订阅歌曲切换 */

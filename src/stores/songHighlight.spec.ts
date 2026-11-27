@@ -49,11 +49,18 @@ const track: Track = {
 };
 const result: SongHighlightResponse = {
   ok: true,
+  sources: [{ platform: "kugou", status: "available" }],
   data: {
-    platform: "kugou",
-    platformId: "b3a52a7a958bf0aed0ebfba2e9a818b7",
-    matched: true,
-    segments: [{ startMs: 84170, endMs: 142170 }],
+    segments: [
+      {
+        platform: "kugou",
+        kind: "climax",
+        platformId: "b3a52a7a958bf0aed0ebfba2e9a818b7",
+        confidence: "metadata",
+        startMs: 84170,
+        endMs: 142170,
+      },
+    ],
   },
 };
 const wrappers: VueWrapper[] = [];
@@ -149,9 +156,9 @@ describe("当前歌曲高潮状态", () => {
     useMediaStore().track = { ...track, id: "second", source: "netease" };
     expect(store.highlight).toBeNull();
     await flushPromises();
-    expect(store.highlight?.platform).toBe("kugou");
+    expect(store.highlight?.segments[0].platform).toBe("kugou");
     const current = store.highlight;
-    resolveOld({ ok: true, data: { ...(result.ok && result.data!), platform: "netease" } });
+    resolveOld({ ok: true, data: null, sources: [] });
     await flushPromises();
     expect(store.highlight).toBe(current);
     useStatusStore().trackLoading = true;
@@ -213,6 +220,19 @@ describe("当前歌曲高潮状态", () => {
     useStatusStore().duration = 80000;
     expect(store.segments).toEqual([]);
     await store.seekToHighlight();
+    expect(state.seek).not.toHaveBeenCalled();
+  });
+
+  it("实际时长缩短使标注全部越界后按钮取消高亮并提示无标注，切换歌曲后过期重试不弹窗", async () => {
+    const button = mountControl(SongHighlightButton);
+    const store = useSongHighlightStore();
+    await flushPromises();
+    expect(button.get("button").attributes("aria-label")).toContain("1:24");
+    useStatusStore().duration = 30000;
+    await flushPromises();
+    expect(store.segments).toEqual([]);
+    expect(button.get("button").attributes("aria-label")).toContain("暂无高潮标注");
+    await button.get("button").trigger("click");
     expect(state.seek).not.toHaveBeenCalled();
   });
 

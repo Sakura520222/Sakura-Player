@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from "electron";
 import { join } from "path";
 import { is } from "@electron-toolkit/utils";
+import { createAlwaysOnTopKeeper, overlayWindowType, type AlwaysOnTopKeeper } from "./alwaysOnTop";
 import { createWindow } from "./create";
 import { setTrayDesktopLyric } from "@main/services/tray";
 import { store } from "@main/store";
@@ -10,6 +11,7 @@ import { isAppQuitting } from "@main/utils/lifecycle";
 import type { DesktopLyricUnlockButtonBounds } from "@shared/types/window";
 
 let desktopLyricWindow: BrowserWindow | null = null;
+let desktopLyricTopper: AlwaysOnTopKeeper | null = null;
 
 /** 最小宽度 */
 const MIN_WIDTH = 400;
@@ -73,7 +75,10 @@ const syncMousePassthrough = (cursorInsideUnlockButton = isCursorInsideUnlockBut
   const locked = store.get("desktopLyric").locked;
   const shouldIgnore = locked && !cursorInsideUnlockButton;
   if (shouldIgnore === mouseEventsIgnored) return;
-  if (!shouldIgnore && locked && isWin) win.moveTop();
+  if (!shouldIgnore && locked && isWin) {
+    if (store.get("desktopLyric").alwaysOnTop) desktopLyricTopper?.elevate();
+    else win.moveTop();
+  }
   win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
   mouseEventsIgnored = shouldIgnore;
 };
@@ -133,12 +138,11 @@ export const applyDesktopLyricLock = (locked: boolean): void => {
 
 /**
  * 应用窗口置顶
- * @param alwaysOnTop 是否置顶
+ * @param alwaysOnTop - 是否置顶
  */
 export const applyDesktopLyricAlwaysOnTop = (alwaysOnTop: boolean): void => {
-  const win = getDesktopLyricWindow();
-  if (!win) return;
-  win.setAlwaysOnTop(alwaysOnTop, "screen-saver");
+  if (!getDesktopLyricWindow()) return;
+  desktopLyricTopper?.sync(alwaysOnTop);
 };
 
 /**
@@ -193,11 +197,16 @@ export const applyDesktopLyricHeight = (height: number): void => {
   win.setBounds({ x, y, width: cachedSize.width, height: h });
 };
 
-/** 创建桌面歌词窗口，如果窗口已存在则显示并聚焦 */
+/** 创建桌面歌词窗口，如果窗口已存在则显示并抬升置顶 */
 export const createDesktopLyricWindow = (): BrowserWindow => {
   if (desktopLyricWindow && !desktopLyricWindow.isDestroyed()) {
-    desktopLyricWindow.show();
-    desktopLyricWindow.focus();
+    if (store.get("desktopLyric").locked) {
+      desktopLyricWindow.showInactive();
+    } else {
+      desktopLyricWindow.show();
+      desktopLyricWindow.focus();
+    }
+    desktopLyricTopper?.elevate();
     return desktopLyricWindow;
   }
   const config = store.get("desktopLyric");
@@ -206,6 +215,7 @@ export const createDesktopLyricWindow = (): BrowserWindow => {
   const initialWidth = saved.width || FALLBACK_WIDTH;
 
   desktopLyricWindow = createWindow({
+    ...overlayWindowType(),
     width: initialWidth,
     height: initialHeight,
     ...(saved.x !== null && saved.y !== null ? { x: saved.x, y: saved.y } : {}),
@@ -231,8 +241,21 @@ export const createDesktopLyricWindow = (): BrowserWindow => {
     },
   });
 
+  // Windows 创建 toolbar 透明窗口时可能给初始边界额外加 2px，加载前按目标 DIP 纠正一次
+  const initialBounds = desktopLyricWindow.getBounds();
+  desktopLyricWindow.setBounds({
+    x: saved.x !== null && saved.y !== null ? saved.x : initialBounds.x,
+    y: saved.x !== null && saved.y !== null ? saved.y : initialBounds.y,
+    width: initialWidth,
+    height: initialHeight,
+  });
   cachedSize.width = initialWidth;
   cachedSize.height = initialHeight;
+  let shown = false;
+  desktopLyricTopper = createAlwaysOnTopKeeper(desktopLyricWindow, {
+    enabled: config.alwaysOnTop,
+    shouldBeVisible: () => shown,
+  });
 
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     desktopLyricWindow.loadURL(
@@ -256,11 +279,9 @@ export const createDesktopLyricWindow = (): BrowserWindow => {
 
   desktopLyricWindow.once("ready-to-show", () => {
     if (!desktopLyricWindow) return;
-    const b = desktopLyricWindow.getBounds();
-    cachedSize.width = b.width;
-    cachedSize.height = b.height;
-    desktopLyricWindow.show();
-    desktopLyricWindow.setAlwaysOnTop(config.alwaysOnTop, "screen-saver");
+    shown = true;
+    desktopLyricWindow.showInactive();
+    desktopLyricTopper?.elevate();
     startCursorPolling();
   });
 
@@ -285,6 +306,8 @@ export const createDesktopLyricWindow = (): BrowserWindow => {
 
   /** 窗口关闭事件 */
   desktopLyricWindow.on("closed", () => {
+    desktopLyricTopper?.dispose();
+    desktopLyricTopper = null;
     stopCursorPolling();
     unlockButtonBounds = null;
     mouseEventsIgnored = false;

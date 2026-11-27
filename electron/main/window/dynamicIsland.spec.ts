@@ -23,14 +23,14 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("electron", () => ({
-  screen: {
+  screen: Object.assign(new EventEmitter(), {
     getPrimaryDisplay: () => ({
       workArea: { x: 0, y: 0, width: 1920, height: 1080 },
       bounds: { x: 0, y: 0, width: 1920, height: 1080 },
       scaleFactor: 1,
     }),
     getCursorScreenPoint: mocks.cursor,
-  },
+  }),
 }));
 vi.mock("@electron-toolkit/utils", () => ({ is: { dev: false } }));
 vi.mock("./create", () => ({ createWindow: mocks.createWindow }));
@@ -65,14 +65,21 @@ const createMockWindow = () => {
   return Object.assign(events, {
     isDestroyed: () => destroyed,
     isVisible: () => visible,
+    isMinimized: () => false,
+    isFocused: () => false,
     showInactive: vi.fn(() => (visible = true)),
-    hide: vi.fn(() => (visible = false)),
+    hide: vi.fn(() => {
+      visible = false;
+      events.emit("hide");
+    }),
     focus: vi.fn(),
     close: vi.fn(() => {
       destroyed = true;
       events.emit("closed");
     }),
+    setBounds: vi.fn(),
     setAlwaysOnTop: vi.fn(),
+    setVisibleOnAllWorkspaces: vi.fn(),
     setIgnoreMouseEvents: vi.fn(),
     getBounds: () => ({ x: 860, y: 0, width: 200, height: 40 }),
     loadFile: vi.fn(),
@@ -188,18 +195,22 @@ describe("灵动岛暂停隐藏", () => {
   });
 
   it("隐藏时停止鼠标轮询，恢复后重启，关闭后释放定时器", () => {
+    const expectedActiveTimers = process.platform === "win32" ? 2 : 1;
     mocks.config.hideWhenPaused = true;
     mocks.config.nonOcclusive = true;
     createDynamicIslandWindow();
     markDynamicIslandRendererReady();
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(expectedActiveTimers);
+    expect(win.showInactive.mock.invocationCallOrder[0]).toBeLessThan(
+      win.setAlwaysOnTop.mock.invocationCallOrder.at(-1)!,
+    );
     mocks.state = "paused";
     syncDynamicIslandVisibility();
     applyDynamicIslandNonOcclusive(true);
     expect(vi.getTimerCount()).toBe(0);
     mocks.state = "playing";
     syncDynamicIslandVisibility();
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(expectedActiveTimers);
     closeDynamicIslandWindow();
     expect(vi.getTimerCount()).toBe(0);
   });

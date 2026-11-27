@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getCompanionBeatLevel } from "@shared/utils/audioFeatures";
 import { getBassPulse, getFftBinRange, toAmllLowFreqVolume } from "./audioFeatures";
 
 describe("audioFeatures", () => {
@@ -24,5 +25,14 @@ describe("audioFeatures", () => {
     expect(toAmllLowFreqVolume(-1)).toBe(1);
     expect(toAmllLowFreqVolume(0.5)).toBeCloseTo(2.2);
     expect(toAmllLowFreqVolume(2)).toBeCloseTo(3.4);
+  });
+
+  it("陪伴节拍强度复用低频脉冲并兼容纯中频乐器曲目", () => {
+    const midRange = getFftBinRange(200, 900);
+    const midOnly = Array(128).fill(0);
+    for (let i = midRange.start; i < midRange.end; i++) midOnly[i] = 0.6;
+    expect(getBassPulse([midOnly, midOnly])).toBe(0);
+    expect(getCompanionBeatLevel([midOnly, midOnly])).toBeGreaterThan(0.15);
+    expect(getCompanionBeatLevel([midOnly, midOnly])).toBeLessThanOrEqual(1);
   });
 });

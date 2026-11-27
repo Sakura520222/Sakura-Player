@@ -54,7 +54,7 @@ const onSeekDragEnd = (value: number): void => {
     >
       <span
         v-for="segment in highlight.segments"
-        :key="`range:${segment.startMs}`"
+        :key="`range:${segment.kind}:${segment.startMs}`"
         class="absolute top-1/2 -translate-y-1/2 rounded-full bg-amber-400/60 pointer-events-none"
         :style="{
           left: `${(segment.startMs / status.duration) * 100}%`,

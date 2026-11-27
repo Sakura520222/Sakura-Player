@@ -10,6 +10,8 @@ export interface SPopoverProps {
   sideOffset?: number;
   /** 触发方式 */
   trigger?: "click" | "hover" | "focus" | "manual";
+  /** 直接使用插槽中的单个按钮承载触发器及其无障碍属性 */
+  triggerAsChild?: boolean;
   /** 手动控制 open（trigger="manual" 时使用） */
   open?: boolean;
   /** hover 触发时的延迟（ms） */
@@ -24,6 +26,8 @@ export interface SPopoverProps {
   block?: boolean;
   /** 内容区附加 class */
   contentClass?: string;
+  /** 弹层的无障碍名称 */
+  contentLabel?: string;
 }
 
 const props = withDefaults(defineProps<SPopoverProps>(), {
@@ -41,6 +45,9 @@ const props = withDefaults(defineProps<SPopoverProps>(), {
 
 const emit = defineEmits<{
   "update:open": [value: boolean];
+  "pointer-down-outside": [event: Event];
+  "open-auto-focus": [event: Event];
+  "close-auto-focus": [event: Event];
 }>();
 
 const { zIndex, onOpenChange } = usePopupZIndex();
@@ -122,42 +129,57 @@ const bridgeClasses = computed(() =>
 
 <template>
   <PopoverRoot :open="isOpen" @update:open="trigger === 'click' ? setOpen($event) : undefined">
-    <PopoverTrigger as-child>
-      <span
-        :class="block ? 'flex w-full' : 'inline-flex'"
-        @pointerenter="handlePointerEnter"
-        @pointerleave="handlePointerLeave"
-        @focusin="handleFocus"
-        @focusout="handleBlur"
-      >
+    <PopoverTrigger
+      as-child
+      @pointerenter="handlePointerEnter"
+      @pointerleave="handlePointerLeave"
+      @focusin="handleFocus"
+      @focusout="handleBlur"
+    >
+      <slot v-if="triggerAsChild" name="trigger" />
+      <span v-else :class="block ? 'flex w-full' : 'inline-flex'">
         <slot name="trigger" />
       </span>
     </PopoverTrigger>
 
     <PopoverPortal>
       <PopoverContent
-        data-theme-popup
-        :data-theme-tone="cover ? 'cover' : undefined"
+        :key="arrow ? 'arrow' : 'plain'"
+        as-child
         :side="side"
         :align="align"
         :side-offset="sideOffset"
         :avoid-collisions="true"
         :collision-padding="12"
-        :style="{ zIndex }"
-        :class="[
-          'rounded-xl shadow-lg p-3 text-sm data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out',
-          cover
-            ? 'bg-black/55 backdrop-blur-xl backdrop-saturate-160 border border-solid border-white/10 text-cover'
-            : 'bg-surface-bright text-on-surface',
-          bridgeClasses,
-          contentClass,
-        ]"
-        @pointerenter="handlePointerEnter"
-        @pointerleave="handlePointerLeave"
+        @pointer-down-outside="emit('pointer-down-outside', $event)"
         @escape-key-down="setOpen(false)"
+        @open-auto-focus="emit('open-auto-focus', $event)"
+        @close-auto-focus="emit('close-auto-focus', $event)"
       >
-        <slot />
-        <PopoverArrow v-if="arrow" :class="cover ? 'fill-black/60' : 'fill-surface-bright'" />
+        <div
+          data-theme-popup
+          :aria-label="contentLabel"
+          v-bind="contentLabel ? { 'aria-labelledby': undefined } : undefined"
+          :data-theme-tone="cover ? 'cover' : undefined"
+          :style="{ zIndex }"
+          :class="[
+            'rounded-xl shadow-lg p-3 text-sm data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out',
+            cover
+              ? 'bg-black/55 backdrop-blur-xl backdrop-saturate-160 border border-solid border-white/10 text-cover'
+              : 'bg-surface-bright text-on-surface',
+            bridgeClasses,
+            contentClass,
+          ]"
+          @pointerenter="handlePointerEnter"
+          @pointerleave="handlePointerLeave"
+        >
+          <slot />
+          <PopoverArrow
+            v-if="arrow"
+            data-theme-popup-arrow
+            :class="cover ? 'fill-black/60' : 'fill-surface-bright'"
+          />
+        </div>
       </PopoverContent>
     </PopoverPortal>
   </PopoverRoot>
